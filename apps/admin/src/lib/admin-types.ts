@@ -29,6 +29,8 @@ export type EventDetail = {
   tiers?: TierRow[];
 };
 
+export type TierSelectionMode = "exclusive" | "addon";
+
 export type TierRow = {
   id: string | null;
   name: string;
@@ -38,6 +40,7 @@ export type TierRow = {
   quota: number | null;
   sortOrder: number;
   active: boolean;
+  selectionMode: TierSelectionMode;
 };
 
 export type TierFormRow = {
@@ -46,6 +49,7 @@ export type TierFormRow = {
   priceChf: string;
   quota: string;
   active: boolean;
+  selectionMode: TierSelectionMode;
 };
 
 export type InviteLinkSummary = {
@@ -118,12 +122,18 @@ export type PersonDetail = {
   }[];
 };
 
+export type OrderTierLine = {
+  id: string;
+  name: string;
+  selectionMode: TierSelectionMode;
+  unitPriceCents: number;
+};
+
 export type OrderDetail = {
   id: string;
   eventId: string;
   status: string;
   amountCents: number;
-  unitPriceCents: number;
   locale: string;
   stripePaymentIntentId: string | null;
   createdAt: string;
@@ -134,7 +144,7 @@ export type OrderDetail = {
     email: string | null;
     phone: string | null;
   };
-  tier: { id: string; name: string; description: string; priceCents: number };
+  tiers: OrderTierLine[];
   event: { id: string; slug: string; title: string };
   admission: { id: string; checkedInAt: string | null } | null;
   inviteRedemption: { id: string; createdAt: string } | null;

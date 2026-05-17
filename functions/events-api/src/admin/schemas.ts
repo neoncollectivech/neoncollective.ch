@@ -67,5 +67,6 @@ export const adminEventTiersPutSchema = type({
     quota: "number | null",
     sortOrder: "number.integer",
     active: "boolean",
+    selectionMode: "'exclusive' | 'addon'",
   }).array(),
 });

@@ -22,6 +22,10 @@ export const orderStatusEnum = pgEnum("order_status", [
   "failed",
   "refunded",
 ]);
+export const tierSelectionModeEnum = pgEnum("tier_selection_mode", [
+  "exclusive",
+  "addon",
+]);
 
 /** Global identity: contact info normalized (email lowercased; phone digits only, no +). */
 export const people = pgTable(
@@ -84,6 +88,10 @@ export const eventTiers = pgTable(
     quota: integer("quota"),
     sortOrder: integer("sort_order").notNull().default(0),
     active: boolean("active").notNull().default(true),
+    /** `exclusive` = pick one (radio); `addon` = combinable (checkbox). */
+    selectionMode: tierSelectionModeEnum("selection_mode")
+      .notNull()
+      .default("exclusive"),
   },
   (t) => [index("event_tiers_event_id_idx").on(t.eventId)],
 );
@@ -161,11 +169,6 @@ export const orders = pgTable(
     personId: uuid("person_id")
       .notNull()
       .references(() => people.id, { onDelete: "restrict" }),
-    /** One admission per order — tier and price snapshot at checkout. */
-    eventTierId: uuid("event_tier_id")
-      .notNull()
-      .references(() => eventTiers.id, { onDelete: "restrict" }),
-    unitPriceCents: integer("unit_price_cents").notNull(),
     locale: text("locale").notNull().default("en"),
     stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
     status: orderStatusEnum("status").notNull().default("pending"),
@@ -180,7 +183,25 @@ export const orders = pgTable(
     index("orders_event_id_idx").on(t.eventId),
     index("orders_invite_link_id_idx").on(t.inviteLinkId),
     index("orders_person_id_idx").on(t.personId),
-    index("orders_event_tier_id_idx").on(t.eventTierId),
+  ],
+);
+
+export const orderTiers = pgTable(
+  "order_tiers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    eventTierId: uuid("event_tier_id")
+      .notNull()
+      .references(() => eventTiers.id, { onDelete: "restrict" }),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+  },
+  (t) => [
+    uniqueIndex("order_tiers_order_tier_unique").on(t.orderId, t.eventTierId),
+    index("order_tiers_order_id_idx").on(t.orderId),
+    index("order_tiers_event_tier_id_idx").on(t.eventTierId),
   ],
 );
 

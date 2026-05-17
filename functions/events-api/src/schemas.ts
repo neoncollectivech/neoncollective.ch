@@ -7,7 +7,8 @@ export const checkoutIntentSchema = type({
   locale: "'de' | 'en' | 'it'",
   phoneE164: "string | null",
   inviteToken: "string | null",
-  tierId: "string",
+  exclusiveTierId: "string",
+  addonTierIds: "string[]",
 });
 
 /** After Stripe confirms payment in the browser; webhook reconciles the same order idempotently. */

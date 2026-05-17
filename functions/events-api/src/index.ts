@@ -286,7 +286,8 @@ app.post(
       locale: body.locale,
       phoneE164: body.phoneE164,
       inviteToken: body.inviteToken,
-      tierId: body.tierId,
+      exclusiveTierId: body.exclusiveTierId,
+      addonTierIds: body.addonTierIds,
       cookieHeader: c.req.header("Cookie"),
     });
     if (!res.ok) {

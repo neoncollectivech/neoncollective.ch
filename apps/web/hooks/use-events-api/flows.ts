@@ -6,8 +6,8 @@ import type { ParticipantProfile } from "@/helpers/eventsApi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import { eventsApi } from "./api.js";
-import { useEventsInvalidate } from "./invalidate.js";
+import { eventsApi } from "./api";
+import { useEventsInvalidate } from "./invalidate";
 
 export type ProfileModalLabels = {
   title: string;

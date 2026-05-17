@@ -8,7 +8,7 @@ import {
   type PortalRequestParams,
 } from "@/helpers/stripeApi";
 
-import { stripeKeys } from "./keys.js";
+import { stripeKeys } from "./keys";
 
 export const stripeApi = {
   keys: stripeKeys,

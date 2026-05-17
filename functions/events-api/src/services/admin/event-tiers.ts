@@ -12,6 +12,7 @@ export type TierInput = {
   quota: number | null;
   sortOrder: number;
   active: boolean;
+  selectionMode: "exclusive" | "addon";
 };
 
 export async function replaceEventTiers(
@@ -41,6 +42,7 @@ export async function replaceEventTiers(
           quota: t.quota,
           sortOrder: t.sortOrder,
           active: t.active,
+          selectionMode: t.selectionMode,
         })),
       )
       .returning();

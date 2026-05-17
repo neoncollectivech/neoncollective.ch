@@ -22,6 +22,7 @@ function tierToFormRow(tier: TierRow): TierFormRow {
     priceChf: (tier.priceCents / 100).toFixed(2),
     quota: tier.quota != null ? String(tier.quota) : "",
     active: tier.active,
+    selectionMode: tier.selectionMode ?? "exclusive",
   };
 }
 
@@ -32,6 +33,7 @@ function emptyTierRow(): TierFormRow {
     priceChf: "",
     quota: "",
     active: true,
+    selectionMode: "exclusive",
   };
 }
 
@@ -85,6 +87,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
         quota: row.quota.trim() ? Number(row.quota) : null,
         sortOrder: index,
         active: row.active,
+        selectionMode: row.selectionMode,
       })),
     };
 
@@ -126,6 +129,21 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
             />
           </FormField>
 
+          <FormField label="Selection mode">
+            <select
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              value={row.selectionMode}
+              onChange={(e) =>
+                updateRow(index, {
+                  selectionMode: e.target.value as TierFormRow["selectionMode"],
+                })
+              }
+            >
+              <option value="exclusive">Exclusive (pick one)</option>
+              <option value="addon">Add-on (combinable)</option>
+            </select>
+          </FormField>
+
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Price (CHF)">
               <Input
@@ -136,7 +154,11 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
                 onChange={(e) => updateRow(index, { priceChf: e.target.value })}
               />
             </FormField>
-            <FormField label="Quota">
+            <FormField
+              label={
+                row.selectionMode === "addon" ? "Redemption limit" : "Quota"
+              }
+            >
               <Input
                 min={0}
                 placeholder="Unlimited"

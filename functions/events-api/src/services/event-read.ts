@@ -8,6 +8,7 @@ import {
   inviteLinks,
   inviteRedemptions,
   orders,
+  orderTiers,
   people,
 } from "../db/schema.js";
 import { phoneToStoredDigits } from "../contact.js";
@@ -268,6 +269,31 @@ export type HostInviteShare = {
   conversions: InviteLinkConversion[];
 };
 
+export async function formatOrderTierNames(orderId: string): Promise<string> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      name: eventTiers.name,
+      selectionMode: eventTiers.selectionMode,
+      sortOrder: eventTiers.sortOrder,
+    })
+    .from(orderTiers)
+    .innerJoin(eventTiers, eq(eventTiers.id, orderTiers.eventTierId))
+    .where(eq(orderTiers.orderId, orderId))
+    .orderBy(asc(eventTiers.sortOrder));
+
+  if (rows.length === 0) {
+    return "";
+  }
+  const exclusive = rows.filter((r) => r.selectionMode === "exclusive");
+  const addons = rows.filter((r) => r.selectionMode === "addon");
+  const parts = [
+    ...exclusive.map((r) => r.name),
+    ...addons.map((r) => r.name),
+  ];
+  return parts.join(" + ");
+}
+
 export async function listInviteLinkConversions(
   inviteLinkId: string,
 ): Promise<InviteLinkConversion[]> {
@@ -277,13 +303,11 @@ export async function listInviteLinkConversions(
       orderId: orders.id,
       givenName: people.givenName,
       familyName: people.familyName,
-      tierName: eventTiers.name,
       registeredAt: inviteRedemptions.createdAt,
     })
     .from(inviteRedemptions)
     .innerJoin(orders, eq(orders.id, inviteRedemptions.orderId))
     .innerJoin(people, eq(people.id, orders.personId))
-    .innerJoin(eventTiers, eq(eventTiers.id, orders.eventTierId))
     .where(
       and(
         eq(inviteRedemptions.inviteLinkId, inviteLinkId),
@@ -292,13 +316,17 @@ export async function listInviteLinkConversions(
     )
     .orderBy(desc(inviteRedemptions.createdAt));
 
-  return rows.map((row) => ({
-    orderId: row.orderId,
-    givenName: row.givenName.trim(),
-    familyName: row.familyName.trim(),
-    tierName: row.tierName,
-    registeredAt: row.registeredAt.toISOString(),
-  }));
+  const out: InviteLinkConversion[] = [];
+  for (const row of rows) {
+    out.push({
+      orderId: row.orderId,
+      givenName: row.givenName.trim(),
+      familyName: row.familyName.trim(),
+      tierName: await formatOrderTierNames(row.orderId),
+      registeredAt: row.registeredAt.toISOString(),
+    });
+  }
+  return out;
 }
 
 /** Roster host with a paid registration — shareable guest link + remaining guest slots. */
@@ -337,9 +365,8 @@ export async function findPaidRegistrationForViewer(
 ): Promise<{ tierName: string } | null> {
   const db = getDb();
   const [row] = await db
-    .select({ tierName: eventTiers.name })
+    .select({ orderId: orders.id })
     .from(orders)
-    .innerJoin(eventTiers, eq(eventTiers.id, orders.eventTierId))
     .where(
       and(
         eq(orders.eventId, eventId),
@@ -349,7 +376,11 @@ export async function findPaidRegistrationForViewer(
     )
     .orderBy(desc(orders.createdAt))
     .limit(1);
-  return row?.tierName ? { tierName: row.tierName } : null;
+  if (!row) {
+    return null;
+  }
+  const tierName = await formatOrderTierNames(row.orderId);
+  return tierName ? { tierName } : null;
 }
 
 export async function findRosterInviteeByPersonId(eventId: string, personId: string) {
@@ -377,15 +408,63 @@ export async function getTierSoldQty(
     .select({
       qty: sql<number>`count(*)::int`,
     })
-    .from(orders)
+    .from(orderTiers)
+    .innerJoin(orders, eq(orders.id, orderTiers.orderId))
     .where(
       and(
         eq(orders.eventId, eventId),
-        eq(orders.eventTierId, tierId),
+        eq(orderTiers.eventTierId, tierId),
         inArray(orders.status, ["pending", "paid"]),
       ),
     );
   return Number(row?.qty ?? 0);
+}
+
+export async function getTierSoldQtyTx(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  eventId: string,
+  tierId: string,
+): Promise<number> {
+  const [row] = await tx
+    .select({
+      qty: sql<number>`count(*)::int`,
+    })
+    .from(orderTiers)
+    .innerJoin(orders, eq(orders.id, orderTiers.orderId))
+    .where(
+      and(
+        eq(orders.eventId, eventId),
+        eq(orderTiers.eventTierId, tierId),
+        inArray(orders.status, ["pending", "paid"]),
+      ),
+    );
+  return Number(row?.qty ?? 0);
+}
+
+export async function getExclusiveTierIdForOrder(
+  orderId: string,
+): Promise<string | null> {
+  const db = getDb();
+  const [row] = await db
+    .select({ eventTierId: orderTiers.eventTierId })
+    .from(orderTiers)
+    .innerJoin(eventTiers, eq(eventTiers.id, orderTiers.eventTierId))
+    .where(and(eq(orderTiers.orderId, orderId), eq(eventTiers.selectionMode, "exclusive")))
+    .limit(1);
+  return row?.eventTierId ?? null;
+}
+
+export async function getExclusiveTierIdForOrderTx(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  orderId: string,
+): Promise<string | null> {
+  const [row] = await tx
+    .select({ eventTierId: orderTiers.eventTierId })
+    .from(orderTiers)
+    .innerJoin(eventTiers, eq(eventTiers.id, orderTiers.eventTierId))
+    .where(and(eq(orderTiers.orderId, orderId), eq(eventTiers.selectionMode, "exclusive")))
+    .limit(1);
+  return row?.eventTierId ?? null;
 }
 
 export async function getEventHeadcountUsed(eventId: string): Promise<number> {
@@ -453,6 +532,7 @@ export async function buildEventPayload(
       placesRemaining,
       active: t.active,
       sortOrder: t.sortOrder,
+      selectionMode: t.selectionMode,
     });
   }
   return {

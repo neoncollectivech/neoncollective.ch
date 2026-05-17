@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 
-import { eventsKeys } from "./keys.js";
+import { eventsKeys } from "./keys";
 
 export function useEventsInvalidate() {
   const queryClient = useQueryClient();

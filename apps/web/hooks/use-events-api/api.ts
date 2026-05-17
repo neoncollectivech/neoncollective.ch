@@ -18,8 +18,8 @@ import {
   updateParticipantProfile,
 } from "@/helpers/eventsApi";
 
-import { eventsKeys } from "./keys.js";
-import { stashCheckoutOrderId, takeCheckoutOrderId } from "./storage.js";
+import { eventsKeys } from "./keys";
+import { stashCheckoutOrderId, takeCheckoutOrderId } from "./storage";
 
 async function invalidateParticipant() {
   await queryClient.invalidateQueries({

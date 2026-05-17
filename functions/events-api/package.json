@@ -11,10 +11,11 @@
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:local": "dotenv -e .env.local -- drizzle-kit migrate",
+    "db:repair-migrations:local": "dotenv -e .env.local -- tsx src/scripts/repair-migration-journal.ts",
     "db:push": "drizzle-kit push",
     "db:push:local": "dotenv -e .env.local -- drizzle-kit push",
     "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
-    "db:seed:local": "dotenv -e .env.local -- tsx src/scripts/seed-local-test-data.ts"
+    "db:seed:local": "pnpm db:repair-migrations:local && dotenv -e .env.local -- tsx src/scripts/seed-local-test-data.ts"
   },
   "dependencies": {
     "@neon/admin-crud": "workspace:*",

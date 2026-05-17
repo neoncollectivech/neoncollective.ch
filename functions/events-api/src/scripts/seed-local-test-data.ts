@@ -6,10 +6,11 @@
  *   pnpm --filter @neon/events-api db:seed:local
  *
  * Requires DATABASE_URL in functions/events-api/.env.local (same as migrations).
+ * Runs `db:repair-migrations:local` first (via package.json) when the journal is out of sync with the schema.
  * Edit SEED_* constants below if you use a different identity.
  */
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { phoneToStoredDigits } from "../contact.js";
 import { closeDb, getDb } from "../db/index.js";
@@ -149,6 +150,14 @@ async function ensurePublishedPublicEvent(db: Db, startsAt: Date): Promise<strin
       2500,
       "Entry and access for the full night — bar not included.",
     );
+    await ensureAddonTier(
+      db,
+      existing.id,
+      "Bar package",
+      800,
+      "One drink token at the bar.",
+      50,
+    );
     return existing.id;
   }
   const [ev] = await db
@@ -173,6 +182,14 @@ async function ensurePublishedPublicEvent(db: Db, startsAt: Date): Promise<strin
     "Standard",
     2500,
     "Entry and access for the full night — bar not included.",
+  );
+  await ensureAddonTier(
+    db,
+    id,
+    "Bar package",
+    800,
+    "One drink token at the bar.",
+    50,
   );
   return id;
 }
@@ -239,6 +256,42 @@ async function ensureTier(
     quota: null,
     sortOrder: 0,
     active: true,
+    selectionMode: "exclusive",
+  });
+}
+
+async function ensureAddonTier(
+  db: Db,
+  eventId: string,
+  name: string,
+  priceCents: number,
+  description: string,
+  quota: number,
+): Promise<void> {
+  const [existing] = await db
+    .select({ id: eventTiers.id })
+    .from(eventTiers)
+    .where(
+      and(
+        eq(eventTiers.eventId, eventId),
+        eq(eventTiers.name, name),
+        eq(eventTiers.selectionMode, "addon"),
+      ),
+    )
+    .limit(1);
+  if (existing) {
+    return;
+  }
+  await db.insert(eventTiers).values({
+    eventId,
+    name,
+    description,
+    priceCents,
+    currency: "chf",
+    quota,
+    sortOrder: 1,
+    active: true,
+    selectionMode: "addon",
   });
 }
 

@@ -13,6 +13,7 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { Card, CardBody } from "@heroui/card";
+import { Checkbox } from "@heroui/react";
 import { Radio, RadioGroup } from "@heroui/radio";
 import { Spinner } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -455,28 +456,81 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
+  const [selectedExclusiveId, setSelectedExclusiveId] = useState<string | null>(
+    null,
+  );
+  const [selectedAddonIds, setSelectedAddonIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
   const [confirmingRegistration, setConfirmingRegistration] = useState(false);
 
-  useEffect(() => {
-    const ev = eventQuery.data;
+  const exclusiveTiers = useMemo(
+    () =>
+      (eventQuery.data?.tiers ?? []).filter(
+        (tier) => tier.selectionMode !== "addon",
+      ),
+    [eventQuery.data?.tiers],
+  );
+  const addonTiers = useMemo(
+    () =>
+      (eventQuery.data?.tiers ?? []).filter(
+        (tier) => tier.selectionMode === "addon",
+      ),
+    [eventQuery.data?.tiers],
+  );
 
-    if (!ev?.tiers?.length) {
+  useEffect(() => {
+    if (exclusiveTiers.length === 0) {
       return;
     }
-    setSelectedTierId((prev) => {
-      if (prev && ev.tiers!.some((tier) => tier.id === prev)) {
+    setSelectedExclusiveId((prev) => {
+      if (prev && exclusiveTiers.some((tier) => tier.id === prev)) {
         return prev;
       }
-      if (ev.tiers!.length === 1) {
-        return ev.tiers![0]!.id;
+      if (exclusiveTiers.length === 1) {
+        return exclusiveTiers[0]!.id;
       }
 
       return null;
     });
-  }, [eventQuery.data]);
+  }, [exclusiveTiers]);
+
+  useEffect(() => {
+    const addonIds = new Set(addonTiers.map((tier) => tier.id));
+
+    setSelectedAddonIds((prev) => {
+      const next = new Set<string>();
+
+      for (const id of Array.from(prev)) {
+        if (addonIds.has(id)) {
+          next.add(id);
+        }
+      }
+
+      return next;
+    });
+  }, [addonTiers]);
+
+  const selectedTiers = useMemo(() => {
+    const tiers = eventQuery.data?.tiers ?? [];
+    const ids = new Set<string>();
+
+    if (selectedExclusiveId) {
+      ids.add(selectedExclusiveId);
+    }
+    for (const id of Array.from(selectedAddonIds)) {
+      ids.add(id);
+    }
+
+    return tiers.filter((tier) => ids.has(tier.id));
+  }, [eventQuery.data?.tiers, selectedExclusiveId, selectedAddonIds]);
+
+  const checkoutTotalCents = useMemo(
+    () => selectedTiers.reduce((sum, tier) => sum + tier.priceCents, 0),
+    [selectedTiers],
+  );
 
   const intentMutation = useMutation(eventsApi.checkout.intent());
   const confirmCheckoutMutation = useMutation(eventsApi.checkout.confirm());
@@ -602,10 +656,12 @@ function EventDetailsInner({ slug }: { slug: string }) {
     : Boolean(email.trim() || phone.trim());
 
   const needsStripe = !ev.registrationConfirmed && Boolean(ev.tiers?.length);
-  const selectedTier =
-    ev.tiers?.find((tier) => tier.id === selectedTierId) ?? null;
+  const requiresExclusive = exclusiveTiers.length > 0;
+  const tierSelectionReady = requiresExclusive
+    ? Boolean(selectedExclusiveId)
+    : selectedAddonIds.size > 0;
 
-  const checkoutDisabledReason = !selectedTierId
+  const checkoutDisabledReason = !tierSelectionReady
     ? t.checkoutSelectTier
     : profileLoading
       ? t.loading
@@ -723,48 +779,120 @@ function EventDetailsInner({ slug }: { slug: string }) {
               {t.contributionSubtitle}
             </p>
 
-            <RadioGroup
-              aria-labelledby="event-checkout-heading"
-              classNames={{ wrapper: "gap-6" }}
-              isDisabled={Boolean(clientSecret)}
-              value={selectedTierId ?? ""}
-              onValueChange={setSelectedTierId}
-            >
-              {ev.tiers.map((tier) => {
-                const tierDescription = tier.description.trim();
-                const priceLabel = formatTierPrice(tier);
-                const placesLabel = formatPlacesRemaining(
-                  tier,
-                  t.placesRemaining,
-                  t.placesUnlimited,
-                );
+            {exclusiveTiers.length > 0 ? (
+              <RadioGroup
+                aria-labelledby="event-checkout-heading"
+                classNames={{ wrapper: "gap-6" }}
+                isDisabled={Boolean(clientSecret)}
+                value={selectedExclusiveId ?? ""}
+                onValueChange={setSelectedExclusiveId}
+              >
+                {exclusiveTiers.map((tier) => {
+                  const tierDescription = tier.description.trim();
+                  const priceLabel = formatTierPrice(tier);
+                  const placesLabel = formatPlacesRemaining(
+                    tier,
+                    t.placesRemaining,
+                    t.placesUnlimited,
+                  );
 
-                return (
-                  <Radio
-                    key={tier.id}
-                    classNames={{
-                      base: "max-w-full m-0 p-3 border border-foreground/10 data-[selected=true]:border-neon/40 rounded-sm",
-                      wrapper: "mt-0.5",
-                      label: "w-full max-w-full",
-                      labelWrapper: "w-full max-w-full",
-                      description:
-                        "text-xs text-foreground/45 leading-relaxed mt-1.5",
-                    }}
-                    description={tierDescription || undefined}
-                    value={tier.id}
-                  >
-                    <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                      <span className="text-sm font-medium text-foreground/80">
-                        {tier.name}
+                  return (
+                    <Radio
+                      key={tier.id}
+                      classNames={{
+                        base: "max-w-full m-0 p-3 border border-foreground/10 data-[selected=true]:border-neon/40 rounded-sm",
+                        wrapper: "mt-0.5",
+                        label: "w-full max-w-full",
+                        labelWrapper: "w-full max-w-full",
+                        description:
+                          "text-xs text-foreground/45 leading-relaxed mt-1.5",
+                      }}
+                      description={tierDescription || undefined}
+                      value={tier.id}
+                    >
+                      <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <span className="text-sm font-medium text-foreground/80">
+                          {tier.name}
+                        </span>
+                        <span className="text-xs font-mono text-foreground/45 shrink-0">
+                          {priceLabel} · {placesLabel}
+                        </span>
                       </span>
-                      <span className="text-xs font-mono text-foreground/45 shrink-0">
-                        {priceLabel} · {placesLabel}
-                      </span>
-                    </span>
-                  </Radio>
-                );
-              })}
-            </RadioGroup>
+                    </Radio>
+                  );
+                })}
+              </RadioGroup>
+            ) : null}
+
+            {addonTiers.length > 0 ? (
+              <div className="mt-8 space-y-4">
+                <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
+                  {t.addonsTitle}
+                </p>
+                <div className="space-y-3">
+                  {addonTiers.map((tier) => {
+                    const tierDescription = tier.description.trim();
+                    const priceLabel = formatTierPrice(tier);
+                    const placesLabel = formatPlacesRemaining(
+                      tier,
+                      t.placesRemaining,
+                      t.placesUnlimited,
+                    );
+                    const isSelected = selectedAddonIds.has(tier.id);
+
+                    return (
+                      <div
+                        key={tier.id}
+                        className="p-3 border border-foreground/10 rounded-sm data-[selected=true]:border-neon/40"
+                        data-selected={isSelected ? true : undefined}
+                      >
+                        <Checkbox
+                          classNames={{
+                            base: "max-w-full m-0 items-start",
+                            label: "w-full max-w-full",
+                          }}
+                          isDisabled={Boolean(clientSecret)}
+                          isSelected={isSelected}
+                          onValueChange={(checked) => {
+                            setSelectedAddonIds((prev) => {
+                              const next = new Set(prev);
+
+                              if (checked) {
+                                next.add(tier.id);
+                              } else {
+                                next.delete(tier.id);
+                              }
+
+                              return next;
+                            });
+                          }}
+                        >
+                          <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                            <span className="text-sm font-medium text-foreground/80">
+                              {tier.name}
+                            </span>
+                            <span className="text-xs font-mono text-foreground/45 shrink-0">
+                              {priceLabel} · {placesLabel}
+                            </span>
+                          </span>
+                        </Checkbox>
+                        {tierDescription ? (
+                          <p className="text-xs text-foreground/45 leading-relaxed mt-1.5 pl-7">
+                            {tierDescription}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {selectedTiers.length > 0 ? (
+              <p className="mt-6 text-sm font-mono text-foreground/55">
+                {t.checkoutTotal}: CHF {(checkoutTotalCents / 100).toFixed(0)}
+              </p>
+            ) : null}
 
             {showContactForm ? (
               <div className="mt-6 space-y-3">
@@ -790,7 +918,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   className="w-full sm:w-auto"
                   isDisabled={
                     intentMutation.isPending ||
-                    !selectedTierId ||
+                    !tierSelectionReady ||
                     profileLoading ||
                     !checkoutContactReady
                   }
@@ -816,7 +944,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
                             ? phone.trim()
                             : null,
                         inviteToken: effectiveInviteToken ?? null,
-                        tierId: selectedTierId!,
+                        exclusiveTierId: selectedExclusiveId ?? "",
+                        addonTierIds: Array.from(selectedAddonIds),
                       },
                       {
                         onSuccess: (data) => {
@@ -835,7 +964,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                 </NeonButton>
                 {checkoutDisabledReason &&
                 (intentMutation.isPending ||
-                  !selectedTierId ||
+                  !tierSelectionReady ||
                   profileLoading ||
                   !checkoutContactReady) ? (
                   <p className="text-xs text-foreground/40">
@@ -858,13 +987,20 @@ function EventDetailsInner({ slug }: { slug: string }) {
               </FormError>
             ) : null}
 
-            {clientSecret && selectedTier ? (
+            {clientSecret && selectedTiers.length > 0 ? (
               <div className="mt-6 pt-6 border-t border-foreground/10">
                 <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-1">
                   {t.checkoutOrderSummary}
                 </p>
-                <p className="text-sm font-medium text-foreground/80 mb-4">
-                  {selectedTier.name} — {formatTierPrice(selectedTier)}
+                <ul className="text-sm font-medium text-foreground/80 mb-2 space-y-1">
+                  {selectedTiers.map((tier) => (
+                    <li key={tier.id}>
+                      {tier.name} — {formatTierPrice(tier)}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-sm font-mono text-foreground/55">
+                  {t.checkoutTotal}: CHF {(checkoutTotalCents / 100).toFixed(0)}
                 </p>
               </div>
             ) : null}

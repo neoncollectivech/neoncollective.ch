@@ -6,6 +6,7 @@ import {
   eventTiers,
   inviteLinks,
   orders,
+  orderTiers,
   people,
 } from "../db/schema.js";
 import { sha256Hex } from "../token.js";
@@ -15,6 +16,7 @@ import {
   computeTierPlacesRemaining,
   eventIdForInviteLinkId,
   findRosterInviteeByContact,
+  getTierSoldQtyTx,
 } from "./event-read.js";
 import { isSessionProfileComplete } from "./participant-profile.js";
 import { ensurePersonInTx } from "./people.js";
@@ -43,8 +45,8 @@ export type CheckoutIntentInput = {
   locale: "de" | "en" | "it";
   phoneE164: string | null;
   inviteToken: string | null;
-  /** Exactly one tier — one admission per order / per identified person per event. */
-  tierId: string;
+  exclusiveTierId: string;
+  addonTierIds: string[];
   cookieHeader: string | undefined;
 };
 
@@ -56,14 +58,27 @@ function normalizedCheckoutEmail(raw: string | null | undefined): string | null 
   return trimmed.toLowerCase();
 }
 
+function uniqueAddonIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    const trimmed = id.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
+}
+
 export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
   | { ok: true; clientSecret: string; orderId: string }
   | { ok: false; status: number; error: string }
 > {
   const db = getDb();
-  if (!input.tierId?.trim()) {
-    return { ok: false, status: 400, error: "A tier is required." };
-  }
+  const exclusiveTierId = input.exclusiveTierId?.trim() ?? "";
+  const addonTierIds = uniqueAddonIds(input.addonTierIds ?? []);
 
   const session = await resolveParticipantSessionFromCookie(input.cookieHeader);
   if (!session) {
@@ -176,24 +191,48 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
             };
           }
         }
-      } else if (input.inviteToken) {
-        // public event: ignore stray invite token
       }
 
-      const [tier] = await tx
+      const activeTiers = await tx
         .select()
         .from(eventTiers)
-        .where(
-          and(
-            eq(eventTiers.eventId, ev.id),
-            eq(eventTiers.id, input.tierId.trim()),
-            eq(eventTiers.active, true),
-          ),
-        )
-        .for("update")
-        .limit(1);
-      if (!tier) {
-        return { ok: false, status: 400, error: "Unknown or inactive tier." };
+        .where(and(eq(eventTiers.eventId, ev.id), eq(eventTiers.active, true)))
+        .for("update");
+
+      const hasExclusiveTiers = activeTiers.some((t) => t.selectionMode === "exclusive");
+      if (hasExclusiveTiers && !exclusiveTierId) {
+        return { ok: false, status: 400, error: "Select a contribution tier." };
+      }
+      if (!hasExclusiveTiers && addonTierIds.length === 0) {
+        return { ok: false, status: 400, error: "Select at least one tier." };
+      }
+
+      const selectedIds = [
+        ...(exclusiveTierId ? [exclusiveTierId] : []),
+        ...addonTierIds,
+      ];
+      const tierById = new Map(activeTiers.map((t) => [t.id, t]));
+
+      const selectedTiers: (typeof eventTiers.$inferSelect)[] = [];
+      for (const id of selectedIds) {
+        const tier = tierById.get(id);
+        if (!tier) {
+          return { ok: false, status: 400, error: "Unknown or inactive tier." };
+        }
+        selectedTiers.push(tier);
+      }
+
+      if (exclusiveTierId) {
+        const exclusive = tierById.get(exclusiveTierId);
+        if (!exclusive || exclusive.selectionMode !== "exclusive") {
+          return { ok: false, status: 400, error: "Invalid contribution tier." };
+        }
+      }
+      for (const id of addonTierIds) {
+        const addon = tierById.get(id);
+        if (!addon || addon.selectionMode !== "addon") {
+          return { ok: false, status: 400, error: "Invalid add-on tier." };
+        }
       }
 
       const headUsed = await getEventHeadcountUsedTx(tx, ev.id);
@@ -201,21 +240,31 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         ev.eventQuota != null ? Math.max(0, ev.eventQuota - headUsed) : null;
       const eventSlotsLeft =
         eventRemainingInit != null ? eventRemainingInit : Number.POSITIVE_INFINITY;
-
-      const sold = await getTierSoldQtyTx(tx, ev.id, tier.id);
       const eventRemCur = Number.isFinite(eventSlotsLeft) ? eventSlotsLeft : null;
-      const placesCap = computeTierPlacesRemaining({
-        tierQuota: tier.quota,
-        sold,
-        eventRemaining: eventRemCur,
-      });
-      const capForCompare = placesCap == null ? Number.POSITIVE_INFINITY : placesCap;
-      if (1 > capForCompare) {
+
+      if (eventRemCur != null && eventRemCur < 1) {
         return {
           ok: false,
           status: 409,
-          error: "Not enough places remaining for this tier.",
+          error: "This event is sold out.",
         };
+      }
+
+      for (const tier of selectedTiers) {
+        const sold = await getTierSoldQtyTx(tx, ev.id, tier.id);
+        const placesCap = computeTierPlacesRemaining({
+          tierQuota: tier.quota,
+          sold,
+          eventRemaining: eventRemCur,
+        });
+        const capForCompare = placesCap == null ? Number.POSITIVE_INFINITY : placesCap;
+        if (1 > capForCompare) {
+          return {
+            ok: false,
+            status: 409,
+            error: `Not enough places remaining for "${tier.name}".`,
+          };
+        }
       }
 
       const checkoutEmail =
@@ -280,14 +329,20 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         };
       }
 
-      const amountCents = tier.priceCents;
+      const amountCents = selectedTiers.reduce((sum, t) => sum + t.priceCents, 0);
+      const currency = selectedTiers[0]!.currency.toLowerCase();
+      const mixedCurrency = selectedTiers.some(
+        (t) => t.currency.toLowerCase() !== currency,
+      );
+      if (mixedCurrency) {
+        return { ok: false, status: 400, error: "Selected tiers use different currencies." };
+      }
+
       const [orderRow] = await tx
         .insert(orders)
         .values({
           eventId: ev.id,
           personId,
-          eventTierId: tier.id,
-          unitPriceCents: tier.priceCents,
           locale: input.locale,
           amountCents,
           status: "pending",
@@ -296,7 +351,14 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         .returning({ id: orders.id });
       const orderId = orderRow!.id;
 
-      const currency = tier.currency.toLowerCase();
+      await tx.insert(orderTiers).values(
+        selectedTiers.map((tier) => ({
+          orderId,
+          eventTierId: tier.id,
+          unitPriceCents: tier.priceCents,
+        })),
+      );
+
       const pi = await stripe.paymentIntents.create({
         amount: amountCents,
         currency,
@@ -320,26 +382,6 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
     const msg = e instanceof Error ? e.message : "Checkout failed.";
     return { ok: false, status: 500, error: msg };
   }
-}
-
-async function getTierSoldQtyTx(
-  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
-  eventId: string,
-  tierId: string,
-): Promise<number> {
-  const [row] = await tx
-    .select({
-      qty: sql<number>`count(*)::int`,
-    })
-    .from(orders)
-    .where(
-      and(
-        eq(orders.eventId, eventId),
-        eq(orders.eventTierId, tierId),
-        inArray(orders.status, ["pending", "paid"]),
-      ),
-    );
-  return Number(row?.qty ?? 0);
 }
 
 async function getEventHeadcountUsedTx(

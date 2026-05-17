@@ -58,10 +58,6 @@ export function OrderDetailPage() {
                 {(order.amountCents / 100).toFixed(2)}
               </p>
               <p>
-                <span className="text-muted-foreground">Unit price:</span> CHF{" "}
-                {(order.unitPriceCents / 100).toFixed(2)}
-              </p>
-              <p>
                 <span className="text-muted-foreground">Locale:</span>{" "}
                 {order.locale}
               </p>
@@ -104,7 +100,7 @@ export function OrderDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Event & tier</CardTitle>
+              <CardTitle>Event & tiers</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {isUuid(order.event.id) && (
@@ -117,11 +113,20 @@ export function OrderDetailPage() {
                   </Link>
                 </p>
               )}
-              <p>
-                <span className="text-muted-foreground">Tier:</span>{" "}
-                {order.tier.name} (CHF{" "}
-                {(order.tier.priceCents / 100).toFixed(2)})
-              </p>
+              {order.tiers.length === 0 ? (
+                <p className="text-muted-foreground">No tiers recorded.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {order.tiers.map((tier) => (
+                    <li key={tier.id}>
+                      <span className="text-muted-foreground">
+                        {tier.selectionMode === "addon" ? "Add-on" : "Tier"}:
+                      </span>{" "}
+                      {tier.name} (CHF {(tier.unitPriceCents / 100).toFixed(2)})
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
 

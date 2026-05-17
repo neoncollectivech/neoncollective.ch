@@ -9,6 +9,8 @@ export const eventsClient = createPublicApiClient({
   withCredentials: true,
 });
 
+export type TierSelectionMode = "exclusive" | "addon";
+
 export type EventTier = {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ export type EventTier = {
   placesRemaining: number | null;
   active: boolean;
   sortOrder: number;
+  selectionMode: TierSelectionMode;
 };
 
 export type EventPayload = {
@@ -188,7 +191,8 @@ export async function createEventCheckoutIntent(body: {
   locale: "de" | "en" | "it";
   phoneE164: string | null;
   inviteToken: string | null;
-  tierId: string;
+  exclusiveTierId: string;
+  addonTierIds: string[];
 }): Promise<{ clientSecret: string; orderId: string }> {
   const { data } = await eventsClient.post<{
     clientSecret: string;

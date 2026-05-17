@@ -10,6 +10,7 @@
     "db:events-api:generate": "pnpm --filter @neon/events-api db:generate",
     "db:events-api:migrate": "pnpm --filter @neon/events-api db:migrate",
     "db:events-api:migrate:local": "pnpm --filter @neon/events-api db:migrate:local",
+    "db:events-api:repair-migrations:local": "pnpm --filter @neon/events-api db:repair-migrations:local",
     "db:events-api:push": "pnpm --filter @neon/events-api db:push",
     "db:events-api:push:local": "pnpm --filter @neon/events-api db:push:local",
     "db:events-api:studio": "pnpm --filter @neon/events-api db:studio",

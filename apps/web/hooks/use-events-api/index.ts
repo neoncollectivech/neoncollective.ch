@@ -1,6 +1,6 @@
-export { eventsApi } from "./api.js";
-export { eventsKeys } from "./keys.js";
-export { useEventsInvalidate, useEventsApiInvalidate } from "./invalidate.js";
+export { eventsApi } from "./api";
+export { eventsKeys } from "./keys";
+export { useEventsInvalidate, useEventsApiInvalidate } from "./invalidate";
 export {
   useProfileBootstrap,
   useParticipantProfileBootstrap,
@@ -9,7 +9,7 @@ export {
   useExchangeRegistrationSessionCode,
   type ProfileModalLabels,
   type ProfileBootstrapResult,
-} from "./flows.js";
+} from "./flows";
 
 export type {
   EventCatalogItem,

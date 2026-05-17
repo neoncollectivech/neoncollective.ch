@@ -8,6 +8,13 @@
       "when": 1779036281835,
       "tag": "0000_fair_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779049341005,
+      "tag": "0001_productive_vengeance",
+      "breakpoints": true
     }
   ]
 }

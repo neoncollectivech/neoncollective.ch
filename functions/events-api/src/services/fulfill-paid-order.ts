@@ -14,6 +14,7 @@ import {
   people,
   stripeEventsProcessed,
 } from "../db/schema.js";
+import { getExclusiveTierIdForOrderTx } from "./event-read.js";
 import { ensureHostInviteLinkForPersonInTx } from "./host-invite-link.js";
 
 const log = createLogger("fulfill-paid-order");
@@ -120,10 +121,15 @@ export async function fulfillPaidOrderInTx(
 
   if (order.status === "paid") {
     if (!existingAdmission) {
+      const exclusiveTierId = await getExclusiveTierIdForOrderTx(tx, order.id);
+      if (!exclusiveTierId) {
+        log.error({ orderId: order.id }, "Paid order missing exclusive tier for admission");
+        return null;
+      }
       await tx.insert(admissions).values({
         publicToken: randomAdmissionToken(),
         eventId: order.eventId,
-        eventTierId: order.eventTierId,
+        eventTierId: exclusiveTierId,
         orderId: order.id,
       });
       log.warn({ orderId: order.id }, "Repaired missing admission for paid order");
@@ -157,10 +163,15 @@ export async function fulfillPaidOrderInTx(
     .limit(1);
 
   if (!existingAdmission) {
+    const exclusiveTierId = await getExclusiveTierIdForOrderTx(tx, order.id);
+    if (!exclusiveTierId) {
+      log.error({ orderId: order.id }, "Order missing exclusive tier for admission");
+      return null;
+    }
     await tx.insert(admissions).values({
       publicToken: randomAdmissionToken(),
       eventId: order.eventId,
-      eventTierId: order.eventTierId,
+      eventTierId: exclusiveTierId,
       orderId: order.id,
     });
   }

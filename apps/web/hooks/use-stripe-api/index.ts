@@ -1,5 +1,5 @@
-export { stripeApi } from "./api.js";
-export { stripeKeys } from "./keys.js";
+export { stripeApi } from "./api";
+export { stripeKeys } from "./keys";
 
 export type {
   CheckoutParams,
