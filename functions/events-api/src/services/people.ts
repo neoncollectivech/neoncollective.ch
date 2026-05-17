@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
 
 import { normalizeEmailTypo, phoneToStoredDigits } from "../contact.js";
 import { getDb } from "../db/index.js";
@@ -91,6 +91,43 @@ export async function ensurePersonInTx(
   return ins!.id;
 }
 
+function rosterContactMatchForPerson(person: {
+  email: string | null;
+  phone: string | null;
+}) {
+  const contactMatch = [];
+  if (person.email?.trim()) {
+    contactMatch.push(eq(eventInvitees.email, person.email.trim().toLowerCase()));
+  }
+  if (person.phone?.trim()) {
+    const stored = person.phone.trim();
+    contactMatch.push(eq(eventInvitees.phone, stored));
+    for (const variant of phoneDigitsLookupVariants(`+${stored}`)) {
+      if (variant !== stored) {
+        contactMatch.push(eq(eventInvitees.phone, variant));
+      }
+    }
+  }
+  return contactMatch.length > 0 ? or(...contactMatch) : null;
+}
+
+/** Link roster rows that match this person's contact but lack `person_id`. */
+export async function syncRosterInviteesToPerson(personId: string): Promise<void> {
+  const db = getDb();
+  const [person] = await db.select().from(people).where(eq(people.id, personId)).limit(1);
+  if (!person) {
+    return;
+  }
+  const contactMatch = rosterContactMatchForPerson(person);
+  if (!contactMatch) {
+    return;
+  }
+  await db
+    .update(eventInvitees)
+    .set({ personId })
+    .where(and(isNull(eventInvitees.personId), contactMatch));
+}
+
 export async function personHasRegistrationEligibility(
   personId: string,
 ): Promise<boolean> {
@@ -112,34 +149,104 @@ export async function personHasRegistrationEligibility(
         eq(eventInvitees.personId, personId),
         isNull(eventInvitees.revokedAt),
         eq(events.status, "published"),
-        eq(events.accessMode, "invite_only"),
       ),
     )
     .limit(1);
-  return Boolean(i);
+  if (i) {
+    return true;
+  }
+
+  const [person] = await db.select().from(people).where(eq(people.id, personId)).limit(1);
+  if (!person) {
+    return false;
+  }
+  const contactMatch = rosterContactMatchForPerson(person);
+  if (!contactMatch) {
+    return false;
+  }
+  const [roster] = await db
+    .select({ id: eventInvitees.id })
+    .from(eventInvitees)
+    .innerJoin(events, eq(events.id, eventInvitees.eventId))
+    .where(
+      and(
+        contactMatch,
+        isNull(eventInvitees.revokedAt),
+        eq(events.status, "published"),
+      ),
+    )
+    .limit(1);
+  return Boolean(roster);
+}
+
+/** Resolve person for registration sign-in (email or E.164 phone). */
+export async function resolvePersonIdForRegistrationContact(
+  contact: { kind: "email"; email: string } | { kind: "phone"; e164: string },
+): Promise<string | undefined> {
+  if (contact.kind === "email") {
+    return findPersonIdByEmail(contact.email);
+  }
+  return findPersonIdByPhoneE164(contact.e164);
+}
+
+/** DB digit variants (e.g. 41796829564 vs legacy 0796829564). */
+export function phoneDigitsLookupVariants(phoneE164: string): string[] {
+  const digits = phoneToStoredDigits(phoneE164);
+  if (!digits) {
+    return [];
+  }
+  const variants = new Set<string>([digits]);
+  if (digits.startsWith("41") && digits.length >= 11) {
+    variants.add(`0${digits.slice(2)}`);
+  }
+  if (digits.startsWith("0") && digits.length >= 10 && !digits.startsWith("00")) {
+    variants.add(`41${digits.slice(1)}`);
+  }
+  return [...variants];
 }
 
 export async function findPersonIdByEmail(email: string): Promise<string | undefined> {
   const db = getDb();
   const em = normalizeEmailTypo(email.trim()).toLowerCase();
   const [r] = await db.select({ id: people.id }).from(people).where(eq(people.email, em)).limit(1);
-  return r?.id;
+  if (r) {
+    return r.id;
+  }
+  const [inv] = await db
+    .select({ personId: eventInvitees.personId })
+    .from(eventInvitees)
+    .where(and(eq(eventInvitees.email, em), isNotNull(eventInvitees.personId)))
+    .limit(1);
+  return inv?.personId ?? undefined;
 }
 
 export async function findPersonIdByPhoneE164(
   phoneE164: string,
 ): Promise<string | undefined> {
-  const db = getDb();
-  const digits = phoneToStoredDigits(phoneE164);
-  if (!digits) {
+  const variants = phoneDigitsLookupVariants(phoneE164);
+  if (variants.length === 0) {
     return undefined;
   }
+  const db = getDb();
   const [r] = await db
     .select({ id: people.id })
     .from(people)
-    .where(eq(people.phone, digits))
+    .where(or(...variants.map((d) => eq(people.phone, d))))
     .limit(1);
-  return r?.id;
+  if (r) {
+    return r.id;
+  }
+  const [inv] = await db
+    .select({ personId: eventInvitees.personId })
+    .from(eventInvitees)
+    .where(
+      and(
+        isNotNull(eventInvitees.personId),
+        or(...variants.map((d) => eq(eventInvitees.phone, d))),
+      ),
+    )
+    .limit(1);
+  return inv?.personId ?? undefined;
 }
 
 /** Attach a phone to an email-only person; no-op if phone already set to same; 409 if phone belongs to another row. */

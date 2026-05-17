@@ -20,9 +20,9 @@ import {
   REGISTRATION_EXCHANGE_TTL_MS,
 } from "../registration-exchange-constants.js";
 import {
-  findPersonIdByEmail,
-  findPersonIdByPhoneE164,
   personHasRegistrationEligibility,
+  resolvePersonIdForRegistrationContact,
+  syncRosterInviteesToPerson,
 } from "./people.js";
 
 const log = createLogger("registration-session");
@@ -329,8 +329,15 @@ export async function requestRegistrationSession(params: {
       };
     }
     const email = parsed.email;
-    const personId = await findPersonIdByEmail(email);
-    if (!personId || !(await personHasRegistrationEligibility(personId))) {
+    const personId = await resolvePersonIdForRegistrationContact({
+      kind: "email",
+      email,
+    });
+    if (!personId) {
+      return { ok: false, status: 404, error: "No registration found for this contact." };
+    }
+    await syncRosterInviteesToPerson(personId);
+    if (!(await personHasRegistrationEligibility(personId))) {
       return { ok: false, status: 404, error: "No registration found for this contact." };
     }
     const rawCode = randomRegistrationExchangeCode();
@@ -370,8 +377,15 @@ export async function requestRegistrationSession(params: {
   }
 
   const phoneE164 = parsed.e164;
-  const personId = await findPersonIdByPhoneE164(phoneE164);
-  if (!personId || !(await personHasRegistrationEligibility(personId))) {
+  const personId = await resolvePersonIdForRegistrationContact({
+    kind: "phone",
+    e164: phoneE164,
+  });
+  if (!personId) {
+    return { ok: false, status: 404, error: "No registration found for this contact." };
+  }
+  await syncRosterInviteesToPerson(personId);
+  if (!(await personHasRegistrationEligibility(personId))) {
     return { ok: false, status: 404, error: "No registration found for this contact." };
   }
 

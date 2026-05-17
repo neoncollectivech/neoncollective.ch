@@ -109,7 +109,7 @@ Published invite-only event (roster; open with invite token or sign in on the pr
 
 Invite token (raw, for ?invite=): ${rawInviteToken}
 
-No orders were created. Registration sign-in works via paid order OR invitee on a published invite-only event (you have the latter).
+No orders were created. Registration sign-in works via paid order OR active invitee on a published event (you have the latter).
 `);
 }
 
