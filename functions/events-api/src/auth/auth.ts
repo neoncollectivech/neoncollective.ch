@@ -5,6 +5,7 @@ import { APIError } from "better-auth/api";
 
 import { getDb } from "../db/index.js";
 import * as authSchema from "../db/auth-schema.js";
+import { resolveBetterAuthPublicUrl } from "./public-url.js";
 
 const NEONCLUB_EMAIL_SUFFIX = "@neonclub.ch";
 
@@ -29,7 +30,7 @@ function adminTrustedOrigins(): string[] {
 }
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:8082",
+  baseURL: resolveBetterAuthPublicUrl(),
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(getDb(), {
     provider: "pg",
