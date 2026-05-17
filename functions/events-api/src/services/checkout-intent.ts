@@ -1,0 +1,352 @@
+import { and, eq, inArray, sql } from "drizzle-orm";
+
+import { getDb } from "../db/index.js";
+import {
+  events,
+  eventTiers,
+  inviteLinks,
+  orders,
+  people,
+} from "../db/schema.js";
+import { sha256Hex } from "../token.js";
+import { normalizeOptionalPhoneE164, phoneToStoredDigits } from "../contact.js";
+import { stripe } from "../stripe.js";
+import {
+  computeTierPlacesRemaining,
+  eventIdForInviteLinkId,
+  findRosterInviteeByContact,
+} from "./event-read.js";
+import { isSessionProfileComplete } from "./participant-profile.js";
+import { ensurePersonInTx } from "./people.js";
+import { resolveParticipantSessionFromCookie } from "./registration-session.js";
+
+async function findInviteLinkByRawTokenTx(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  rawToken: string,
+) {
+  const hash = sha256Hex(rawToken);
+  const [row] = await tx
+    .select({
+      link: inviteLinks,
+      event: events,
+    })
+    .from(inviteLinks)
+    .innerJoin(events, eq(events.id, inviteLinks.eventId))
+    .where(eq(inviteLinks.tokenHash, hash))
+    .limit(1);
+  return row ?? null;
+}
+
+export type CheckoutIntentInput = {
+  slug: string;
+  email: string;
+  locale: "de" | "en" | "it";
+  phoneE164: string | null;
+  inviteToken: string | null;
+  /** Exactly one tier — one admission per order / per identified person per event. */
+  tierId: string;
+  cookieHeader: string | undefined;
+};
+
+export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
+  | { ok: true; clientSecret: string; orderId: string }
+  | { ok: false; status: number; error: string }
+> {
+  const db = getDb();
+  if (!input.tierId?.trim()) {
+    return { ok: false, status: 400, error: "A tier is required." };
+  }
+
+  const session = await resolveParticipantSessionFromCookie(input.cookieHeader);
+  if (!session) {
+    return { ok: false, status: 401, error: "Sign in and complete your profile first." };
+  }
+  const profileComplete = await isSessionProfileComplete(session);
+  if (!profileComplete || !session.personId) {
+    return {
+      ok: false,
+      status: 403,
+      error: "Complete and verify your profile before checkout.",
+    };
+  }
+
+  const [profilePerson] = await db
+    .select()
+    .from(people)
+    .where(eq(people.id, session.personId))
+    .limit(1);
+  if (!profilePerson) {
+    return { ok: false, status: 404, error: "Profile not found." };
+  }
+
+  try {
+    return await db.transaction(async (tx) => {
+      let normalizedPhone: string | null = null;
+      if (input.phoneE164?.trim()) {
+        normalizedPhone = normalizeOptionalPhoneE164(input.phoneE164);
+        if (!normalizedPhone) {
+          return { ok: false, status: 400, error: "Invalid phone number." };
+        }
+      }
+
+      const [ev] = await tx
+        .select()
+        .from(events)
+        .where(and(eq(events.slug, input.slug), eq(events.status, "published")))
+        .limit(1);
+      if (!ev) {
+        return { ok: false, status: 404, error: "Event not found." };
+      }
+      let inviteLinkId: string | null = null;
+      if (ev.accessMode === "invite_only") {
+        let guestLinkId: string | null = null;
+        let guestLinkMax: number | null = null;
+        if (input.inviteToken) {
+          const guest = await findInviteLinkByRawTokenTx(tx, input.inviteToken);
+          if (!guest || guest.event.id !== ev.id) {
+            return { ok: false, status: 403, error: "Invalid or expired invite." };
+          }
+          guestLinkId = guest.link.id;
+          guestLinkMax = guest.link.maxRedemptions;
+        }
+        if (!guestLinkId && session.inviteLinkId) {
+          const linkEventId = await eventIdForInviteLinkId(session.inviteLinkId);
+          if (linkEventId === ev.id) {
+            guestLinkId = session.inviteLinkId;
+            const [linkRow] = await tx
+              .select({ maxRedemptions: inviteLinks.maxRedemptions })
+              .from(inviteLinks)
+              .where(eq(inviteLinks.id, session.inviteLinkId))
+              .limit(1);
+            guestLinkMax = linkRow?.maxRedemptions ?? null;
+          }
+        }
+        const checkoutEmailForRoster =
+          profilePerson.email?.trim() ?? input.email.trim().toLowerCase();
+        const phoneDigits = phoneToStoredDigits(
+          profilePerson.phone
+            ? `+${profilePerson.phone.replace(/\D/g, "")}`
+            : normalizedPhone,
+        );
+        const roster = await findRosterInviteeByContact(
+          ev.id,
+          checkoutEmailForRoster,
+          phoneDigits,
+        );
+        if (roster === "ambiguous") {
+          return {
+            ok: false,
+            status: 400,
+            error: "Multiple roster matches — contact the organizer.",
+          };
+        }
+        const isHost = roster !== null;
+        const isGuest = guestLinkId !== null;
+        if (!isHost && !isGuest) {
+          return {
+            ok: false,
+            status: 403,
+            error: "This event is invite-only. Use your invite link or roster email.",
+          };
+        }
+        if (isGuest && guestLinkId && guestLinkMax != null) {
+          inviteLinkId = guestLinkId;
+          const used = await getInviteRedemptionQtyTx(tx, inviteLinkId);
+          if (used + 1 > guestLinkMax) {
+            return {
+              ok: false,
+              status: 409,
+              error: "This invite link has no remaining places.",
+            };
+          }
+        }
+      } else if (input.inviteToken) {
+        // public event: ignore stray invite token
+      }
+
+      const [tier] = await tx
+        .select()
+        .from(eventTiers)
+        .where(
+          and(
+            eq(eventTiers.eventId, ev.id),
+            eq(eventTiers.id, input.tierId.trim()),
+            eq(eventTiers.active, true),
+          ),
+        )
+        .for("update")
+        .limit(1);
+      if (!tier) {
+        return { ok: false, status: 400, error: "Unknown or inactive tier." };
+      }
+
+      const headUsed = await getEventHeadcountUsedTx(tx, ev.id);
+      const eventRemainingInit =
+        ev.eventQuota != null ? Math.max(0, ev.eventQuota - headUsed) : null;
+      const eventSlotsLeft =
+        eventRemainingInit != null ? eventRemainingInit : Number.POSITIVE_INFINITY;
+
+      const sold = await getTierSoldQtyTx(tx, ev.id, tier.id);
+      const eventRemCur = Number.isFinite(eventSlotsLeft) ? eventSlotsLeft : null;
+      const placesCap = computeTierPlacesRemaining({
+        tierQuota: tier.quota,
+        sold,
+        eventRemaining: eventRemCur,
+      });
+      const capForCompare = placesCap == null ? Number.POSITIVE_INFINITY : placesCap;
+      if (1 > capForCompare) {
+        return {
+          ok: false,
+          status: 409,
+          error: "Not enough places remaining for this tier.",
+        };
+      }
+
+      const checkoutEmail =
+        profilePerson.email?.trim() ?? input.email.trim().toLowerCase();
+      const profilePhoneE164 = profilePerson.phone
+        ? `+${profilePerson.phone.replace(/\D/g, "")}`
+        : null;
+      const checkoutPhone = profilePhoneE164 ?? normalizedPhone;
+
+      let personId: string;
+      try {
+        personId = await ensurePersonInTx(tx, {
+          givenName: profilePerson.givenName,
+          familyName: profilePerson.familyName,
+          email: checkoutEmail,
+          phoneE164: checkoutPhone,
+        });
+      } catch (e) {
+        if (e instanceof Error && e.message === "identity_conflict") {
+          return {
+            ok: false,
+            status: 409,
+            error: "Contact details conflict with another profile.",
+          };
+        }
+        throw e;
+      }
+
+      if (personId !== session.personId) {
+        return {
+          ok: false,
+          status: 409,
+          error: "Profile mismatch — refresh and try again.",
+        };
+      }
+
+      const [existingAccess] = await tx
+        .select({ id: orders.id })
+        .from(orders)
+        .where(
+          and(
+            eq(orders.eventId, ev.id),
+            eq(orders.personId, personId),
+            inArray(orders.status, ["pending", "paid"]),
+          ),
+        )
+        .limit(1);
+      if (existingAccess) {
+        return {
+          ok: false,
+          status: 409,
+          error:
+            "You already have access or an open checkout for this event. Complete or cancel it, or use another identity for an additional ticket.",
+        };
+      }
+
+      const amountCents = tier.priceCents;
+      const [orderRow] = await tx
+        .insert(orders)
+        .values({
+          eventId: ev.id,
+          personId,
+          eventTierId: tier.id,
+          unitPriceCents: tier.priceCents,
+          locale: input.locale,
+          amountCents,
+          status: "pending",
+          inviteLinkId,
+        })
+        .returning({ id: orders.id });
+      const orderId = orderRow!.id;
+
+      const currency = tier.currency.toLowerCase();
+      const pi = await stripe.paymentIntents.create({
+        amount: amountCents,
+        currency,
+        metadata: { orderId, eventId: ev.id },
+        automatic_payment_methods: { enabled: true },
+      });
+      await tx
+        .update(orders)
+        .set({
+          stripePaymentIntentId: pi.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId));
+      return {
+        ok: true,
+        clientSecret: pi.client_secret!,
+        orderId,
+      };
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Checkout failed.";
+    return { ok: false, status: 500, error: msg };
+  }
+}
+
+async function getTierSoldQtyTx(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  eventId: string,
+  tierId: string,
+): Promise<number> {
+  const [row] = await tx
+    .select({
+      qty: sql<number>`count(*)::int`,
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.eventId, eventId),
+        eq(orders.eventTierId, tierId),
+        inArray(orders.status, ["pending", "paid"]),
+      ),
+    );
+  return Number(row?.qty ?? 0);
+}
+
+async function getEventHeadcountUsedTx(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  eventId: string,
+): Promise<number> {
+  const [row] = await tx
+    .select({
+      qty: sql<number>`count(*)::int`,
+    })
+    .from(orders)
+    .where(
+      and(eq(orders.eventId, eventId), inArray(orders.status, ["pending", "paid"])),
+    );
+  return Number(row?.qty ?? 0);
+}
+
+async function getInviteRedemptionQtyTx(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  inviteLinkId: string,
+): Promise<number> {
+  const [row] = await tx
+    .select({
+      qty: sql<number>`count(*)::int`,
+    })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.inviteLinkId, inviteLinkId),
+        inArray(orders.status, ["pending", "paid"]),
+      ),
+    );
+  return Number(row?.qty ?? 0);
+}

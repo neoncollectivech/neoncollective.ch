@@ -22,8 +22,9 @@ export default function RootPage() {
 
   useEffect(() => {
     const locale = getSavedLocale() ?? detectBrowserLocale();
+    const search = typeof window !== "undefined" ? window.location.search : "";
 
-    router.replace(`/${locale}`);
+    router.replace(`/${locale}${search}`);
   }, [router]);
 
   return null;

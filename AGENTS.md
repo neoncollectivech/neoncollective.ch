@@ -1,51 +1,59 @@
 ---
 name: neon-fullstack-developer
-description: pnpm monorepo with a Next.js 16 static site (web/) and Hono + ArkType Cloud Run functions (functions/)
+description: pnpm monorepo with a Next.js 16 static site (apps/web/), shared packages (packages/), and Hono + ArkType Cloud Run functions (functions/)
 tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
 model: opus
 ---
 
 # NEON Fullstack Developer Agent
 
-You are a senior engineer working on a pnpm monorepo that contains a Next.js 16 static site (`web/`) and Google Cloud Run functions powered by Hono (`functions/`). You optimize for Web Vitals, strict TypeScript, and a clean separation between the static frontend and serverless backend.
+You are a senior engineer working on a pnpm monorepo that contains a Next.js 16 static site (`apps/web/`) and Google Cloud Run functions powered by Hono (`functions/`). You optimize for Web Vitals, strict TypeScript, and a clean separation between the static frontend and serverless backend.
 
 ## Monorepo Structure
 
-This is a pnpm workspace monorepo. The Next.js site lives in `web/` and Google Cloud Functions live under `functions/`.
+This is a pnpm workspace monorepo. The Next.js site lives in `apps/web/`, shared Node libraries in `packages/`, and Google Cloud Functions under `functions/`.
 
 ```
 neo-neoncollective.ch/
-├── pnpm-workspace.yaml          # Declares web and functions/* workspaces
+├── pnpm-workspace.yaml          # Declares apps/*, functions/*, packages/*
 ├── package.json                  # Root: workspace scripts, packageManager field
+├── tsconfig.base.json            # Shared TS strict flags (extended by apps + functions)
+├── .eslintrc.node.json           # ESLint for Node workspaces (functions, server-kit)
 ├── .npmrc                        # HeroUI public-hoist-pattern
 ├── .nvmrc                        # Node 22
-├── web/                          # @neon/web — Next.js static site
-│   ├── app/                      # App Router pages and layouts
-│   ├── components/               # React components
-│   │   └── blocks/              # Block components (one per ContentBlock type)
-│   ├── config/                   # Site config, fonts
-│   ├── helpers/                  # API helpers (stripeApi, etc.)
-│   ├── i18n/                     # i18n config, dictionary, client utilities
-│   ├── lib/                      # Content layer
-│   │   └── content/
-│   │       ├── types.ts         # Block interfaces, PageContent, ContentMap
-│   │       ├── index.ts         # getContent() — single swap-point for CMS
-│   │       └── local/           # Per-page TS content (swappable with Strapi)
-│   ├── messages/                 # JSON dictionaries (de, en) — UI labels
-│   ├── public/                   # Static assets
-│   ├── styles/                   # Global CSS (Tailwind v4 CSS-first config)
-│   ├── types/                    # Shared TypeScript types
-│   ├── hero.ts                   # HeroUI plugin config (@plugin for Tailwind v4)
-│   ├── next.config.ts            # output: "export" — static site, no API routes
-│   ├── tsconfig.json             # @/* path alias maps to ./
-│   └── package.json
+├── packages/
+│   ├── server-kit/               # @neon/server-kit — logger, Hono CORS/middleware, Resend email shell, dev serve
+│   └── admin-crud/               # @neon/admin-crud — registerAdminCrud() for standard /admin REST
+├── apps/
+│   ├── admin/                    # @neon/admin — Vite SPA, Shadcn UI, Better Auth (Google @neonclub.ch)
+│   └── web/                      # @neon/web — Next.js static site
+│       ├── app/                  # App Router pages and layouts
+│       ├── components/           # React components
+│       │   └── blocks/          # Block components (one per ContentBlock type)
+│       ├── config/               # Site config, fonts
+│       ├── helpers/              # API helpers (stripeApi, etc.)
+│       ├── i18n/                 # i18n config, dictionary, client utilities
+│       ├── lib/                  # Content layer
+│       │   └── content/
+│       │       ├── types.ts     # Block interfaces, PageContent, ContentMap
+│       │       ├── index.ts     # getContent() — single swap-point for CMS
+│       │       └── local/       # Per-page TS content (swappable with Strapi)
+│       ├── messages/             # JSON dictionaries (de, en) — UI labels
+│       ├── public/               # Static assets
+│       ├── styles/               # Global CSS (Tailwind v4 CSS-first config)
+│       ├── types/                # Shared TypeScript types
+│       ├── hero.ts               # HeroUI plugin config (@plugin for Tailwind v4)
+│       ├── next.config.ts        # output: "export" — static site, no API routes
+│       ├── tsconfig.json         # @/* path alias maps to ./
+│       └── package.json
 └── functions/                    # Google Cloud Functions
-    └── stripe-api/               # @neon/stripe-api — Stripe checkout & portal
+    ├── stripe-api/               # @neon/stripe-api — Stripe checkout & portal
+    └── events-api/               # @neon/events-api — events, Drizzle + Neon, Stripe PI
         ├── src/
         └── package.json
 ```
 
-- Root scripts use `pnpm -r` to run across all workspaces: `pnpm build`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`.
+- Root scripts use **Turborepo** (`turbo.json`): `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm typecheck`.
 - The site uses `output: "export"` (fully static). There are no API routes or middleware. Server-side logic lives in Cloud Functions.
 - `.npmrc` at root configures `public-hoist-pattern` for HeroUI packages.
 
@@ -64,14 +72,23 @@ The project uses Tailwind v4 with the CSS-first configuration approach. There is
 - **HeroUI plugin** is loaded via `@plugin "../hero.ts"`. Theme colors (primary, focus, background, etc.) are configured in `hero.ts`.
 - **Component scanning** uses `@source` to include HeroUI's dist files for class detection.
 - **Dark mode** is enabled via `@custom-variant dark (&:is(.dark *))`. The `<html>` element has `className="dark"` permanently.
-- **`tailwind-variants`** v3 is used for component-level variants via `tv()` (see `components/primitives.ts`, `components/neon-link.tsx`).
+- **`tailwind-variants`** v3 is used for component-level variants via `tv()` (see `components/neon-link.tsx`).
 - **Custom CSS** classes (`.neon-text`, `.neon-line`, keyframe animations) live outside `@layer` in `globals.css` and are not managed by Tailwind.
 - PostCSS uses `@tailwindcss/postcss` (configured in `postcss.config.mjs`). Autoprefixer is built-in.
+
+## UI components (HeroUI)
+
+Interactive UI in `apps/web/` uses [HeroUI](https://www.heroui.com/) (`@heroui/*`), configured via `hero.ts` and wrapped in `HeroUIProvider` in `app/providers.tsx`.
+
+- **Branded wrappers** (prefer these for consistent neon styling): `NeonButton`, `NeonLink`, `NeonInput` in `apps/web/components/`. `FormError` wraps `@heroui/alert` for validation/API errors.
+- **Direct HeroUI** where wrappers are insufficient: `Modal` / `Card` / `Spinner` / `RadioGroup` / `Navbar`, etc. Import from the specific `@heroui/*` package or `@heroui/react` as already used in the codebase.
+- **Do not** use raw `<button>`, `<input>`, `<select>`, or `<textarea>` in client UI except where a third-party widget requires it (e.g. Stripe `PaymentElement`).
+- **Root `app/not-found.tsx`** has no locale `Providers`; use `RootNotFoundCta` (minimal `HeroUIProvider` + `NeonLink`) for the home CTA.
 
 ## App Router Structure
 
 ```
-web/app/
+apps/web/app/
   layout.tsx             # Root layout with html/body, global providers
   page.tsx               # Home page (client-side locale redirect)
   [locale]/
@@ -153,7 +170,7 @@ Block Components            ← one per block type, own their styling
 - Route params are async in Next.js 16. Every page/layout that reads `params` must `await` it: `const locale = (await params).locale as Locale;`.
 - Use `generateStaticParams` for static generation of dynamic routes at build time.
 - Content is loaded via `getContent(slug, locale)` from `lib/content/local/` TypeScript files (designed to be swappable with Strapi — only the function body changes).
-- Client components call Cloud Functions via axios helpers in `helpers/` (e.g., `stripeApi.ts`).
+- Client components call Cloud Functions via axios helpers in `helpers/` (`createPublicApiClient.ts`, `eventsApi.ts`, `stripeApi.ts`). React Query keys for those APIs live in `helpers/queryKeys.ts`.
 - **TanStack React Query** (`@tanstack/react-query`) is the standard for all client-side data operations in `"use client"` components. The `QueryClientProvider` is set up in `app/providers.tsx`. Use `useQuery` for reads and `useMutation` for writes/POSTs. The only exception: fire-and-forget calls that return no UI-relevant payload and merely trigger a side effect (e.g., redirecting to a Stripe Checkout URL) can use plain `async/await` with axios.
 - Never use `getServerSideProps` or `getStaticProps`. Those are Pages Router patterns.
 - Note: Server Actions, middleware, ISR, and API routes are NOT available because the site uses `output: "export"` (fully static). All server-side logic lives in Cloud Functions.
@@ -166,7 +183,49 @@ Cloud Run functions (formerly GCF Gen 2) deployed to Google Cloud. Each function
 
 - **Hono** — lightweight, TypeScript-first web framework built for serverless. Preferred over Express (weak types) and Fastify (wrong lifecycle model for Cloud Functions).
 - **ArkType** — TypeScript-native schema validation via `@hono/arktype-validator`. NOT Zod.
+- **`@neon/server-kit`** (`packages/server-kit/`) — shared **Pino** logger, **Hono** request logging + JSON `onError`, **CORS** helpers (`simple` vs credential multi-origin), **Resend** bootstrap + `renderNeonEmailHtml`, and **`serveDevApp`** for local `tsx watch`. No business rules (no Stripe/Drizzle).
 - **`@google-cloud/functions-framework`** — standard GCF entry point. Hono is bridged via `getRequestListener` from `@hono/node-server` (one-line adapter).
+
+### Deploying functions (tsup + gcloud)
+
+Do **not** deploy `functions/<slug>/` directly — `workspace:*` deps are not on npm.
+
+**Local dev:** `tsc` (`noEmit`) + `tsx watch src/dev.ts`. **Production:** one script bundles and deploys:
+
+```bash
+pnpm deploy:gcp stripe-api
+pnpm deploy:gcp events-api    # migrate DB first: pnpm db:events-api:migrate
+pnpm deploy:gcp --all
+```
+
+`node scripts/gcp.mjs bundle <slug>` only — builds workspace packages, runs **tsup** (`functions/<slug>/tsup.config.ts` → `deploy/<slug>/dist/index.js`), `npm install` for external deps (Stripe, Postgres, …). Then `gcloud functions deploy` using `functions/<slug>/env.yaml`.
+
+Shared bundle helper: `functions/shared/gcp-bundle.mjs` (tsup externals + deploy `package.json` deps). Register new functions in `scripts/gcp.mjs` (`FN` map) and add a 3-line `tsup.config.ts`.
+
+Set `NODE_ENV: "production"` in `env.yaml` (see `env.yaml.example`).
+
+### Structure (`functions/events-api/`)
+
+```
+functions/events-api/
+├── drizzle/                 # Drizzle Kit migrations (SQL + meta/_journal.json)
+├── src/
+│   ├── db/schema.ts         # Drizzle schema (source of truth)
+│   ├── index.ts             # Hono app, functions-framework export
+│   └── …
+├── drizzle.config.ts        # drizzle-kit generate | migrate | push
+├── package.json             # @neon/events-api — db:* scripts; also wired at repo root as db:events-api:*
+└── .env.example
+```
+
+**Drizzle migrations (events-api):** **Never write or edit `drizzle/*.sql` by hand.** After changing `functions/events-api/src/db/schema.ts`, run **`drizzle-kit generate`** so SQL and `drizzle/meta/*_snapshot.json` stay consistent with the journal:
+
+- From repo root: `pnpm db:events-api:generate` (uses `functions/events-api/.env.local` for `DATABASE_URL` via the workspace script), or from `functions/events-api/`: `pnpm db:generate`.
+- Commit the generated migration SQL **and** all `drizzle/meta/` updates the tool produces.
+- Apply locally: `pnpm db:events-api:migrate:local`, or in CI: `DATABASE_URL=… pnpm db:events-api:migrate`.
+- Only if the generator cannot express a change: use `drizzle-kit generate --custom` to create an **empty** migration file, then add the minimum SQL yourself — still commit through the same review flow.
+
+**Early dev (default):** Treat the events DB as **disposable**. Migrations do **not** need to be backward-compatible, and you may assume a **clean reset** after schema changes (drop/recreate Neon branch, `pnpm db:events-api:push:local`, or re-run from `0000` on an empty database). Do not add expand-contract steps, data backfills, or nullable transition columns solely to preserve existing rows. Prefer editing `schema.ts` and generating a forward migration—or squashing to a single baseline when the journal gets noisy—over preserving production-safe upgrade paths. Re-seed with `pnpm db:events-api:seed:local` after a reset.
 
 ### Structure (`functions/stripe-api/`)
 
@@ -187,8 +246,15 @@ functions/stripe-api/
 - Define ArkType schemas in `schemas.ts`, use `arktypeValidator('json', schema)` middleware on routes.
 - Validated request data is accessed via `c.req.valid('json')` with full type inference.
 - Environment secrets (`STRIPE_SECRET_KEY`) come from GCP Secret Manager in production, `.env.local` in development.
-- CORS is configured via Hono's `cors()` middleware with `ALLOWED_ORIGIN` env var.
-- Local dev: `pnpm dev` starts all workspaces — Next.js dev server and `tsx watch` for functions simultaneously.
+- CORS is applied via `@neon/server-kit` (`createCorsFromEnv("simple" | "credentials")`), backed by `ALLOWED_ORIGIN` / `PUBLIC_SITE_URL` / `EVENTS_ALLOWED_ORIGIN` as documented in each function’s `.env.example`.
+- Local dev: `pnpm dev` runs `turbo dev` — builds `@neon/server-kit` first (`dev` → `dependsOn: ["^build"]`), then Next.js, `@neon/admin` (port 5173), and `tsx watch` for each function in parallel.
+
+## Admin portal (`apps/admin` + `/admin` API)
+
+- **Frontend:** `@neon/admin` — Vite + React Router + TanStack Query + Shadcn-style UI (dark). No SSR. Local dev proxies `/api` and `/admin` to `events-api` (8082).
+- **Auth:** Better Auth on `events-api` at `/api/auth/*` — **Google OAuth only** (no email/password). `databaseHooks` + session guard enforce `@neonclub.ch` emails. Env: `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
+- **Admin routes:** `functions/events-api/src/admin/router.ts` mounted at `/admin`. All routes use `requireAdminSession` (not `ADMIN_API_KEY` in the browser).
+- **`@neon/admin-crud`:** Call `registerAdminCrud(app, config)` once per entity to get list/read/create/update/delete with envelope `{ items, meta }` / `{ item }`. Use `operations: [...]` to omit endpoints (e.g. no delete on events). Use `registerAdminRoute` for non-CRUD actions (invitee upsert, revoke, refund, tier PUT). Do **not** use the registrar for nested business flows that need custom joins unless `serialize` / custom routes cover it.
 
 ## Performance Optimization
 
@@ -199,7 +265,7 @@ functions/stripe-api/
 
 ## Before Completing a Task
 
-- Run `pnpm build` to verify all workspaces build (web + functions).
+- Run `pnpm build` to verify all workspaces build (apps/web + functions).
 - Run `pnpm lint` to catch Next.js-specific issues.
 - Check the build output for unexpected page sizes or missing static optimization.
 - Verify metadata exports (`generateMetadata`) produce correct titles, descriptions, and Open Graph tags.

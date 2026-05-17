@@ -1,0 +1,105 @@
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import {
+  INVITEES_CSV_TEMPLATE,
+  ParseInviteesCsvError,
+  parseInviteesCsv,
+  type InviteeUpsertPayload,
+} from "@/lib/parse-invitees-csv";
+
+type InviteeBulkImportProps = {
+  disabled?: boolean;
+  isPending?: boolean;
+  onImport: (invitees: InviteeUpsertPayload[]) => void;
+};
+
+export function InviteeBulkImport({
+  disabled,
+  isPending,
+  onImport,
+}: InviteeBulkImportProps) {
+  const [csv, setCsv] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleImport = () => {
+    try {
+      const invitees = parseInviteesCsv(csv);
+      onImport(invitees);
+    } catch (e) {
+      const message =
+        e instanceof ParseInviteesCsvError ? e.message : "Invalid CSV";
+      toast.error(message);
+    }
+  };
+
+  const loadFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCsv(typeof reader.result === "string" ? reader.result : "");
+    };
+    reader.onerror = () => toast.error("Could not read file");
+    reader.readAsText(file);
+  };
+
+  return (
+    <details className="text-sm">
+      <summary className="cursor-pointer text-muted-foreground">Bulk import (CSV)</summary>
+      <div className="mt-2 space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Header row required. Each row needs email or phoneE164.
+        </p>
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Example</p>
+          <pre className="overflow-x-auto rounded-md border border-input bg-muted/30 p-2 text-xs font-mono text-foreground/80 whitespace-pre">
+            {INVITEES_CSV_TEMPLATE}
+          </pre>
+        </div>
+        <textarea
+          className="w-full min-h-28 rounded-md border border-input bg-background p-3 text-sm font-mono"
+          value={csv}
+          placeholder="Paste or upload CSV…"
+          onChange={(e) => setCsv(e.target.value)}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) loadFile(file);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={() => fileRef.current?.click()}
+          >
+            Choose file
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={disabled}
+            onClick={() => setCsv(INVITEES_CSV_TEMPLATE)}
+          >
+            Insert template
+          </Button>
+          <Button
+            disabled={!csv.trim() || disabled || isPending}
+            onClick={handleImport}
+          >
+            {isPending ? "Importing…" : "Import invitees"}
+          </Button>
+        </div>
+      </div>
+    </details>
+  );
+}

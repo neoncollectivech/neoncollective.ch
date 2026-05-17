@@ -18,6 +18,10 @@ export const siteConfig = {
       href: "/engage",
     },
     {
+      key: "events",
+      href: "/events",
+    },
+    {
       key: "donate",
       href: "/donate",
     },

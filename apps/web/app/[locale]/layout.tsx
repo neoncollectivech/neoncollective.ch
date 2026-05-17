@@ -32,7 +32,7 @@ export async function generateMetadata({
     metadataBase: new URL(siteConfig.url),
     openGraph: {
       type: "website",
-      locale: locale === "de" ? "de_CH" : "en",
+      locale: locale === "de" ? "de_CH" : locale === "it" ? "it_CH" : "en",
       url,
       siteName: siteConfig.name,
       title: `${siteConfig.name} — ${dictionary.meta.description}`,

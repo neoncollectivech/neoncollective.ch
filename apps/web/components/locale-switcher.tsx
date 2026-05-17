@@ -1,25 +1,28 @@
 "use client";
 
+import { Suspense } from "react";
+import { Button } from "@heroui/button";
 import NextLink from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import clsx from "clsx";
 
 import { saveLocale } from "@/i18n/client";
 import { locales, type Locale } from "@/i18n/config";
 
-export function LocaleSwitcher() {
+function LocaleSwitcherInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  /** Swap the locale prefix in the current path. */
   function getLocalePath(targetLocale: Locale) {
     const segments = pathname.split("/");
 
-    // segments[0] is "", segments[1] is the current locale
     segments[1] = targetLocale;
+    const path = segments.join("/");
+    const query = searchParams.toString();
 
-    return segments.join("/");
+    return query ? `${path}?${query}` : path;
   }
 
-  // Determine current locale from URL
   const currentLocale = pathname.split("/")[1] as Locale;
 
   return (
@@ -29,19 +32,32 @@ export function LocaleSwitcher() {
           {i > 0 && (
             <span className="text-foreground/15 text-[0.625rem]">/</span>
           )}
-          <NextLink
-            className={`text-[0.625rem] font-mono uppercase tracking-widest transition-colors duration-300 ${
+          <Button
+            as={NextLink}
+            className={clsx(
+              "min-w-0 h-auto px-0 py-0 font-mono text-[0.625rem] uppercase tracking-widest bg-transparent",
               loc === currentLocale
                 ? "text-neon"
-                : "text-foreground/30 hover:text-neon"
-            }`}
+                : "text-foreground/30 hover:text-neon",
+            )}
             href={getLocalePath(loc)}
-            onClick={() => saveLocale(loc)}
+            radius="none"
+            size="sm"
+            variant="light"
+            onPress={() => saveLocale(loc)}
           >
             {loc}
-          </NextLink>
+          </Button>
         </span>
       ))}
     </div>
+  );
+}
+
+export function LocaleSwitcher() {
+  return (
+    <Suspense fallback={null}>
+      <LocaleSwitcherInner />
+    </Suspense>
   );
 }

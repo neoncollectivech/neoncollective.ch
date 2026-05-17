@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
 import { Spinner } from "@heroui/react";
 import clsx from "clsx";
 
+import { FormError } from "@/components/form-error";
+import { NeonButton } from "@/components/neon-button";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import {
   createCheckoutSession,
@@ -18,6 +19,9 @@ type DonationMode = "recurring" | "onetime";
 function formatAmount(amount: number): string {
   return `CHF ${amount}.—`;
 }
+
+const toggleInactive =
+  "!border-foreground/10 !text-foreground/30 hover:!text-foreground/50 hover:!bg-transparent hover:!border-foreground/10";
 
 export function DonationPicker() {
   const { dictionary, locale } = useDictionary();
@@ -82,9 +86,9 @@ export function DonationPicker() {
 
   if (isError || !tiers) {
     return (
-      <p className="text-sm text-red-400/80 py-8">
+      <FormError className="py-8">
         Could not load donation options. Please try again later.
-      </p>
+      </FormError>
     );
   }
 
@@ -92,37 +96,29 @@ export function DonationPicker() {
 
   return (
     <div>
-      {/* Mode toggle */}
       <div className="flex gap-0 mb-12">
-        <Button
+        <NeonButton
           className={clsx(
-            "font-mono text-xs uppercase tracking-widest px-6 transition-all duration-300 rounded-none rounded-l-sm",
-            mode === "recurring"
-              ? "border-neon/60 text-neon bg-neon/10"
-              : "border-foreground/10 text-foreground/30 hover:text-foreground/50",
+            "px-6 rounded-none rounded-l-sm",
+            mode === "recurring" ? "bg-neon/10" : toggleInactive,
           )}
-          radius="none"
-          variant="bordered"
+          type="button"
           onPress={() => setMode("recurring")}
         >
           {t.recurringLabel}
-        </Button>
-        <Button
+        </NeonButton>
+        <NeonButton
           className={clsx(
-            "font-mono text-xs uppercase tracking-widest px-6 transition-all duration-300 rounded-none rounded-r-sm -ml-px",
-            mode === "onetime"
-              ? "border-neon/60 text-neon bg-neon/10"
-              : "border-foreground/10 text-foreground/30 hover:text-foreground/50",
+            "px-6 rounded-none rounded-r-sm -ml-px",
+            mode === "onetime" ? "bg-neon/10" : toggleInactive,
           )}
-          radius="none"
-          variant="bordered"
+          type="button"
           onPress={() => setMode("onetime")}
         >
           {t.onetimeLabel}
-        </Button>
+        </NeonButton>
       </div>
 
-      {/* Tier cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {currentTiers.map((tier) => {
           const isItemLoading = loadingPriceId === tier.priceId;

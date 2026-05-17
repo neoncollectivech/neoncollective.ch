@@ -1,8 +1,7 @@
 "use client";
 
-import NextLink from "next/link";
-
 import { NeonHero } from "@/components/neon-hero";
+import { NeonLink } from "@/components/neon-link";
 import { useDictionary } from "@/i18n/DictionaryContext";
 
 const messages = {
@@ -16,6 +15,11 @@ const messages = {
     description: "The frequency you're looking for doesn't exist.",
     home: "Go back",
   },
+  it: {
+    subtitle: "Segnale perso",
+    description: "La frequenza che cerchi non esiste.",
+    home: "Torna indietro",
+  },
 } as const;
 
 export default function NotFound() {
@@ -25,12 +29,9 @@ export default function NotFound() {
   return (
     <NeonHero description={t.description} subtitle={t.subtitle} title="404">
       <div className="neon-line w-12 mt-10" />
-      <NextLink
-        className="mt-10 inline-block border border-neon/60 px-8 py-3 text-xs font-mono uppercase tracking-widest text-neon leading-none hover:bg-neon/10 hover:border-neon no-underline transition-all duration-300"
-        href={`/${locale}`}
-      >
+      <NeonLink className="mt-10" href={`/${locale}`} neonStyle="cta">
         {t.home}
-      </NextLink>
+      </NeonLink>
     </NeonHero>
   );
 }

@@ -90,6 +90,8 @@ export interface MetaTextBlock extends BlockBase {
 
 /** Single entry in the intervention dispatch feed. */
 export interface InterventionEntry {
+  /** Stable React key when `codename` is not unique (e.g. synced public events). */
+  dispatchKey?: string;
   codename: string;
   status: "incubation" | "live" | "archived";
   objective: string;

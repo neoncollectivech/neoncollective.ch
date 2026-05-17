@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — single source of truth for the admin app.
+ * All --radius-* are 0: use rounded-md / rounded-lg in components; no rounded-none needed.
+ */
+@theme {
+  --color-background: #0a0a0a;
+  --color-foreground: #f0f0f0;
+  --color-card: #111111;
+  --color-card-foreground: #f0f0f0;
+  --color-primary: rgb(255 49 49);
+  --color-primary-foreground: #0a0a0a;
+  --color-muted: #1a1a1a;
+  --color-muted-foreground: #a0a0a0;
+  --color-border: #262626;
+  --color-input: #262626;
+  --color-ring: rgb(255 49 49);
+
+  --radius: 0;
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      system-ui,
+      -apple-system,
+      sans-serif;
+  }
+
+  /* Third-party toasts (Sonner) don't read Tailwind theme */
+  [data-sonner-toast] {
+    border-radius: var(--radius-md) !important;
+  }
+}

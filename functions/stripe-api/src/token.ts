@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { createLogger } from "./logger.js";
+import { createLogger } from "@neon/server-kit";
 
 const log = createLogger("token");
 

@@ -1,6 +1,0 @@
-node_modules/
-dist/
-env.yaml
-env.yaml.example
-.env*.local
-src/dev.ts

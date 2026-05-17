@@ -48,6 +48,29 @@ const content: Record<Locale, PageContent> = {
       },
     ],
   },
+  it: {
+    meta: {
+      title: "Partecipa",
+      description:
+        "Sostenere la cultura elettronica tra sfide e paradigmi in evoluzione richiede una ridefinizione attiva, non un consumo passivo.",
+    },
+    blocks: [
+      {
+        component: "section",
+        title: "PARTECIPA",
+        subtitle: "PROGETTA L'EVOLUZIONE",
+        body: "Stiamo radunando un collettivo di artisti, pensatori strategici, esperti tecnici e organizzatori che sanno che la subcultura ha bisogno di attenzione mirata e innovazione continua. È il mandato del prosumer. Mettendo a disposizione le tue competenze, ci aiuti a ridefinire i formati culturali — così che i valori fondamentali della pista restino vivi e accessibili nonostante abitudini sociali e limiti urbani che cambiano. Operiamo come una forza strutturata, che tutela la sovranità culturale con un design innovativo e standardi radicati nella società.",
+        cta: {
+          label: "UNISCITI",
+          href: "https://tickets.neoncollective.ch/account/login?next=/membership-2025",
+        },
+      },
+      {
+        component: "neonQuote",
+        lines: ["Impegna la tua innovazione nella {{cura della cultura}}."],
+      },
+    ],
+  },
 };
 
 export default content;

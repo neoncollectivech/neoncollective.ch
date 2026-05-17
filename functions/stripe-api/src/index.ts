@@ -1,64 +1,27 @@
 import * as functions from "@google-cloud/functions-framework";
 import { getRequestListener } from "@hono/node-server";
 import { arktypeValidator } from "@hono/arktype-validator";
-import { Hono } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { cors } from "hono/cors";
-
 import {
-  checkoutSchema,
-  portalSchema,
-  portalRequestSchema,
-} from "./schemas.js";
+  createCorsFromEnv,
+  createHttpJsonErrorHandler,
+  createHttpRequestLogger,
+  createLogger,
+} from "@neon/server-kit";
+import { Hono } from "hono";
+
+import { checkoutSchema, portalRequestSchema } from "./schemas.js";
 import type Stripe from "stripe";
 import { stripe } from "./stripe.js";
 import { createToken, verifyToken } from "./token.js";
 import { sendMagicLinkEmail, isEmailEnabled } from "./email.js";
-import { createLogger } from "./logger.js";
 
 const log = createLogger("http");
 
 const app = new Hono();
 
-/* ------------------------------------------------------------------ */
-/*  Middleware                                                          */
-/* ------------------------------------------------------------------ */
-
-app.use(
-  "*",
-  cors({
-    origin: process.env.ALLOWED_ORIGIN || "*",
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type"],
-  }),
-);
-
-/** Request logger — logs method, path, status, and duration. */
-app.use("*", async (c, next) => {
-  const start = Date.now();
-
-  await next();
-
-  const ms = Date.now() - start;
-
-  log.info(
-    { method: c.req.method, path: c.req.path, status: c.res.status, ms },
-    `${c.req.method} ${c.req.path} ${c.res.status} ${ms}ms`,
-  );
-});
-
-/** Global error handler — logs the error and returns structured JSON. */
-app.onError((err, c) => {
-  log.error({ err, path: c.req.path, method: c.req.method }, err.message);
-
-  const status = ("statusCode" in err ? err.statusCode : 500) as ContentfulStatusCode;
-
-  return c.json({ error: err.message || "Internal server error" }, status);
-});
-
-/* ------------------------------------------------------------------ */
-/*  Routes                                                             */
-/* ------------------------------------------------------------------ */
+app.use("*", createCorsFromEnv("simple"));
+app.use("*", createHttpRequestLogger(log));
+app.onError(createHttpJsonErrorHandler(log));
 
 /**
  * POST /checkout
@@ -85,7 +48,7 @@ app.post(
       mode,
       payment_method_types: paymentMethodTypes,
       line_items: [{ price: priceId, quantity: 1 }],
-      locale: locale === "de" ? "de" : "en",
+      locale: locale === "de" ? "de" : locale === "it" ? "it" : "en",
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
@@ -97,37 +60,6 @@ app.post(
 );
 
 /**
- * POST /portal
- * Looks up a Stripe customer by email and creates a Customer Portal session.
- */
-app.post("/portal", arktypeValidator("json", portalSchema), async (c) => {
-  const { email, returnUrl } = c.req.valid("json");
-
-  log.debug({ email }, "Looking up customer for portal");
-
-  const customers = await stripe.customers.list({ email, limit: 1 });
-
-  if (customers.data.length === 0) {
-    log.debug({ email }, "No customer found for portal");
-
-    return c.json({ error: "No membership found for this email." }, 404);
-  }
-
-  const customerId = customers.data[0].id;
-
-  log.debug({ customerId }, "Customer found, creating portal session");
-
-  const portalSession = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: returnUrl,
-  });
-
-  log.debug({ portalUrl: portalSession.url }, "Portal session created");
-
-  return c.json({ url: portalSession.url });
-});
-
-/**
  * POST /portal/request
  * Sends a magic link email so the donor can securely access their Stripe portal.
  */
@@ -136,7 +68,13 @@ app.post(
   arktypeValidator("json", portalRequestSchema),
   async (c) => {
     if (!isEmailEnabled) {
-      return c.json({ error: "Email service is not configured." }, 503);
+      return c.json(
+        {
+          error:
+            "Email is not configured. Set RESEND_API_KEY and FROM_EMAIL (address on a domain verified in Resend).",
+        },
+        503,
+      );
     }
 
     const { email, locale, returnUrl } = c.req.valid("json");

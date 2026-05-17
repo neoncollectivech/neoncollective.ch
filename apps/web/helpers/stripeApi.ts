@@ -1,28 +1,27 @@
-import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
+
+import { createPublicApiClient } from "@/helpers/createPublicApiClient";
+import { donationTiersQueryKey } from "@/helpers/queryKeys";
 
 const STRIPE_API_URL = process.env.NEXT_PUBLIC_STRIPE_API_URL;
 
-if (!STRIPE_API_URL) {
-  console.warn("NEXT_PUBLIC_STRIPE_API_URL is not set.");
-}
-
-const stripeClient = axios.create({
-  baseURL: STRIPE_API_URL,
-  headers: { "Content-Type": "application/json" },
+const stripeClient = createPublicApiClient({
+  envUrl: STRIPE_API_URL,
+  envLabel: "NEXT_PUBLIC_STRIPE_API_URL",
+  warnMissing: "always",
 });
 
 export interface CheckoutParams {
   priceId: string;
   mode: "subscription" | "payment";
-  locale: "de" | "en";
+  locale: "de" | "en" | "it";
   successUrl: string;
   cancelUrl: string;
 }
 
 export interface PortalRequestParams {
   email: string;
-  locale: "de" | "en";
+  locale: "de" | "en" | "it";
   returnUrl: string;
 }
 
@@ -75,7 +74,7 @@ export async function fetchDonationTiers(): Promise<DonationTiers> {
  */
 export function useDonationTiers() {
   return useQuery({
-    queryKey: ["donation-tiers"],
+    queryKey: donationTiersQueryKey,
     queryFn: fetchDonationTiers,
     staleTime: 5 * 60 * 1000,
   });

@@ -110,6 +110,60 @@ const content: Record<Locale, PageContent> = {
       },
     ],
   },
+  it: {
+    meta: { title: "NEON" },
+    blocks: [
+      {
+        component: "hero",
+        animated: true,
+        subtitle: "Nuova Organizzazione Elettronica per la cultura notturna",
+        fullHeight: true,
+      },
+      {
+        component: "interventionFeed",
+        entries: [
+          {
+            status: "live",
+            codename: "RECLUTAMENTO DEL NUCLEO",
+            objective:
+              "Formazione della cellula primaria. Cerchiamo architetti visuali, ingegneri del suono e curatori culturali per l'espansione strutturata dell'organizzazione.",
+            location: "ZURIGO / IBRIDO",
+            cta: {
+              label: "PARTECIPA",
+              href: "/engage",
+            },
+          },
+
+          {
+            status: "incubation",
+            codename: "OPERAZIONE VOID",
+            objective:
+              "Mappatura strategica degli spazi industriali dismessi. Riconversione di un'officina meccanica di 400 m² in una zona sonora temporanea di 48 ore.",
+            location: "ALTSTETTEN / INDUSTRIALE",
+          },
+
+          {
+            status: "archived",
+            codename: "RICODIFICA DEL SEGNALE",
+            objective:
+              "Rifacimento completo dell'infrastruttura digitale. Passaggio da una presenza passiva a un hub culturale attivo e cifrato.",
+            location: "GLOBALE / DIGITALE",
+          },
+        ],
+      },
+      {
+        component: "neonQuote",
+        lines: [
+          '"I muri possono stringersi, ma la {{pista da ballo è un\'idea}}, non un luogo."',
+        ],
+      },
+      {
+        component: "internalLink",
+        label: "Leggi il manifesto",
+        href: "/manifesto",
+      },
+    ],
+  },
 };
 
 export default content;

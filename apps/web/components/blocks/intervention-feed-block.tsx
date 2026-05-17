@@ -4,11 +4,15 @@ import type {
   InterventionFeedBlock,
   InterventionEntry,
 } from "@/lib/content/types";
+import type { Dictionary } from "@/i18n/getDictionary";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SplitFlapText } from "@/components/split-flap-text";
 import { NeonLink } from "@/components/neon-link";
+import { useDictionary } from "@/i18n/DictionaryContext";
+import { eventDetailPath } from "@/helpers/eventRoutes";
+import { fetchEventsCatalog, type EventCatalogItem } from "@/helpers/eventsApi";
 
 /* ── Status ordering & styling ────────────────────────────── */
 
@@ -55,6 +59,97 @@ function useUtcClock() {
   }, []);
 
   return time;
+}
+
+function rowIsPast(row: EventCatalogItem, nowMs: number): boolean {
+  if (!row.startsAt) {
+    return false;
+  }
+
+  return Date.parse(row.startsAt) < nowMs;
+}
+
+function compareStartsAsc(a: EventCatalogItem, b: EventCatalogItem): number {
+  const ta = a.startsAt ? Date.parse(a.startsAt) : Number.POSITIVE_INFINITY;
+  const tb = b.startsAt ? Date.parse(b.startsAt) : Number.POSITIVE_INFINITY;
+
+  return ta - tb;
+}
+
+function compareStartsDesc(a: EventCatalogItem, b: EventCatalogItem): number {
+  return compareStartsAsc(b, a);
+}
+
+function mapRowToEntry(
+  row: EventCatalogItem,
+  copy: Dictionary["events"],
+  locale: string,
+  nowMs: number,
+): InterventionEntry {
+  const past = rowIsPast(row, nowMs);
+  const status = past ? "archived" : "live";
+  const startsMs = row.startsAt ? Date.parse(row.startsAt) : NaN;
+  const hasStart = Number.isFinite(startsMs);
+  const coordinates = hasStart
+    ? new Intl.DateTimeFormat(locale, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+        timeZoneName: "short",
+      }).format(startsMs)
+    : copy.dispatchLogDateTbd;
+
+  return {
+    dispatchKey: `event:${row.slug}`,
+    status,
+    codename: row.title.toLocaleUpperCase(locale),
+    objective: past
+      ? copy.dispatchLogObjectivePast
+      : copy.dispatchLogObjectiveLive,
+    location: row.location?.trim() || copy.dispatchLogVenueLine,
+    coordinates,
+    ...(past
+      ? {}
+      : {
+          cta: {
+            label: copy.dispatchLogDossierCta,
+            href: eventDetailPath(row.slug, row.inviteOnly),
+            external: false,
+          },
+        }),
+  };
+}
+
+function mergeDispatchEntries(
+  cms: InterventionEntry[],
+  apiRows: EventCatalogItem[],
+  copy: Dictionary["events"],
+  locale: string,
+  nowMs: number,
+): InterventionEntry[] {
+  const upcoming = apiRows
+    .filter((r) => !rowIsPast(r, nowMs))
+    .sort(compareStartsAsc);
+  const past = apiRows
+    .filter((r) => rowIsPast(r, nowMs))
+    .sort(compareStartsDesc);
+  const liveEvents = upcoming.map((r) => mapRowToEntry(r, copy, locale, nowMs));
+  const archivedEvents = past.map((r) => mapRowToEntry(r, copy, locale, nowMs));
+
+  const liveCms = cms.filter((e) => e.status === "live");
+  const incubationCms = cms.filter((e) => e.status === "incubation");
+  const archivedCms = cms.filter((e) => e.status === "archived");
+
+  return [
+    ...liveCms,
+    ...liveEvents,
+    ...incubationCms,
+    ...archivedCms,
+    ...archivedEvents,
+  ];
 }
 
 /* ── Entry card ───────────────────────────────────────────── */
@@ -134,15 +229,47 @@ export function InterventionFeedBlockComponent({
   locale,
 }: InterventionFeedBlock & { locale: string }) {
   const utc = useUtcClock();
+  const { dictionary } = useDictionary();
+  const [catalogApiEvents, setCatalogApiEvents] = useState<
+    EventCatalogItem[] | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchEventsCatalog().then((rows) => {
+      if (!cancelled) {
+        setCatalogApiEvents(rows);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mergedEntries = useMemo(() => {
+    if (catalogApiEvents === null) {
+      return entries;
+    }
+
+    return mergeDispatchEntries(
+      entries,
+      catalogApiEvents,
+      dictionary.events,
+      locale,
+      Date.now(),
+    );
+  }, [entries, catalogApiEvents, dictionary.events, locale]);
 
   // Group entries by status in the defined order.
   const grouped = STATUS_ORDER.map((status) => ({
     status,
     style: STATUS_STYLES[status],
-    items: entries.filter((e) => e.status === status),
+    items: mergedEntries.filter((e) => e.status === status),
   })).filter((g) => g.items.length > 0);
 
-  const liveCount = entries.filter((e) => e.status === "live").length;
+  const liveCount = mergedEntries.filter((e) => e.status === "live").length;
 
   let globalIndex = 0;
 
@@ -184,7 +311,7 @@ export function InterventionFeedBlockComponent({
 
                 return (
                   <EntryCard
-                    key={entry.codename}
+                    key={entry.dispatchKey ?? entry.codename}
                     entry={entry}
                     index={idx}
                     locale={locale}

@@ -1,13 +1,21 @@
 # dependencies
 node_modules
+.pnpm-store
+
+# turbo
+.turbo
 
 # next.js
 .next/
 out/
 
-# production
-build
+# vite / production builds
 dist
+build
+.vite
+
+# gcloud deploy bundles (pnpm deploy:gcp → deploy/<fn>/)
+deploy/
 
 # misc
 .DS_Store
@@ -16,8 +24,11 @@ dist
 # debug
 npm-debug.log*
 pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# local env files
+# env — keep *.example and committed .env.production templates
+.env
 .env*.local
 env.yaml
 
@@ -28,4 +39,11 @@ env.yaml
 *.tsbuildinfo
 next-env.d.ts
 
+# eslint
+.eslintcache
+
+# test
+coverage
+
+# local TLS (mkcert, etc.)
 certificates

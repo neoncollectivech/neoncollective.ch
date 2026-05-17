@@ -82,6 +82,46 @@ Quelle: BrainBox Solutions`,
       },
     ],
   },
+  it: {
+    meta: { title: "Impressum" },
+    blocks: [
+      { component: "heading", text: "Impressum", level: 1 },
+      {
+        component: "markdown",
+        content: `**Entità responsabile**
+NEON - Neue Elektronische Organisation für Nachtkultur
+CH-8000 Zürich
+Svizzera
+Email: hello@neoncollective.ch
+
+**Persone**
+Michael DALDINI
+Filippo FONTANA
+Davide MAGGIPINTO
+
+**Denominazione dell'associazione**
+NEON - Neue Elektronische Organisation für Nachtkultur
+NEON Club
+
+**Documenti ufficiali**
+[Statuti (in tedesco)](https://drive.google.com/uc?export=download&id=1y8fKbgmIRkfN1GI5aC4IT_RuIgeJV9pP)
+
+**Esclusione di responsabilità**
+L'autore non garantisce l'esattezza, la precisione, l'attualità, l'affidabilità e la completezza delle informazioni.
+È esclusa ogni responsabilità nei confronti dell'autore per danni materiali o immateriali derivanti dall'accesso, dall'utilizzo o dal mancato utilizzo delle informazioni pubblicate, dall'uso improprio del collegamento o da malfunzionamenti tecnici.
+
+Tutte le offerte sono senza impegno. L'autore si riserva espressamente il diritto di modificare, integrare o cancellare parti delle pagine o l'intera offerta senza preavviso, o di interrompere temporaneamente o definitivamente la pubblicazione.
+
+**Disclaimer su contenuti e link**
+I riferimenti e i link a siti web di terzi sono al di fuori della nostra sfera di responsabilità. Ogni responsabilità per tali siti web è respinta. L'accesso e l'utilizzo di tali siti avvengono a rischio dell'utente.
+
+**Dichiarazione sul copyright**
+I diritti d'autore e tutti gli altri diritti su contenuti, immagini, fotografie o altri file di questo sito web appartengono esclusivamente a NEON - Neue Elektronische Organisation für Nachtkultur o ai titolari dei diritti espressamente indicati. Per la riproduzione di qualsiasi elemento è necessario ottenere in anticipo il consenso scritto del titolare del copyright.
+
+Fonte: BrainBox Solutions`,
+      },
+    ],
+  },
 };
 
 export default content;

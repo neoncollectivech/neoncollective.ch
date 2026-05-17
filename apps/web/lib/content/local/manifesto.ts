@@ -224,6 +224,117 @@ const content: Record<Locale, PageContent> = {
       },
     ],
   },
+  it: {
+    meta: {
+      title: "Manifesto",
+      description: "Un manifesto per la notte",
+    },
+    blocks: [
+      {
+        component: "heading",
+        text: "Un manifesto per la notte",
+        level: 1,
+        variant: "mono",
+      },
+      {
+        component: "section",
+        number: "I",
+        title: "OSSERVIAMO",
+        subtitle: "L'erosione sistemica",
+        intro:
+          "Mutamenti strutturali e sociali stanno restringendo il margine dei nostri spazi condivisi.",
+        points: [
+          {
+            title: "Il vuoto che scompare",
+            text: "Osserviamo la scomparsa dei «vuoti urbani»: quelle zone industriali marginali che un tempo offrivano lo spazio d'azione necessario alla sperimentazione culturale.",
+          },
+          {
+            title: "Attrito normativo",
+            text: "Osserviamo politiche urbane che mettono al primo posto un silenzio sterile rispetto al ritmo sonoro vitale che definisce l'identità della città.",
+          },
+          {
+            title: "Monocultura temporale",
+            text: "Osserviamo un'adesione rigida a modelli da club notturno che non tiene conto di stili di vita urbani in evoluzione e del passaggio, dopo la pandemia, verso formati più consapevoli, diurni o in prima serata.",
+          },
+          {
+            title: "Spostamento economico",
+            text: "Osserviamo come le pressioni immobiliari trasformino luoghi di rifugio culturale in asset ad alta resa, costringendo la comunità a giustificare la propria esistenza solo con metriche finanziarie.",
+          },
+          {
+            title: "Perdita di continuità",
+            text: "Osserviamo come la chiusura di spazi permanenti eroda la memoria collettiva, sostituendo radici culturali profonde con eventi isolati e transazionali.",
+          },
+        ],
+      },
+      {
+        component: "section",
+        number: "II",
+        title: "RICONOSCIAMO",
+        subtitle: "L'alchimia del collettivo",
+        intro:
+          "La cultura della musica elettronica è una necessità sociologica. Riconosciamo che il rituale della pista deve evolversi per restare rilevante di fronte a ritmi urbani che cambiano.",
+        points: [
+          {
+            title: "Il crogiolo autentico",
+            text: "Riconosciamo la pista come luogo di sincronizzazione sociale — dove provenienze diverse si allineano a un'unica frequenza, a qualsiasi ora.",
+          },
+          {
+            title: "Il rituale consapevole",
+            text: "Riconosciamo che il valore dell'esperienza elettronica non è legato all'eccesso. Rispettiamo il passaggio verso una partecipazione attenta alla salute e abitudini sociali sostenibili.",
+          },
+          {
+            title: "Responsabilità collettiva",
+            text: "Riconosciamo che sicurezza, energia e profondità della nostra cultura non sono prodotti da consumare, ma si co-creano con ogni persona nella stanza.",
+          },
+          {
+            title: "Patrimonio sonoro vivente",
+            text: "Riconosciamo la musica elettronica come patrimonio immateriale che ha bisogno di pratica fisica e di ambienti di qualità per sopravvivere.",
+          },
+          {
+            title: "Il valore della presenza",
+            text: "Celebriamo la magia dell'incontro fisico nell'era digitale — creando spazi in cui la connessione umana è l'obiettivo primario.",
+          },
+        ],
+      },
+      {
+        component: "section",
+        number: "III",
+        title: "MIRIAMO A",
+        subtitle: "Implementazione strategica",
+        intro:
+          "Costruiamo infrastrutture professionali e resilienti dentro la realtà urbana, per assicurare un futuro alla cultura elettronica.",
+        points: [
+          {
+            title: "Ridefinire il formato",
+            text: "Puntiamo a progettare esperienze culturali che rispettino i nuovi vincoli; ridefinendo confini temporali e vincoli spaziali, manteniamo accessibile e attuale la mescolanza sociale.",
+          },
+          {
+            title: "Nuovi approcci spaziali",
+            text: "Puntiamo a trovare modi nuovi di attivare spazi sottoutilizzati, scollegando la cultura dal real estate tradizionale con un'esecuzione agile e professionale.",
+          },
+          {
+            title: "Modelli culturali sostenibili",
+            text: "Costruiamo quadri sostenuti dalla comunità che mettono al centro l'impatto sociologico nel lungo periodo, non il turnover commerciale di breve termine.",
+          },
+          {
+            title: "Design inclusivo",
+            text: "Puntiamo a creare formati che attraversino volutamente le divisioni sociali, mantenendo la pista come spazio comune democratico e inclusivo.",
+          },
+          {
+            title: "Sovranità collettiva",
+            text: "Raduniamo pensatori strategici e operatori per PARTECIPARE / MITWIRKEN nella costruzione di un ecosistema culturale indipendente e capace di fissare standard.",
+          },
+        ],
+      },
+      { component: "spacer", size: "lg" },
+      {
+        component: "neonQuote",
+        lines: [
+          '"Le pareti possono spostarsi, ma la {{pista da ballo è un\'idea}}, non un luogo."',
+        ],
+      },
+    ],
+  },
 };
 
 export default content;

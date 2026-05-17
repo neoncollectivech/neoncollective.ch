@@ -3,10 +3,22 @@
   "private": true,
   "packageManager": "pnpm@10.29.3",
   "scripts": {
-    "dev": "pnpm -r dev",
-    "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck",
-    "deploy:stripe-api": "gcloud functions deploy neo-stripe-api --project=neo-tickets-shop --gen2 --runtime=nodejs22 --region=europe-west6 --source=functions/stripe-api --entry-point=stripeApi --trigger-http --allow-unauthenticated --env-vars-file=functions/stripe-api/env.yaml --memory=256Mi --max-instances=1"
+    "dev": "turbo dev --filter=@neon/web --filter=@neon/events-api --filter=@neon/stripe-api --filter=@neon/admin",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "db:events-api:generate": "pnpm --filter @neon/events-api db:generate",
+    "db:events-api:migrate": "pnpm --filter @neon/events-api db:migrate",
+    "db:events-api:migrate:local": "pnpm --filter @neon/events-api db:migrate:local",
+    "db:events-api:push": "pnpm --filter @neon/events-api db:push",
+    "db:events-api:push:local": "pnpm --filter @neon/events-api db:push:local",
+    "db:events-api:studio": "pnpm --filter @neon/events-api db:studio",
+    "db:events-api:seed:local": "pnpm --filter @neon/events-api db:seed:local",
+    "stripe:listen": "stripe listen --forward-to http://localhost:8082/webhooks/stripe",
+    "deploy:gcp": "node scripts/gcp.mjs deploy"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "turbo": "^2.5.0"
   }
 }

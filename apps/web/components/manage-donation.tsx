@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { AxiosError } from "axios";
-import { Input } from "@heroui/input";
 
+import { FormError } from "@/components/form-error";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { NeonButton } from "@/components/neon-button";
+import { NeonInput } from "@/components/neon-input";
 import { requestPortalLink } from "@/helpers/stripeApi";
 
 export function ManageDonation() {
@@ -58,7 +59,7 @@ export function ManageDonation() {
           className="flex flex-col sm:flex-row gap-3 items-start"
           onSubmit={handleSubmit}
         >
-          <Input
+          <NeonInput
             isRequired
             classNames={{
               inputWrapper:
@@ -71,7 +72,6 @@ export function ManageDonation() {
             placeholder={t.emailPlaceholder}
             type="email"
             value={email}
-            variant="bordered"
             onValueChange={(val) => {
               setEmail(val);
               if (status === "not_found" || status === "error") {
@@ -90,13 +90,13 @@ export function ManageDonation() {
       )}
 
       {status === "not_found" && (
-        <p className="mt-4 text-sm text-red-400/80">{t.notFound}</p>
+        <FormError className="mt-4">{t.notFound}</FormError>
       )}
 
       {status === "error" && (
-        <p className="mt-4 text-sm text-red-400/80">
+        <FormError className="mt-4">
           Something went wrong. Please try again.
-        </p>
+        </FormError>
       )}
     </div>
   );

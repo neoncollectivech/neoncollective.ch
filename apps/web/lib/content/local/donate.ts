@@ -42,6 +42,26 @@ const content: Record<Locale, PageContent> = {
       { component: "manageDonation" },
     ],
   },
+  it: {
+    meta: {
+      title: "Dona",
+      description:
+        "Il tuo contributo alimenta l'evoluzione della cultura elettronica — per spazi, suono e comunità in città.",
+    },
+    blocks: [
+      {
+        component: "section",
+        title: "DONA",
+        subtitle: "SOSTIENI IL MOVIMENTO",
+        body: "L'autonomia finanziaria è la base dell'evoluzione della scena elettronica. Per chi condivide questa visione ma resta ai margini, una donazione (da CHF 35.—) fornisce il capitale per attivare nuovi modelli spaziali e temporali. Queste risorse servono a garantire luoghi e tecnologie per incontri che mettono al centro la profondità sociale e la qualità acustica, così che la nostra cultura resti una componente viva, rispettata e indispensabile della città.",
+      },
+      { component: "donationPicker" },
+      { component: "spacer", size: "lg" },
+      { component: "neonLine", width: "w-12" },
+      { component: "spacer", size: "md" },
+      { component: "manageDonation" },
+    ],
+  },
 };
 
 export default content;

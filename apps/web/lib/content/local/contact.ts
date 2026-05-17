@@ -36,6 +36,23 @@ const content: Record<Locale, PageContent> = {
       },
     ],
   },
+  it: {
+    meta: { title: "SIGNAL" },
+    blocks: [
+      { component: "heading", text: "SIGNAL", level: 1 },
+      {
+        component: "heading",
+        text: "Apri il canale",
+        level: 2,
+        variant: "semibold",
+      },
+      {
+        component: "markdown",
+        content:
+          "La conversazione non finisce in pista. Cerchiamo alleati, non clienti. Che tu voglia proporre un intervento, riappropriarti di uno spazio o mettere energia fisica sul tavolo — scrivici.\n\nContattaci a [hello@neoncollective.ch](mailto:hello@neoncollective.ch) o trovaci nel sottosuolo digitale. La notte la costruiscono coloro che ci sono.",
+      },
+    ],
+  },
 };
 
 export default content;

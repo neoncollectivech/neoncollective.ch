@@ -17,6 +17,11 @@ const messages = {
     description: "Something went wrong.",
     retry: "Try again",
   },
+  it: {
+    subtitle: "Segnale interrotto",
+    description: "Qualcosa è andato storto.",
+    retry: "Riprova",
+  },
 } as const;
 
 export default function Error({
@@ -26,7 +31,7 @@ export default function Error({
   error: Error;
   reset: () => void;
 }) {
-  let locale: "de" | "en" = "de";
+  let locale: keyof typeof messages = "de";
 
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks

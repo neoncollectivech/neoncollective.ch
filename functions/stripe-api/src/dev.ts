@@ -5,15 +5,12 @@
  * Bypasses functions-framework for fast hot-reload via tsx watch.
  * Set STRIPE_SECRET_KEY in a .env.local file or export it in your shell.
  */
-import { serve } from "@hono/node-server";
+import { serveDevApp } from "@neon/server-kit";
 
-import { createLogger } from "./logger.js";
 import app from "./index.js";
 
-const log = createLogger("dev");
-
-const port = parseInt(process.env.PORT || "8081", 10);
-
-serve({ fetch: app.fetch, port }, (info) => {
-  log.info({ port: info.port }, `Stripe API dev server running at http://localhost:${info.port}`);
+serveDevApp({
+  app,
+  defaultPort: 8081,
+  readyMessage: (port) => `Stripe API dev server running at http://localhost:${port}`,
 });
