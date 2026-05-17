@@ -1,3 +1,5 @@
+import type Stripe from "stripe";
+
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index.js";
@@ -20,7 +22,17 @@ import {
 } from "./event-read.js";
 import { isSessionProfileComplete } from "./participant-profile.js";
 import { ensurePersonInTx } from "./people.js";
+import { fulfillPaidOrderInTx } from "./fulfill-paid-order.js";
 import { resolveParticipantSessionFromCookie } from "./registration-session.js";
+
+type CheckoutTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+type SelectedTier = typeof eventTiers.$inferSelect;
+
+const RESUMABLE_PI_STATUSES = new Set<Stripe.PaymentIntent.Status>([
+  "requires_payment_method",
+  "requires_confirmation",
+  "requires_action",
+]);
 
 async function findInviteLinkByRawTokenTx(
   tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
@@ -56,6 +68,112 @@ function normalizedCheckoutEmail(raw: string | null | undefined): string | null 
     return null;
   }
   return trimmed.toLowerCase();
+}
+
+async function pendingOrderTierIdsMatchTx(
+  tx: CheckoutTx,
+  orderId: string,
+  selectedTiers: SelectedTier[],
+): Promise<boolean> {
+  const lines = await tx
+    .select({ eventTierId: orderTiers.eventTierId })
+    .from(orderTiers)
+    .where(eq(orderTiers.orderId, orderId));
+  if (lines.length !== selectedTiers.length) {
+    return false;
+  }
+  const orderTierIds = new Set(lines.map((line) => line.eventTierId));
+  for (const tier of selectedTiers) {
+    if (!orderTierIds.has(tier.id)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function supersedePendingOrderTx(
+  tx: CheckoutTx,
+  order: typeof orders.$inferSelect,
+): Promise<void> {
+  if (order.stripePaymentIntentId) {
+    try {
+      await stripe.paymentIntents.cancel(order.stripePaymentIntentId);
+    } catch {
+      /* already canceled or captured */
+    }
+  }
+  await tx
+    .update(orders)
+    .set({ status: "failed", updatedAt: new Date() })
+    .where(eq(orders.id, order.id));
+}
+
+type ExistingOrderResolution =
+  | { action: "continue" }
+  | { action: "resume"; clientSecret: string; orderId: string }
+  | { action: "blocked"; status: number; error: string };
+
+async function resolveExistingOrderForCheckoutTx(
+  tx: CheckoutTx,
+  existingOrder: typeof orders.$inferSelect,
+  selectedTiers: SelectedTier[],
+): Promise<ExistingOrderResolution> {
+  if (existingOrder.status === "paid") {
+    return {
+      action: "blocked",
+      status: 409,
+      error: "You are already registered for this event.",
+    };
+  }
+
+  if (existingOrder.status !== "pending") {
+    return { action: "continue" };
+  }
+
+  if (!existingOrder.stripePaymentIntentId) {
+    await supersedePendingOrderTx(tx, existingOrder);
+    return { action: "continue" };
+  }
+
+  let pi: Stripe.PaymentIntent;
+  try {
+    pi = await stripe.paymentIntents.retrieve(existingOrder.stripePaymentIntentId);
+  } catch {
+    await supersedePendingOrderTx(tx, existingOrder);
+    return { action: "continue" };
+  }
+
+  if (pi.status === "succeeded") {
+    await fulfillPaidOrderInTx(tx, {
+      orderId: existingOrder.id,
+      source: "client",
+    });
+    return {
+      action: "blocked",
+      status: 409,
+      error: "Your payment is complete. Refresh the page to see your confirmation.",
+    };
+  }
+
+  if (pi.status === "canceled") {
+    await supersedePendingOrderTx(tx, existingOrder);
+    return { action: "continue" };
+  }
+
+  if (
+    RESUMABLE_PI_STATUSES.has(pi.status) &&
+    pi.client_secret &&
+    (await pendingOrderTierIdsMatchTx(tx, existingOrder.id, selectedTiers))
+  ) {
+    return {
+      action: "resume",
+      clientSecret: pi.client_secret,
+      orderId: existingOrder.id,
+    };
+  }
+
+  await supersedePendingOrderTx(tx, existingOrder);
+  return { action: "continue" };
 }
 
 function uniqueAddonIds(ids: string[]): string[] {
@@ -309,8 +427,8 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         };
       }
 
-      const [existingAccess] = await tx
-        .select({ id: orders.id })
+      const [existingOrder] = await tx
+        .select()
         .from(orders)
         .where(
           and(
@@ -320,13 +438,23 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
           ),
         )
         .limit(1);
-      if (existingAccess) {
-        return {
-          ok: false,
-          status: 409,
-          error:
-            "You already have access or an open checkout for this event. Complete or cancel it, or use another identity for an additional ticket.",
-        };
+
+      if (existingOrder) {
+        const resolved = await resolveExistingOrderForCheckoutTx(
+          tx,
+          existingOrder,
+          selectedTiers,
+        );
+        if (resolved.action === "blocked") {
+          return { ok: false, status: resolved.status, error: resolved.error };
+        }
+        if (resolved.action === "resume") {
+          return {
+            ok: true,
+            clientSecret: resolved.clientSecret,
+            orderId: resolved.orderId,
+          };
+        }
       }
 
       const amountCents = selectedTiers.reduce((sum, t) => sum + t.priceCents, 0);
