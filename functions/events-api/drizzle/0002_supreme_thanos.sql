@@ -1,1 +1,0 @@
-ALTER TABLE "event_tiers" ADD COLUMN "description" text DEFAULT '' NOT NULL;

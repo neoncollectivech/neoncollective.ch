@@ -1,1 +1,0 @@
-ALTER TABLE "registration_exchange_codes" ADD COLUMN "channel" "profile_verification_channel" DEFAULT 'email' NOT NULL;

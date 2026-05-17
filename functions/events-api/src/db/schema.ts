@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -256,9 +257,7 @@ export const profileVerificationCodes = pgTable(
   "profile_verification_codes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    sessionId: uuid("session_id")
-      .notNull()
-      .references(() => participantSessions.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").notNull(),
     codeHash: text("code_hash").notNull().unique(),
     channel: profileVerificationChannelEnum("channel").notNull(),
     /** Hash of normalized email or phone digits — must match on confirm. */
@@ -267,7 +266,14 @@ export const profileVerificationCodes = pgTable(
     usedAt: timestamp("used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("profile_verification_codes_session_id_idx").on(t.sessionId)],
+  (t) => [
+    foreignKey({
+      name: "profile_verification_codes_session_fk",
+      columns: [t.sessionId],
+      foreignColumns: [participantSessions.id],
+    }).onDelete("cascade"),
+    index("profile_verification_codes_session_id_idx").on(t.sessionId),
+  ],
 );
 
 export const registrationExchangeCodes = pgTable(
