@@ -150,7 +150,7 @@ export function parseInviteesCsv(text: string): InviteeUpsertPayload[] {
     return key;
   });
 
-  const required = new Set(["givenName", "familyName"]);
+  const required = new Set<keyof InviteeUpsertPayload>(["givenName", "familyName"]);
   for (const req of required) {
     if (!columnKeys.includes(req)) {
       throw new ParseInviteesCsvError(`Missing required column: ${req}.`);
