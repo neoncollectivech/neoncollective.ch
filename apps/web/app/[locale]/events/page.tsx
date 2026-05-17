@@ -1,4 +1,3 @@
-import type { Locale } from "@/i18n/config";
 import type { Metadata } from "next";
 
 import { EventsIndexClient } from "@/components/events-index-client";
@@ -24,13 +23,11 @@ export async function generateMetadata({
   };
 }
 
-export default async function EventsIndexPage({ params }: PageProps) {
-  const { locale } = await params;
-
+export default async function EventsIndexPage() {
   return (
     <article className="py-16 md:py-28 px-6">
       <div className="max-w-3xl mx-auto">
-        <EventsIndexClient locale={locale as Locale} />
+        <EventsIndexClient />
       </div>
     </article>
   );

@@ -17,6 +17,15 @@
     "stripe:listen": "stripe listen --forward-to http://localhost:8082/webhooks/stripe",
     "deploy:gcp": "node scripts/gcp.mjs deploy"
   },
+  "pnpm": {
+    "packageExtensions": {
+      "object.fromentries@2.0.8": {
+        "dependencies": {
+          "es-abstract": "^1.24.0"
+        }
+      }
+    }
+  },
   "devDependencies": {
     "tsup": "^8.5.0",
     "turbo": "^2.5.0"

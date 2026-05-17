@@ -39,7 +39,7 @@ async function findInviteLinkByRawTokenTx(
 
 export type CheckoutIntentInput = {
   slug: string;
-  email: string;
+  email: string | null;
   locale: "de" | "en" | "it";
   phoneE164: string | null;
   inviteToken: string | null;
@@ -47,6 +47,14 @@ export type CheckoutIntentInput = {
   tierId: string;
   cookieHeader: string | undefined;
 };
+
+function normalizedCheckoutEmail(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.toLowerCase();
+}
 
 export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
   | { ok: true; clientSecret: string; orderId: string }
@@ -122,15 +130,23 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
           }
         }
         const checkoutEmailForRoster =
-          profilePerson.email?.trim() ?? input.email.trim().toLowerCase();
+          profilePerson.email?.trim()?.toLowerCase() ??
+          normalizedCheckoutEmail(input.email);
         const phoneDigits = phoneToStoredDigits(
           profilePerson.phone
             ? `+${profilePerson.phone.replace(/\D/g, "")}`
             : normalizedPhone,
         );
+        if (!checkoutEmailForRoster && !phoneDigits) {
+          return {
+            ok: false,
+            status: 400,
+            error: "Email or phone is required.",
+          };
+        }
         const roster = await findRosterInviteeByContact(
           ev.id,
-          checkoutEmailForRoster,
+          checkoutEmailForRoster ?? "",
           phoneDigits,
         );
         if (roster === "ambiguous") {
@@ -203,11 +219,19 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
       }
 
       const checkoutEmail =
-        profilePerson.email?.trim() ?? input.email.trim().toLowerCase();
+        profilePerson.email?.trim()?.toLowerCase() ??
+        normalizedCheckoutEmail(input.email);
       const profilePhoneE164 = profilePerson.phone
         ? `+${profilePerson.phone.replace(/\D/g, "")}`
         : null;
       const checkoutPhone = profilePhoneE164 ?? normalizedPhone;
+      if (!checkoutEmail && !checkoutPhone) {
+        return {
+          ok: false,
+          status: 400,
+          error: "Email or phone is required.",
+        };
+      }
 
       let personId: string;
       try {

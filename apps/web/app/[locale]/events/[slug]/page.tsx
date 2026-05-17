@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { locales, type Locale } from "@/i18n/config";
+import { locales } from "@/i18n/config";
 import { EventDetailsClient } from "@/components/event-details";
 
 type PageProps = {
@@ -54,12 +54,12 @@ export async function generateMetadata({
 }
 
 export default async function EventPage({ params }: PageProps) {
-  const { locale, slug } = await params;
+  const { slug } = await params;
 
   return (
     <article className="py-16 md:py-28 px-6">
       <div className="max-w-3xl mx-auto">
-        <EventDetailsClient locale={locale as Locale} slug={slug} />
+        <EventDetailsClient slug={slug} />
       </div>
     </article>
   );

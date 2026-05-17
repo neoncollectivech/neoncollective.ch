@@ -1,4 +1,6 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { TierFormRow, TierRow } from "@/lib/admin-types";
+
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -6,10 +8,7 @@ import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { api } from "@/lib/api-client";
-import { getApiErrorMessage } from "@/lib/api-error";
-import type { TierFormRow, TierRow } from "@/lib/admin-types";
-import { adminKeys } from "@/lib/query-keys";
+import { adminApi } from "@/hooks/use-admin-api";
 
 type TierEditorProps = {
   eventId: string;
@@ -37,26 +36,19 @@ function emptyTierRow(): TierFormRow {
 }
 
 export function TierEditor({ eventId, tiers }: TierEditorProps) {
-  const qc = useQueryClient();
-  const [rows, setRows] = useState<TierFormRow[]>(() => tiers.map(tierToFormRow));
+  const [rows, setRows] = useState<TierFormRow[]>(() =>
+    tiers.map(tierToFormRow),
+  );
+  const saveMutation = useMutation(adminApi.event.putTiers(eventId));
 
   useEffect(() => {
     setRows(tiers.map(tierToFormRow));
   }, [tiers]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (payload: { tiers: Omit<TierRow, "id">[] }) => {
-      await api.put(`/admin/events/${eventId}/tiers`, payload);
-    },
-    onSuccess: () => {
-      toast.success("Tiers saved");
-      void qc.invalidateQueries({ queryKey: adminKeys.events.detail(eventId) });
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err, "Failed to save tiers")),
-  });
-
   const updateRow = (index: number, patch: Partial<TierFormRow>) => {
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    setRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    );
   };
 
   const removeRow = (index: number) => {
@@ -71,11 +63,14 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
     for (const row of rows) {
       if (!row.name.trim()) {
         toast.error("Each tier needs a name");
+
         return;
       }
       const price = Number(row.priceChf);
+
       if (!Number.isFinite(price) || price <= 0) {
         toast.error(`Invalid price for tier "${row.name}"`);
+
         return;
       }
     }
@@ -93,7 +88,9 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
       })),
     };
 
-    saveMutation.mutate(payload);
+    saveMutation.mutate(payload, {
+      onSuccess: () => toast.success("Tiers saved"),
+    });
   };
 
   return (
@@ -102,7 +99,12 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
         <div key={index} className="border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Tier {index + 1}</span>
-            <Button type="button" variant="ghost" size="sm" onClick={() => removeRow(index)}>
+            <Button
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={() => removeRow(index)}
+            >
               Remove
             </Button>
           </div>
@@ -116,37 +118,39 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
 
           <FormField label="Description">
             <Textarea
-              value={row.description}
-              onChange={(e) => updateRow(index, { description: e.target.value })}
               rows={2}
+              value={row.description}
+              onChange={(e) =>
+                updateRow(index, { description: e.target.value })
+              }
             />
           </FormField>
 
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Price (CHF)">
               <Input
-                type="number"
                 min={0}
                 step="0.01"
+                type="number"
                 value={row.priceChf}
                 onChange={(e) => updateRow(index, { priceChf: e.target.value })}
               />
             </FormField>
             <FormField label="Quota">
               <Input
-                type="number"
                 min={0}
+                placeholder="Unlimited"
+                type="number"
                 value={row.quota}
                 onChange={(e) => updateRow(index, { quota: e.target.value })}
-                placeholder="Unlimited"
               />
             </FormField>
           </div>
 
           <label className="flex items-center gap-2 text-sm">
             <input
-              type="checkbox"
               checked={row.active}
+              type="checkbox"
               onChange={(e) => updateRow(index, { active: e.target.checked })}
             />
             Active
@@ -155,10 +159,18 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
       ))}
 
       <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={() => setRows((prev) => [...prev, emptyTierRow()])}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setRows((prev) => [...prev, emptyTierRow()])}
+        >
           Add tier
         </Button>
-        <Button type="button" onClick={handleSave} disabled={saveMutation.isPending}>
+        <Button
+          disabled={saveMutation.isPending}
+          type="button"
+          onClick={handleSave}
+        >
           {saveMutation.isPending ? "Saving…" : "Save tiers"}
         </Button>
       </div>

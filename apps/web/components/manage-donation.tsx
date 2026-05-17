@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { AxiosError } from "axios";
 
@@ -7,10 +8,13 @@ import { FormError } from "@/components/form-error";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
-import { requestPortalLink } from "@/helpers/stripeApi";
+import { useLocale } from "@/hooks/use-locale";
+import { stripeApi } from "@/hooks/use-stripe-api";
 
 export function ManageDonation() {
-  const { dictionary, locale } = useDictionary();
+  const { dictionary } = useDictionary();
+  const locale = useLocale();
+  const portalMutation = useMutation(stripeApi.portal.link());
   const t = dictionary.manageDonation;
 
   const [email, setEmail] = useState("");
@@ -26,7 +30,7 @@ export function ManageDonation() {
     setStatus("loading");
 
     try {
-      await requestPortalLink({
+      await portalMutation.mutateAsync({
         email,
         locale,
         returnUrl: `${window.location.origin}/${locale}/donate`,

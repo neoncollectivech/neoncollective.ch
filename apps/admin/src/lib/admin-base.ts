@@ -5,5 +5,6 @@ export const adminBasename = import.meta.env.BASE_URL.replace(/\/$/, "");
 export function adminAbsoluteUrl(path: string): string {
   const segment = path.replace(/^\//, "");
   const base = import.meta.env.BASE_URL;
+
   return new URL(segment, window.location.origin + base).href;
 }

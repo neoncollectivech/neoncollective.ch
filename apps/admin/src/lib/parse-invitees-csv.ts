@@ -45,6 +45,7 @@ function parseCsvRecord(line: string): string[] {
 
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
+
     if (c === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"';
@@ -60,6 +61,7 @@ function parseCsvRecord(line: string): string[] {
     }
   }
   fields.push(current);
+
   return fields.map((f) => f.trim());
 }
 
@@ -70,6 +72,7 @@ function splitCsvRecords(text: string): string[] {
 
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
+
     if (c === '"') {
       if (inQuotes && text[i + 1] === '"') {
         current += '""';
@@ -93,6 +96,7 @@ function splitCsvRecords(text: string): string[] {
   if (current.trim()) {
     records.push(current);
   }
+
   return records;
 }
 
@@ -101,17 +105,21 @@ function cellToPayloadField(
   raw: string,
 ): string | number | null {
   const trimmed = raw.trim();
+
   if (key === "maxRedemptions") {
     if (!trimmed) return null;
     const n = Number(trimmed);
+
     if (Number.isNaN(n)) {
       throw new ParseInviteesCsvError(`Invalid maxRedemptions: "${raw}"`);
     }
+
     return n;
   }
   if (key === "email" || key === "phoneE164" || key === "notes") {
     return trimmed || null;
   }
+
   return trimmed;
 }
 
@@ -131,11 +139,13 @@ function emptyRow(): InviteeUpsertPayload {
  */
 export function parseInviteesCsv(text: string): InviteeUpsertPayload[] {
   const trimmed = text.trim();
+
   if (!trimmed) {
     return [];
   }
 
   const records = splitCsvRecords(trimmed);
+
   if (records.length === 0) {
     return [];
   }
@@ -144,20 +154,28 @@ export function parseInviteesCsv(text: string): InviteeUpsertPayload[] {
   const columnKeys = headerCells.map((h) => {
     const normalized = normalizeHeader(h);
     const key = HEADER_ALIASES[normalized];
+
     if (!key) {
       throw new ParseInviteesCsvError(`Unknown column "${h}".`);
     }
+
     return key;
   });
 
-  const required = new Set<keyof InviteeUpsertPayload>(["givenName", "familyName"]);
+  const required = new Set<keyof InviteeUpsertPayload>([
+    "givenName",
+    "familyName",
+  ]);
+
   for (const req of required) {
     if (!columnKeys.includes(req)) {
       throw new ParseInviteesCsvError(`Missing required column: ${req}.`);
     }
   }
   if (!columnKeys.includes("email") && !columnKeys.includes("phoneE164")) {
-    throw new ParseInviteesCsvError("CSV must include an email or phoneE164 column.");
+    throw new ParseInviteesCsvError(
+      "CSV must include an email or phoneE164 column.",
+    );
   }
 
   const rows: InviteeUpsertPayload[] = [];
@@ -165,14 +183,17 @@ export function parseInviteesCsv(text: string): InviteeUpsertPayload[] {
   for (let i = 1; i < records.length; i++) {
     const lineNum = i + 1;
     const cells = parseCsvRecord(records[i]!);
+
     if (cells.every((c) => !c.trim())) {
       continue;
     }
 
     const row = emptyRow();
+
     for (let col = 0; col < columnKeys.length; col++) {
       const key = columnKeys[col]!;
       const value = cells[col] ?? "";
+
       row[key] = cellToPayloadField(key, value) as never;
     }
 

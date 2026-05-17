@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,78 +14,56 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api, type ListResponse } from "@/lib/api-client";
-import { getApiErrorMessage } from "@/lib/api-error";
+import { adminApi } from "@/hooks/use-admin-api";
 import {
   personNeedsVerification,
   personVerificationSummary,
 } from "@/lib/person-verification";
-import { adminKeys } from "@/lib/query-keys";
 import { isUuid } from "@/lib/uuid";
 
-type PersonRow = {
-  id: string;
-  givenName: string;
-  familyName: string;
-  email: string | null;
-  phone: string | null;
-  emailVerifiedAt: string | null;
-  phoneVerifiedAt: string | null;
-};
-
 export function PeoplePage() {
-  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: adminKeys.people.list({ q: search }),
-    queryFn: async () => {
-      const res = await api.get<ListResponse<PersonRow>>("/admin/people", {
-        params: {
-          ...(search ? { q: search } : {}),
-          pageSize: "100",
-        },
-      });
-      return res.data;
-    },
-  });
+  const { data, isLoading, refetch } = useQuery(adminApi.people.list(search));
 
   const items = data?.items ?? [];
 
   const selectableIds = useMemo(
-    () => items.filter((p) => isUuid(p.id) && personNeedsVerification(p)).map((p) => p.id),
+    () =>
+      items
+        .filter((p) => isUuid(p.id) && personNeedsVerification(p))
+        .map((p) => p.id),
     [items],
   );
 
   const allSelectableSelected =
     selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
 
-  const verifyMutation = useMutation({
-    mutationFn: async (personIds: string[]) => {
-      const res = await api.post<{
-        meta: { updated: number; skipped: number; notFound: number };
-      }>("/admin/people/verify", { personIds });
-      return res.data.meta;
-    },
-    onSuccess: (meta) => {
-      const parts: string[] = [];
-      if (meta.updated > 0) parts.push(`${meta.updated} verified`);
-      if (meta.skipped > 0) parts.push(`${meta.skipped} skipped`);
-      if (meta.notFound > 0) parts.push(`${meta.notFound} not found`);
-      toast.success(parts.length > 0 ? parts.join(", ") : "No changes");
-      setSelected(new Set());
-      void qc.invalidateQueries({ queryKey: adminKeys.people.all });
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err, "Verification failed")),
-  });
+  const verifyMutation = useMutation(adminApi.people.verify());
+
+  const handleVerify = (personIds: string[]) => {
+    verifyMutation.mutate(personIds, {
+      onSuccess: (meta) => {
+        const parts: string[] = [];
+
+        if (meta.updated > 0) parts.push(`${meta.updated} verified`);
+        if (meta.skipped > 0) parts.push(`${meta.skipped} skipped`);
+        if (meta.notFound > 0) parts.push(`${meta.notFound} not found`);
+        toast.success(parts.length > 0 ? parts.join(", ") : "No changes");
+        setSelected(new Set());
+      },
+    });
+  };
 
   const toggleOne = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
+
       if (next.has(id)) next.delete(id);
       else next.add(id);
+
       return next;
     });
   };
@@ -127,9 +105,9 @@ export function PeoplePage() {
           Search
         </Button>
         <Button
-          variant="outline"
           disabled={selectedIds.length === 0 || verifyMutation.isPending}
-          onClick={() => verifyMutation.mutate(selectedIds)}
+          variant="outline"
+          onClick={() => handleVerify(selectedIds)}
         >
           {verifyMutation.isPending
             ? "Verifying…"
@@ -145,11 +123,11 @@ export function PeoplePage() {
             <TableRow>
               <TableHead className="w-10">
                 <input
-                  type="checkbox"
-                  className="size-4 rounded border-input"
-                  checked={allSelectableSelected}
-                  disabled={selectableIds.length === 0}
                   aria-label="Select all needing verification"
+                  checked={allSelectableSelected}
+                  className="size-4 rounded border-input"
+                  disabled={selectableIds.length === 0}
+                  type="checkbox"
                   onChange={toggleAll}
                 />
               </TableHead>
@@ -166,15 +144,16 @@ export function PeoplePage() {
               const verified =
                 !personNeedsVerification(p) &&
                 Boolean(p.email?.trim() || p.phone?.trim());
+
               return (
                 <TableRow key={p.id}>
                   <TableCell>
                     <input
-                      type="checkbox"
-                      className="size-4 rounded border-input"
-                      checked={selected.has(p.id)}
-                      disabled={!canSelect}
                       aria-label={`Select ${p.givenName} ${p.familyName}`}
+                      checked={selected.has(p.id)}
+                      className="size-4 rounded border-input"
+                      disabled={!canSelect}
+                      type="checkbox"
                       onChange={() => toggleOne(p.id)}
                     />
                   </TableCell>
@@ -197,7 +176,7 @@ export function PeoplePage() {
                   </TableCell>
                   <TableCell>
                     {isUuid(p.id) ? (
-                      <Button variant="ghost" size="sm" asChild>
+                      <Button asChild size="sm" variant="ghost">
                         <Link to={`/people/${p.id}`}>View</Link>
                       </Button>
                     ) : (

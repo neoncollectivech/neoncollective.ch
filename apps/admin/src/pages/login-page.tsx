@@ -9,7 +9,7 @@ export function LoginPage() {
   const { data: session, isPending } = useSession();
 
   if (!isPending && session) {
-    return <Navigate to="/events" replace />;
+    return <Navigate replace to="/events" />;
   }
 
   return (
@@ -18,7 +18,8 @@ export function LoginPage() {
         <CardHeader>
           <CardTitle>NEON Admin</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Sign in with your <span className="text-foreground">@neonclub.ch</span> Google
+            Sign in with your{" "}
+            <span className="text-foreground">@neonclub.ch</span> Google
             account.
           </p>
         </CardHeader>

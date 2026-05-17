@@ -1,3 +1,5 @@
+import type { EventFormValues } from "@/lib/admin-types";
+
 import { useState } from "react";
 
 import { FormField } from "@/components/form-field";
@@ -5,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { EventFormValues } from "@/lib/admin-types";
 
 type EventFormProps = {
   mode: "create" | "update";
@@ -25,7 +26,10 @@ export function EventForm({
   const [values, setValues] = useState(initialValues);
   const [error, setError] = useState<string | null>(null);
 
-  const set = <K extends keyof EventFormValues>(key: K, value: EventFormValues[K]) => {
+  const set = <K extends keyof EventFormValues>(
+    key: K,
+    value: EventFormValues[K],
+  ) => {
     setValues((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -33,6 +37,7 @@ export function EventForm({
     e.preventDefault();
     if (!values.slug.trim() || !values.title.trim()) {
       setError("Slug and title are required.");
+
       return;
     }
     setError(null);
@@ -40,20 +45,22 @@ export function EventForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-xl">
+    <form className="space-y-4 max-w-xl" onSubmit={handleSubmit}>
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      <FormField label="Slug" htmlFor="slug">
+      <FormField htmlFor="slug" label="Slug">
         <Input
           id="slug"
+          placeholder="my-event"
           value={values.slug}
           onChange={(e) => set("slug", e.target.value)}
-          placeholder="my-event"
         />
-        <p className="text-xs text-muted-foreground">Lowercase; normalized on save.</p>
+        <p className="text-xs text-muted-foreground">
+          Lowercase; normalized on save.
+        </p>
       </FormField>
 
-      <FormField label="Title" htmlFor="title">
+      <FormField htmlFor="title" label="Title">
         <Input
           id="title"
           value={values.title}
@@ -61,16 +68,16 @@ export function EventForm({
         />
       </FormField>
 
-      <FormField label="Summary" htmlFor="summary">
+      <FormField htmlFor="summary" label="Summary">
         <Textarea
           id="summary"
+          rows={3}
           value={values.summary}
           onChange={(e) => set("summary", e.target.value)}
-          rows={3}
         />
       </FormField>
 
-      <FormField label="Location" htmlFor="location">
+      <FormField htmlFor="location" label="Location">
         <Input
           id="location"
           value={values.location}
@@ -78,7 +85,7 @@ export function EventForm({
         />
       </FormField>
 
-      <FormField label="Starts at" htmlFor="startsAt">
+      <FormField htmlFor="startsAt" label="Starts at">
         <Input
           id="startsAt"
           type="datetime-local"
@@ -87,11 +94,13 @@ export function EventForm({
         />
       </FormField>
 
-      <FormField label="Access mode" htmlFor="accessMode">
+      <FormField htmlFor="accessMode" label="Access mode">
         <Select
           id="accessMode"
           value={values.accessMode}
-          onChange={(e) => set("accessMode", e.target.value as EventFormValues["accessMode"])}
+          onChange={(e) =>
+            set("accessMode", e.target.value as EventFormValues["accessMode"])
+          }
         >
           <option value="public">Public</option>
           <option value="invite_only">Invite only</option>
@@ -99,11 +108,13 @@ export function EventForm({
       </FormField>
 
       {mode === "update" && (
-        <FormField label="Status" htmlFor="status">
+        <FormField htmlFor="status" label="Status">
           <Select
             id="status"
             value={values.status ?? "draft"}
-            onChange={(e) => set("status", e.target.value as EventFormValues["status"])}
+            onChange={(e) =>
+              set("status", e.target.value as EventFormValues["status"])
+            }
           >
             <option value="draft">Draft</option>
             <option value="published">Published</option>
@@ -111,49 +122,60 @@ export function EventForm({
         </FormField>
       )}
 
-      <FormField label="Event quota" htmlFor="eventQuota">
+      <FormField htmlFor="eventQuota" label="Event quota">
         <Input
           id="eventQuota"
-          type="number"
           min={0}
+          placeholder="Empty = unlimited"
+          type="number"
           value={values.eventQuota}
           onChange={(e) => set("eventQuota", e.target.value)}
-          placeholder="Empty = unlimited"
         />
       </FormField>
 
       {values.accessMode === "invite_only" ? (
         <FormField
-          label="Default invite max redemptions"
           htmlFor="defaultInviteLinkMaxRedemptions"
+          label="Default invite max redemptions"
         >
           <Input
             id="defaultInviteLinkMaxRedemptions"
-            type="number"
             min={0}
+            type="number"
             value={values.defaultInviteLinkMaxRedemptions}
-            onChange={(e) => set("defaultInviteLinkMaxRedemptions", e.target.value)}
+            onChange={(e) =>
+              set("defaultInviteLinkMaxRedemptions", e.target.value)
+            }
           />
         </FormField>
       ) : null}
 
-      <FormField label="Image URLs" htmlFor="imageUrls">
+      <FormField htmlFor="imageUrls" label="Image URLs">
         <Textarea
+          className="font-mono text-xs"
           id="imageUrls"
+          placeholder="One URL per line"
+          rows={4}
           value={values.imageUrlsText}
           onChange={(e) => set("imageUrlsText", e.target.value)}
-          rows={4}
-          placeholder="One URL per line"
-          className="font-mono text-xs"
         />
       </FormField>
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving…" : mode === "create" ? "Create event" : "Save changes"}
+        <Button disabled={isPending} type="submit">
+          {isPending
+            ? "Saving…"
+            : mode === "create"
+              ? "Create event"
+              : "Save changes"}
         </Button>
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
+          <Button
+            disabled={isPending}
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+          >
             Cancel
           </Button>
         )}

@@ -1,11 +1,8 @@
 "use client";
 
-import type { Locale } from "@/i18n/config";
-
-import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
 import { Card, CardBody } from "@heroui/card";
 import { Spinner } from "@heroui/react";
 
@@ -14,15 +11,21 @@ import { NeonLink } from "@/components/neon-link";
 import { ParticipantProfileModal } from "@/components/participant-profile-modal";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { useDictionary } from "@/i18n/DictionaryContext";
-import { useExchangeRegistrationSessionCode } from "@/hooks/use-exchange-registration-session-code";
-import { useParticipantProfileBootstrap } from "@/hooks/use-participant-profile";
-import { fetchEventsCatalog, type EventCatalogItem } from "@/helpers/eventsApi";
-import { eventDetailHref } from "@/helpers/eventRoutes";
+import { useEventUrlParams } from "@/hooks/use-event-url-params";
+import { useLocale } from "@/hooks/use-locale";
 import {
-  eventsCatalogQueryKey,
-  participantProfileQueryKey,
-  participantSessionQueryKey,
-} from "@/helpers/queryKeys";
+  useProfileManageModalLabels,
+  useProfileModalLabels,
+} from "@/hooks/use-profile-modal-labels";
+import {
+  eventsApi,
+  eventsKeys,
+  useExchangeRegistrationCode,
+  useProfileBootstrap,
+  type EventCatalogItem,
+} from "@/hooks/use-events-api";
+import { formatLocaleDateTime } from "@/helpers/format-locale-datetime";
+import { eventDetailHref } from "@/helpers/eventRoutes";
 
 function filterUpcoming(events: EventCatalogItem[]): EventCatalogItem[] {
   const now = Date.now();
@@ -44,17 +47,9 @@ function filterUpcoming(events: EventCatalogItem[]): EventCatalogItem[] {
   return upcoming;
 }
 
-function formatEventDate(startsAt: string, locale: Locale): string {
-  return new Date(startsAt).toLocaleString(
-    locale === "de" ? "de-CH" : locale === "it" ? "it-CH" : "en-GB",
-    { dateStyle: "medium", timeStyle: "short" },
-  );
-}
-
-function EventsIndexInner({ locale }: { locale: Locale }) {
-  const searchParams = useSearchParams();
-  const code = searchParams.get("code") ?? undefined;
-  const inviteToken = searchParams.get("invite") ?? undefined;
+function EventsIndexInner() {
+  const locale = useLocale();
+  const { inviteToken, code } = useEventUrlParams();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
   const queryClient = useQueryClient();
@@ -68,15 +63,13 @@ function EventsIndexInner({ locale }: { locale: Locale }) {
     isLoading: profileLoading,
     invalidateAfterProfileComplete,
     refetchProfile,
-  } = useParticipantProfileBootstrap(inviteToken);
+  } = useProfileBootstrap(inviteToken);
 
-  const { codeHandled, codeError } = useExchangeRegistrationSessionCode({
+  const profileLabels = useProfileModalLabels();
+  const manageProfileLabels = useProfileManageModalLabels();
+
+  const { codeHandled, codeError } = useExchangeRegistrationCode({
     code,
-    queryKeysToInvalidate: [
-      eventsCatalogQueryKey,
-      participantSessionQueryKey,
-      participantProfileQueryKey,
-    ],
     sessionErrorLabel: t.sessionError,
   });
 
@@ -86,36 +79,17 @@ function EventsIndexInner({ locale }: { locale: Locale }) {
     }
   }, [profileLoading, needsProfile, inviteFlow]);
 
-  const listQuery = useQuery({
-    queryKey: [...eventsCatalogQueryKey, inviteToken ?? ""],
-    queryFn: () => fetchEventsCatalog({ inviteToken }),
-    enabled: codeHandled && !profileLoading,
-  });
+  const listQuery = useQuery(
+    eventsApi.catalog({
+      inviteToken,
+      enabled: codeHandled && !profileLoading,
+    }),
+  );
 
   const rows = useMemo(
     () => (listQuery.data ? filterUpcoming(listQuery.data) : []),
     [listQuery.data],
   );
-
-  const profileLabels = {
-    title: t.profileModalTitle,
-    subtitle: t.profileModalSubtitle,
-    givenName: t.profileGivenName,
-    familyName: t.profileFamilyName,
-    email: t.email,
-    phone: t.phone,
-    phoneOptional: t.profilePhoneOptional,
-    contactHint: t.profileContactHint,
-    saveCta: t.profileSaveCta,
-    verifyTitle: t.profileVerifyTitle,
-    verifyEmailHint: t.profileVerifyEmailHint,
-    verifyPhoneHint: t.profileVerifyPhoneHint,
-    verifyCodeLabel: t.sessionCodeLabel,
-    verifyCodePlaceholder: t.sessionCodePlaceholder,
-    verifyCta: t.sessionCodeCta,
-    resendCta: t.profileResendCta,
-    errorGeneric: t.profileErrorGeneric,
-  };
 
   if (codeError) {
     return <FormError>{codeError}</FormError>;
@@ -125,11 +99,6 @@ function EventsIndexInner({ locale }: { locale: Locale }) {
     inviteFlow && profileGateOpen && needsProfile && !profileLoading;
   const showProfileManageModal = profileManageOpen && !profileLoading;
   const profileModalOpen = showProfileGateModal || showProfileManageModal;
-  const manageProfileLabels = {
-    ...profileLabels,
-    title: t.profileManageTitle,
-    subtitle: t.profileManageSubtitle,
-  };
 
   const listLoading = !codeHandled || profileLoading || listQuery.isLoading;
 
@@ -139,11 +108,13 @@ function EventsIndexInner({ locale }: { locale: Locale }) {
         <ParticipantProfileModal
           open
           dismissable={showProfileManageModal}
-          initialProfile={profile}
+          initialProfile={profile ?? undefined}
           labels={showProfileManageModal ? manageProfileLabels : profileLabels}
-          locale={locale}
           onComplete={async (p) => {
-            queryClient.setQueryData(participantProfileQueryKey, p);
+            queryClient.setQueryData(
+              eventsKeys.participant.profile(inviteToken),
+              p,
+            );
             await invalidateAfterProfileComplete();
             setProfileGateOpen(false);
             setProfileManageOpen(false);
@@ -183,11 +154,10 @@ function EventsIndexInner({ locale }: { locale: Locale }) {
               <ParticipantSessionPanel
                 embedded
                 codeExchangePending={!codeHandled}
-                locale={locale}
                 returnPath={`/${locale}/events`}
                 sessionEstablishedQueryKeys={[
-                  eventsCatalogQueryKey,
-                  participantProfileQueryKey,
+                  eventsKeys.catalog(),
+                  eventsKeys.participant.profile(),
                 ]}
                 onManageProfile={async () => {
                   await refetchProfile();
@@ -223,7 +193,7 @@ function EventsIndexInner({ locale }: { locale: Locale }) {
                     }`
                   : eventDetailHref(locale, ev.slug, false);
                 const dateLabel = ev.startsAt
-                  ? formatEventDate(ev.startsAt, locale)
+                  ? formatLocaleDateTime(ev.startsAt, locale)
                   : t.indexDateTbd;
                 const metaParts = [dateLabel, locationLine].filter(Boolean);
 
@@ -291,7 +261,7 @@ function EventsIndexInner({ locale }: { locale: Locale }) {
   );
 }
 
-export function EventsIndexClient({ locale }: { locale: Locale }) {
+export function EventsIndexClient() {
   return (
     <Suspense
       fallback={
@@ -300,7 +270,7 @@ export function EventsIndexClient({ locale }: { locale: Locale }) {
         </div>
       }
     >
-      <EventsIndexInner locale={locale} />
+      <EventsIndexInner />
     </Suspense>
   );
 }

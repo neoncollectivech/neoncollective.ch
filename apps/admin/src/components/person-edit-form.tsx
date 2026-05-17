@@ -1,7 +1,8 @@
+import type { PersonEditForm } from "@/lib/person-form-utils";
+
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { PersonEditForm } from "@/lib/person-form-utils";
 
 type PersonEditFormProps = {
   form: PersonEditForm;
@@ -18,7 +19,10 @@ export function PersonEditFormFields({
   onCancel,
   onSubmit,
 }: PersonEditFormProps) {
-  const set = <K extends keyof PersonEditForm>(key: K, value: PersonEditForm[K]) => {
+  const set = <K extends keyof PersonEditForm>(
+    key: K,
+    value: PersonEditForm[K],
+  ) => {
     onChange({ ...form, [key]: value });
   };
 
@@ -47,13 +51,14 @@ export function PersonEditFormFields({
       </FormField>
       <FormField label="Phone">
         <Input
-          value={form.phoneE164}
           placeholder="+41791234567"
+          value={form.phoneE164}
           onChange={(e) => set("phoneE164", e.target.value)}
         />
       </FormField>
       <p className="text-xs text-muted-foreground">
-        Email or phone required. Changing contact clears verification until you verify again.
+        Email or phone required. Changing contact clears verification until you
+        verify again.
       </p>
       <div className="flex gap-2">
         <Button variant="outline" onClick={onCancel}>

@@ -1,18 +1,16 @@
 "use client";
 
-import type { Locale } from "@/i18n/config";
-
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import { EventDetailsClient } from "@/components/event-details";
 import { NeonLink } from "@/components/neon-link";
 import { useDictionary } from "@/i18n/DictionaryContext";
+import { useLocale } from "@/hooks/use-locale";
 
 export function PrivateEventClient() {
-  const params = useParams();
   const searchParams = useSearchParams();
   const { dictionary } = useDictionary();
-  const locale = params.locale as Locale;
+  const locale = useLocale();
   const slug = searchParams.get("slug")?.trim() ?? "";
   const t = dictionary.events;
 
@@ -29,5 +27,5 @@ export function PrivateEventClient() {
     );
   }
 
-  return <EventDetailsClient locale={locale} slug={slug} />;
+  return <EventDetailsClient slug={slug} />;
 }

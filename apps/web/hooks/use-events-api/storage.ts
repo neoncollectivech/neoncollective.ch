@@ -1,14 +1,3 @@
-/** React Query keys shared across events UI and session exchange hook. */
-export const participantSessionQueryKey = ["participantSession"] as const;
-
-export const eventsCatalogQueryKey = ["eventsCatalog"] as const;
-
-export const participantProfileQueryKey = ["participantProfile"] as const;
-
-export function eventDetailQueryKey(slug: string, inviteToken?: string) {
-  return ["event", slug, inviteToken] as const;
-}
-
 const checkoutOrderStoragePrefix = "neon:checkout-order:";
 
 export function stashCheckoutOrderId(slug: string, orderId: string): void {
@@ -29,5 +18,3 @@ export function takeCheckoutOrderId(slug: string): string | null {
 
   return orderId;
 }
-
-export const donationTiersQueryKey = ["donation-tiers"] as const;

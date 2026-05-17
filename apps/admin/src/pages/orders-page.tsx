@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -12,38 +12,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api, type ListResponse } from "@/lib/api-client";
-import { adminKeys } from "@/lib/query-keys";
+import { adminApi } from "@/hooks/use-admin-api";
 import { isUuid } from "@/lib/uuid";
 
-type OrderRow = {
-  id: string;
-  status: string;
-  amountCents: number;
-  person: { givenName: string; familyName: string; email: string | null };
-  event: { id: string; title: string; slug: string };
-};
-
 export function OrdersPage() {
-  const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
-    queryKey: adminKeys.orders.list(),
-    queryFn: async () => {
-      const res = await api.get<ListResponse<OrderRow>>("/admin/orders");
-      return res.data;
-    },
-  });
+  const { data, isLoading } = useQuery(adminApi.orders.list());
+  const refundMutation = useMutation(adminApi.order.refund());
 
-  const refundMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      await api.post(`/admin/orders/${orderId}/refund`);
-    },
-    onSuccess: () => {
-      toast.success("Order refunded");
-      void qc.invalidateQueries({ queryKey: adminKeys.orders.all });
-    },
-    onError: () => toast.error("Refund failed"),
-  });
+  const handleRefund = (orderId: string) => {
+    refundMutation.mutate(orderId, {
+      onSuccess: () => toast.success("Order refunded"),
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -78,23 +58,25 @@ export function OrdersPage() {
                     {order.person.email}
                   </span>
                 </TableCell>
-                <TableCell>CHF {(order.amountCents / 100).toFixed(2)}</TableCell>
+                <TableCell>
+                  CHF {(order.amountCents / 100).toFixed(2)}
+                </TableCell>
                 <TableCell>
                   <Badge>{order.status}</Badge>
                 </TableCell>
                 <TableCell className="space-x-2">
                   {isUuid(order.id) && (
-                    <Button variant="ghost" size="sm" asChild>
+                    <Button asChild size="sm" variant="ghost">
                       <Link to={`/orders/${order.id}`}>View</Link>
                     </Button>
                   )}
                   {order.status === "paid" && (
                     <Button
-                      variant="destructive"
                       size="sm"
+                      variant="destructive"
                       onClick={() => {
                         if (confirm("Refund this order?")) {
-                          refundMutation.mutate(order.id);
+                          handleRefund(order.id);
                         }
                       }}
                     >

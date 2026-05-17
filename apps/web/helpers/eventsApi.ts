@@ -184,7 +184,7 @@ export async function fetchEvent(
 
 export async function createEventCheckoutIntent(body: {
   slug: string;
-  email: string;
+  email: string | null;
   locale: "de" | "en" | "it";
   phoneE164: string | null;
   inviteToken: string | null;

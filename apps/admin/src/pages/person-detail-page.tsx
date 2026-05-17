@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { PersonEditFormFields } from "@/components/person-edit-form";
@@ -15,9 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api, type ItemResponse } from "@/lib/api-client";
-import { getApiErrorMessage } from "@/lib/api-error";
-import type { PersonDetail } from "@/lib/admin-types";
+import { adminApi } from "@/hooks/use-admin-api";
+import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
 import {
   personEditFormToPayload,
   personToEditForm,
@@ -27,24 +26,16 @@ import {
   personNeedsVerification,
   personVerificationSummary,
 } from "@/lib/person-verification";
-import { adminKeys } from "@/lib/query-keys";
 import { isUuid } from "@/lib/uuid";
 
 export function PersonDetailPage() {
-  const { id = "" } = useParams();
-  const personId = isUuid(id) ? id : "";
-  const qc = useQueryClient();
+  const { id: personId, isValid } = useUuidRouteParam();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PersonEditForm | null>(null);
 
-  const { data: person, isLoading } = useQuery({
-    queryKey: adminKeys.people.detail(personId),
-    queryFn: async () => {
-      const res = await api.get<ItemResponse<PersonDetail>>(`/admin/people/${personId}`);
-      return res.data.item;
-    },
-    enabled: Boolean(personId),
-  });
+  const { data: person, isLoading } = useQuery(
+    adminApi.person.detail(personId),
+  );
 
   useEffect(() => {
     if (person && editing) {
@@ -52,43 +43,17 @@ export function PersonDetailPage() {
     }
   }, [person, editing]);
 
-  const updateMutation = useMutation({
-    mutationFn: async (payload: ReturnType<typeof personEditFormToPayload>) => {
-      const res = await api.patch<ItemResponse<PersonDetail>>(
-        `/admin/people/${personId}`,
-        payload,
-      );
-      return res.data.item;
-    },
-    onSuccess: () => {
-      toast.success("Person updated");
-      setEditing(false);
-      void qc.invalidateQueries({ queryKey: adminKeys.people.detail(personId) });
-      void qc.invalidateQueries({ queryKey: adminKeys.people.all });
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err, "Failed to update person")),
-  });
+  const updateMutation = useMutation(adminApi.person.update(personId));
+  const verifyMutation = useMutation(adminApi.people.verify());
 
-  const verifyMutation = useMutation({
-    mutationFn: async () => {
-      await api.post("/admin/people/verify", { personIds: [personId] });
-    },
-    onSuccess: () => {
-      toast.success("Contact verified");
-      void qc.invalidateQueries({ queryKey: adminKeys.people.detail(personId) });
-      void qc.invalidateQueries({ queryKey: adminKeys.people.all });
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err, "Verification failed")),
-  });
-
-  if (!personId) {
-    return <Navigate to="/people" replace />;
+  if (!isValid) {
+    return <Navigate replace to="/people" />;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
+        <Button asChild size="sm" variant="ghost">
           <Link to="/people">← People</Link>
         </Button>
         <h2 className="text-2xl font-semibold">
@@ -105,15 +70,23 @@ export function PersonDetailPage() {
               <CardTitle>Contact</CardTitle>
               <div className="flex flex-wrap gap-2">
                 {!editing && (
-                  <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setEditing(true)}
+                  >
                     Edit
                   </Button>
                 )}
                 {!editing && personNeedsVerification(person) ? (
                   <Button
-                    size="sm"
                     disabled={verifyMutation.isPending}
-                    onClick={() => verifyMutation.mutate()}
+                    size="sm"
+                    onClick={() =>
+                      verifyMutation.mutate([personId], {
+                        onSuccess: () => toast.success("Contact verified"),
+                      })
+                    }
                   >
                     {verifyMutation.isPending ? "Verifying…" : "Verify contact"}
                   </Button>
@@ -125,18 +98,28 @@ export function PersonDetailPage() {
                 <PersonEditFormFields
                   form={form}
                   isPending={updateMutation.isPending}
-                  onChange={setForm}
                   onCancel={() => setEditing(false)}
-                  onSubmit={() => updateMutation.mutate(personEditFormToPayload(form))}
+                  onChange={setForm}
+                  onSubmit={() =>
+                    updateMutation.mutate(personEditFormToPayload(form), {
+                      onSuccess: () => {
+                        toast.success("Person updated");
+                        setEditing(false);
+                      },
+                    })
+                  }
                 />
               ) : (
                 <div className="space-y-2 text-sm">
                   <p>
-                    <span className="text-muted-foreground">Email:</span> {person.email ?? "—"}
+                    <span className="text-muted-foreground">Email:</span>{" "}
+                    {person.email ?? "—"}
                     {person.email ? (
                       <Badge
                         className="ml-2"
-                        variant={person.emailVerifiedAt ? "default" : "secondary"}
+                        variant={
+                          person.emailVerifiedAt ? "default" : "secondary"
+                        }
                       >
                         {person.emailVerifiedAt ? "Verified" : "Pending"}
                       </Badge>
@@ -148,13 +131,17 @@ export function PersonDetailPage() {
                     {person.phone ? (
                       <Badge
                         className="ml-2"
-                        variant={person.phoneVerifiedAt ? "default" : "secondary"}
+                        variant={
+                          person.phoneVerifiedAt ? "default" : "secondary"
+                        }
                       >
                         {person.phoneVerifiedAt ? "Verified" : "Pending"}
                       </Badge>
                     ) : null}
                   </p>
-                  <p className="text-muted-foreground">{personVerificationSummary(person)}</p>
+                  <p className="text-muted-foreground">
+                    {personVerificationSummary(person)}
+                  </p>
                   <p>
                     <span className="text-muted-foreground">Created:</span>{" "}
                     {new Date(person.createdAt).toLocaleString()}
@@ -192,13 +179,15 @@ export function PersonDetailPage() {
                             {order.eventTitle}
                           </Link>
                         </TableCell>
-                        <TableCell>CHF {(order.amountCents / 100).toFixed(2)}</TableCell>
+                        <TableCell>
+                          CHF {(order.amountCents / 100).toFixed(2)}
+                        </TableCell>
                         <TableCell>
                           <Badge>{order.status}</Badge>
                         </TableCell>
                         <TableCell>
                           {isUuid(order.id) && (
-                            <Button variant="ghost" size="sm" asChild>
+                            <Button asChild size="sm" variant="ghost">
                               <Link to={`/orders/${order.id}`}>View</Link>
                             </Button>
                           )}
@@ -247,7 +236,7 @@ export function PersonDetailPage() {
                         </TableCell>
                         <TableCell>
                           {isUuid(inv.eventId) && (
-                            <Button variant="ghost" size="sm" asChild>
+                            <Button asChild size="sm" variant="ghost">
                               <Link to={`/events/${inv.eventId}`}>Event</Link>
                             </Button>
                           )}

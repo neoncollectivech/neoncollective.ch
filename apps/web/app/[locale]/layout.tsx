@@ -1,7 +1,5 @@
 import { Metadata } from "next";
 
-import { Providers } from "../providers";
-
 import { locales, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/getDictionary";
 import { DictionaryProvider } from "@/i18n/DictionaryContext";
@@ -9,6 +7,8 @@ import { siteConfig } from "@/config/site";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { HtmlLang } from "@/components/html-lang";
+
+import { Providers } from "../providers";
 
 export async function generateStaticParams() {
   return locales.map((locale) => ({ locale }));

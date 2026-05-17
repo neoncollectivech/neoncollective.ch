@@ -18,7 +18,8 @@ neo-neoncollective.ch/
 ├── pnpm-workspace.yaml          # Declares apps/*, functions/*, packages/*
 ├── package.json                  # Root: workspace scripts, packageManager field
 ├── tsconfig.base.json            # Shared TS strict flags (extended by apps + functions)
-├── .eslintrc.node.json           # ESLint for Node workspaces (functions, server-kit)
+├── .eslintrc.node.json           # Re-exports packages/eslint-config/node.json
+├── packages/eslint-config/       # @neon/eslint-config — shared ESLint presets
 ├── .npmrc                        # HeroUI public-hoist-pattern
 ├── .nvmrc                        # Node 22
 ├── packages/
@@ -63,6 +64,48 @@ neo-neoncollective.ch/
 - Fetch data in Server Components, not in client components. Pass data down as props to avoid unnecessary client-side fetching.
 - Use the file-system routing conventions strictly: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`.
 - Optimize for Core Web Vitals. LCP under 2.5s, INP under 200ms, CLS under 0.1.
+
+## Control flow (negative space, fail early)
+
+Prefer **guard clauses** and **early exits** over nested `if` trees. The happy path should read straight down; invalid or inapplicable cases return immediately.
+
+- **Fail early:** validate preconditions first (`if (!personId) return undefined`, `if (!isSmsEnabled()) return { ok: false, … }`).
+- **Negative space:** express disqualifiers as early returns, not deep `else` branches. Avoid `if (ok) { … } else { … }` pyramids when each failure mode can exit on its own.
+- **Flat over nested:** when a function has several checks, extract small helpers (`resolveEligibleRegistrationPersonId`, `hasLinkedPublishedInvitee`) instead of nesting logic three levels deep.
+- **One concern per exit:** API handlers return error responses as soon as a guard fails; do not wrap the entire handler in `if (everythingOk) { … }`.
+- **Prefer positive guards on the failure side:** `if (!hasCondition()) return` / `continue` is clearer than wrapping the whole body in `if (hasCondition()) { … }`.
+
+```typescript
+// Avoid
+async function handle(input: string) {
+  if (input) {
+    const row = await load(input);
+    if (row) {
+      if (row.active) {
+        return process(row);
+      }
+    }
+  }
+  return { ok: false, error: "Invalid" };
+}
+
+// Prefer
+async function handle(input: string) {
+  if (!input) {
+    return { ok: false, error: "Invalid" };
+  }
+  const row = await load(input);
+  if (!row) {
+    return { ok: false, error: "Invalid" };
+  }
+  if (!row.active) {
+    return { ok: false, error: "Invalid" };
+  }
+  return process(row);
+}
+```
+
+Apply this in Cloud Functions (`functions/`), shared packages (`packages/`), and client code when control flow is non-trivial.
 
 ## Tailwind CSS (v4 — CSS-first)
 
@@ -170,8 +213,14 @@ Block Components            ← one per block type, own their styling
 - Route params are async in Next.js 16. Every page/layout that reads `params` must `await` it: `const locale = (await params).locale as Locale;`.
 - Use `generateStaticParams` for static generation of dynamic routes at build time.
 - Content is loaded via `getContent(slug, locale)` from `lib/content/local/` TypeScript files (designed to be swappable with Strapi — only the function body changes).
-- Client components call Cloud Functions via axios helpers in `helpers/` (`createPublicApiClient.ts`, `eventsApi.ts`, `stripeApi.ts`). React Query keys for those APIs live in `helpers/queryKeys.ts`.
-- **TanStack React Query** (`@tanstack/react-query`) is the standard for all client-side data operations in `"use client"` components. The `QueryClientProvider` is set up in `app/providers.tsx`. Use `useQuery` for reads and `useMutation` for writes/POSTs. The only exception: fire-and-forget calls that return no UI-relevant payload and merely trigger a side effect (e.g., redirecting to a Stripe Checkout URL) can use plain `async/await` with axios.
+- **Helpers = imperative IO:** axios functions in `helpers/` (`createPublicApiClient.ts`, `eventsApi.ts`, `stripeApi.ts`) and `apps/admin/src/lib/admin-api.ts`. Components import **types** from helpers; they do not call `api.get` / `fetchEvent` directly for React Query reads/writes.
+- **Client API modules (TanStack golden path):** each backend has `hooks/use-*-api/` with `keys.ts`, hand-written `api.ts` (`queryOptions` / `mutationOptions` trees: `eventsApi`, `stripeApi`, `adminApi`), and `invalidate.ts` (`useEventsInvalidate()`, `useAdminInvalidate()`). Events-only orchestration: `flows.ts` (`useProfileBootstrap`, `useParticipantSession`, `useExchangeRegistrationCode`).
+- **Components call `useQuery` / `useMutation` directly** with factories: `useQuery(eventsApi.catalog({ inviteToken }))`, `useMutation(adminApi.event.update(eventId))`. Same factories for `queryClient.prefetchQuery`, `setQueryData`, `invalidateQueries`.
+- Do **not** add inline `useQuery({ queryFn: () => fetch… })` in components — add a factory on the `*Api` tree in `api.ts` instead.
+- Do **not** add per-operation wrapper hooks (`useEventsCatalogQuery`, etc.) on the barrel; only flow hooks from `flows.ts` are allowed as named hooks.
+- **Locale (web):** under `[locale]` routes, use `useLocale()` from `hooks/use-locale.ts` (via `DictionaryProvider`), not duplicate `locale` props from server pages or `useParams().locale`.
+- **TanStack React Query** (`@tanstack/react-query`) is the standard for all client-side data in `"use client"` components. `QueryClientProvider` is in `app/providers.tsx` (web) and admin `main.tsx`. The only exception: fire-and-forget calls with no UI-relevant payload (e.g. redirect to Stripe Checkout) may use plain `async/await`.
+- Apply **fail early** inside hooks: `enabled: Boolean(id)`, guard clauses in mutation `onError`, early returns when prerequisites are missing.
 - Never use `getServerSideProps` or `getStaticProps`. Those are Pages Router patterns.
 - Note: Server Actions, middleware, ISR, and API routes are NOT available because the site uses `output: "export"` (fully static). All server-side logic lives in Cloud Functions.
 
@@ -251,7 +300,7 @@ functions/stripe-api/
 
 ## Admin portal (`apps/admin` + `/admin` API)
 
-- **Frontend:** `@neon/admin` — Vite + React Router + TanStack Query + Shadcn-style UI (dark). No SSR. Local dev proxies `/api` and `/admin` to `events-api` (8082).
+- **Frontend:** `@neon/admin` — Vite + React Router + TanStack Query + Shadcn-style UI (dark). No SSR. Local dev proxies `/api` and `/admin` to `events-api` (8082). Client data: `lib/admin-api.ts` (HTTP) + `hooks/use-admin-api/` (React Query). Route UUIDs: `hooks/use-uuid-route-param.ts`.
 - **Auth:** Better Auth on `events-api` at `/admin/auth/*` (not `/api/auth` — CDN must route `/neo-events-api/admin/*` to the function). **Google OAuth only** (no email/password). `databaseHooks` + session guard enforce `@neonclub.ch` emails. Env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
 - **Admin routes:** `functions/events-api/src/admin/router.ts` mounted at `/admin`. All routes use `requireAdminSession` (not `ADMIN_API_KEY` in the browser).
 - **`@neon/admin-crud`:** Call `registerAdminCrud(app, config)` once per entity to get list/read/create/update/delete with envelope `{ items, meta }` / `{ item }`. Use `operations: [...]` to omit endpoints (e.g. no delete on events). Use `registerAdminRoute` for non-CRUD actions (invitee upsert, revoke, refund, tier PUT). Do **not** use the registrar for nested business flows that need custom joins unless `serialize` / custom routes cover it.
@@ -263,9 +312,21 @@ functions/stripe-api/
 - Implement streaming with `loading.tsx` and React `Suspense` boundaries to show progressive UI.
 - Use `dynamic(() => import("..."), { ssr: false })` for client-only components like charts or maps.
 
+## ESLint
+
+Shared package [`@neon/eslint-config`](packages/eslint-config/) (`base`, `node`, `react`). Apps extend it from a local `.eslintrc.json`:
+
+| Export | Used by |
+|--------|---------|
+| `@neon/eslint-config/base` | TypeScript baseline (`@typescript-eslint`) |
+| `@neon/eslint-config/node` | `functions/*`, `packages/*` — `eslint -c ../../.eslintrc.node.json` (re-exports node config) |
+| `@neon/eslint-config/react-rules` | Shared React rule presets for `apps/web`, `apps/admin` |
+
+Add `"@neon/eslint-config": "workspace:*"` plus React ESLint plugins to each app’s `devDependencies`. Apps declare `plugins` locally (pnpm resolves them from the app workspace); the package supplies `base`, `node`, and `react-rules` only.
+
 ## Before Completing a Task
 
 - Run `pnpm build` to verify all workspaces build (apps/web + functions).
-- Run `pnpm lint` to catch Next.js-specific issues.
+- Run `pnpm lint` to catch ESLint issues across workspaces.
 - Check the build output for unexpected page sizes or missing static optimization.
 - Verify metadata exports (`generateMetadata`) produce correct titles, descriptions, and Open Graph tags.

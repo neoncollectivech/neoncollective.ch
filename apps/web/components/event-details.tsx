@@ -1,9 +1,10 @@
 "use client";
 
+import type { StripeElementsOptions } from "@stripe/stripe-js";
 import type { Locale } from "@/i18n/config";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { AxiosError } from "axios";
 import {
   Elements,
@@ -11,7 +12,6 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import { Card, CardBody } from "@heroui/card";
 import { Radio, RadioGroup } from "@heroui/radio";
 import { Spinner } from "@heroui/react";
@@ -23,32 +23,22 @@ import { NeonInput } from "@/components/neon-input";
 import { NeonLink } from "@/components/neon-link";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { useDictionary } from "@/i18n/DictionaryContext";
-import { useExchangeRegistrationSessionCode } from "@/hooks/use-exchange-registration-session-code";
+import { useEventUrlParams } from "@/hooks/use-event-url-params";
+import { useLocale } from "@/hooks/use-locale";
+import { useStripePromise } from "@/hooks/use-stripe-promise";
 import {
-  confirmEventCheckout,
-  createEventCheckoutIntent,
-  fetchEvent,
-  fetchParticipantProfile,
+  eventsApi,
+  eventsKeys,
+  useExchangeRegistrationCode,
   type EventPayload,
   type EventTier,
   type InviteLinkConversion,
-} from "@/helpers/eventsApi";
+} from "@/hooks/use-events-api";
+import { fetchEvent } from "@/helpers/eventsApi";
 import {
-  eventDetailQueryKey,
-  participantProfileQueryKey,
-  participantSessionQueryKey,
-  stashCheckoutOrderId,
-  takeCheckoutOrderId,
-} from "@/helpers/queryKeys";
-
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
-
-function formatEventDateTime(startsAt: string, locale: Locale): string {
-  return new Date(startsAt).toLocaleString(
-    locale === "de" ? "de-CH" : locale === "it" ? "it-CH" : "en-GB",
-    { dateStyle: "medium", timeStyle: "short" },
-  );
-}
+  formatLocaleDate,
+  formatLocaleDateTime,
+} from "@/helpers/format-locale-datetime";
 
 function formatTierPrice(tier: EventTier): string {
   return `${(tier.priceCents / 100).toFixed(0)} ${tier.currency.toUpperCase()}`;
@@ -89,7 +79,7 @@ function EventHero({
 }) {
   const locationLine = location?.trim();
   const metaParts = [
-    startsAt ? formatEventDateTime(startsAt, locale) : null,
+    startsAt ? formatLocaleDateTime(startsAt, locale) : null,
     locationLine,
   ].filter(Boolean);
 
@@ -181,16 +171,6 @@ function EventAboutSection({
   );
 }
 
-function useStripePromise() {
-  return useMemo(() => {
-    if (!publishableKey) {
-      return null;
-    }
-
-    return loadStripe(publishableKey);
-  }, []);
-}
-
 function buildHostInviteUrl(
   locale: string,
   _slug: string,
@@ -203,21 +183,6 @@ function buildHostInviteUrl(
   url.searchParams.set("invite", token);
 
   return url.toString();
-}
-
-function formatConversionDate(iso: string, locale: Locale): string {
-  const date = new Date(iso);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const loc = locale === "de" ? "de-CH" : locale === "it" ? "it-CH" : "en-GB";
-
-  return date.toLocaleDateString(loc, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 function HostInviteShareBlock({
@@ -296,10 +261,7 @@ function HostInviteShareBlock({
               const name = [guest.givenName, guest.familyName]
                 .filter(Boolean)
                 .join(" ");
-              const dateLabel = formatConversionDate(
-                guest.registeredAt,
-                locale,
-              );
+              const dateLabel = formatLocaleDate(guest.registeredAt, locale);
 
               return (
                 <li key={guest.orderId}>
@@ -388,13 +350,14 @@ function PaymentStep({
   );
 }
 
-function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
+function EventDetailsInner({ slug }: { slug: string }) {
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const urlInviteToken = searchParams.get("invite") ?? undefined;
-  const initialCode = searchParams.get("code") ?? undefined;
+  const { inviteToken: urlInviteToken, code: initialCode } =
+    useEventUrlParams();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
   const stripePromise = useStripePromise();
@@ -405,22 +368,23 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
     return qs ? `${pathname}?${qs}` : pathname;
   }, [pathname, searchParams]);
 
-  const { codeHandled, codeError } = useExchangeRegistrationSessionCode({
+  const { codeHandled, codeError } = useExchangeRegistrationCode({
     code: initialCode,
-    queryKeysToInvalidate: [
-      eventDetailQueryKey(slug, urlInviteToken),
-      participantSessionQueryKey,
-    ],
     sessionErrorLabel: t.sessionError,
+    onInvalidated: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: eventsKeys.detail(slug, urlInviteToken),
+      });
+    },
   });
 
-  const eventQueryKey = eventDetailQueryKey(slug, urlInviteToken);
-
-  const eventQuery = useQuery({
-    queryKey: eventQueryKey,
-    queryFn: () => fetchEvent(slug, { inviteToken: urlInviteToken }),
+  const eventDetailOptions = eventsApi.event.detail({
+    slug,
+    inviteToken: urlInviteToken,
     enabled: codeHandled,
   });
+
+  const eventQuery = useQuery(eventDetailOptions);
 
   const effectiveInviteToken =
     eventQuery.data != null && !eventQuery.data.inviteOnly
@@ -430,11 +394,11 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
   const showCheckout =
     Boolean(eventQuery.data?.tiers?.length) &&
     !eventQuery.data?.registrationConfirmed;
-  const profileQuery = useQuery({
-    queryKey: participantProfileQueryKey,
-    queryFn: fetchParticipantProfile,
-    enabled: codeHandled && showCheckout,
-  });
+  const profileQuery = useQuery(
+    eventsApi.participant.profileRead({
+      enabled: codeHandled && showCheckout,
+    }),
+  );
 
   useEffect(() => {
     const ev = eventQuery.data;
@@ -514,34 +478,8 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
     });
   }, [eventQuery.data]);
 
-  const intentMutation = useMutation({
-    mutationFn: async () => {
-      const profile = profileQuery.data;
-      const useProfileContact = Boolean(
-        profile?.profileComplete && profile.email?.trim(),
-      );
-      const profileEmail = profile?.email?.trim() ?? "";
-      const profilePhone = profile?.phoneE164?.trim() ?? "";
-
-      return createEventCheckoutIntent({
-        slug,
-        email: useProfileContact ? profileEmail : email,
-        locale,
-        phoneE164: useProfileContact
-          ? profilePhone || null
-          : phone.trim()
-            ? phone.trim()
-            : null,
-        inviteToken: effectiveInviteToken ?? null,
-        tierId: selectedTierId!,
-      });
-    },
-    onSuccess: (data) => {
-      setClientSecret(data.clientSecret);
-      setCheckoutOrderId(data.orderId);
-      stashCheckoutOrderId(slug, data.orderId);
-    },
-  });
+  const intentMutation = useMutation(eventsApi.checkout.intent());
+  const confirmCheckoutMutation = useMutation(eventsApi.checkout.confirm());
 
   async function syncEventRegistration(): Promise<EventPayload> {
     const retryMs = [0, 400, 800, 1200, 2000];
@@ -552,7 +490,7 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
         await new Promise((resolve) => setTimeout(resolve, wait));
       }
       latest = await fetchEvent(slug, { inviteToken: effectiveInviteToken });
-      queryClient.setQueryData(eventQueryKey, latest);
+      queryClient.setQueryData(eventDetailOptions.queryKey, latest);
       if (latest.registrationConfirmed) {
         return latest;
       }
@@ -566,7 +504,7 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
     setClientSecret(null);
     setCheckoutOrderId(null);
     try {
-      await confirmEventCheckout(orderId);
+      await confirmCheckoutMutation.mutateAsync(orderId);
       await syncEventRegistration();
     } finally {
       setConfirmingRegistration(false);
@@ -582,7 +520,7 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
     if (redirectStatus !== "succeeded") {
       return;
     }
-    const orderId = takeCheckoutOrderId(slug);
+    const orderId = eventsApi.storage.takeCheckoutOrderId(slug);
 
     if (!orderId) {
       return;
@@ -657,13 +595,11 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
   const registrationSettled =
     Boolean(ev.registrationConfirmed) && !confirmingRegistration;
   const profileLoading = profileQuery.isLoading;
-  const hasCheckoutProfile = Boolean(
-    profileQuery.data?.profileComplete && profileQuery.data?.email?.trim(),
-  );
+  const hasCheckoutProfile = Boolean(profileQuery.data?.profileComplete);
   const showContactForm = !profileLoading && !hasCheckoutProfile;
-  const checkoutEmailReady = hasCheckoutProfile
-    ? Boolean(profileQuery.data?.email?.trim())
-    : Boolean(email.trim());
+  const checkoutContactReady = hasCheckoutProfile
+    ? true
+    : Boolean(email.trim() || phone.trim());
 
   const needsStripe = !ev.registrationConfirmed && Boolean(ev.tiers?.length);
   const selectedTier =
@@ -673,11 +609,11 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
     ? t.checkoutSelectTier
     : profileLoading
       ? t.loading
-      : !checkoutEmailReady
-        ? t.checkoutEnterEmail
+      : !checkoutContactReady
+        ? t.checkoutEnterContact
         : null;
 
-  if (needsStripe && !publishableKey) {
+  if (needsStripe && !stripePromise) {
     return (
       <p className="text-sm text-foreground/40 font-mono">
         {t.missingStripeKey}
@@ -856,10 +792,44 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
                     intentMutation.isPending ||
                     !selectedTierId ||
                     profileLoading ||
-                    !checkoutEmailReady
+                    !checkoutContactReady
                   }
                   type="button"
-                  onPress={() => intentMutation.mutate()}
+                  onPress={() => {
+                    const profile = profileQuery.data;
+                    const useProfileContact = Boolean(profile?.profileComplete);
+                    const profileEmail = profile?.email?.trim() ?? "";
+                    const profilePhone = profile?.phoneE164?.trim() ?? "";
+
+                    intentMutation.mutate(
+                      {
+                        slug,
+                        email: useProfileContact
+                          ? profileEmail || null
+                          : email.trim()
+                            ? email.trim()
+                            : null,
+                        locale,
+                        phoneE164: useProfileContact
+                          ? profilePhone || null
+                          : phone.trim()
+                            ? phone.trim()
+                            : null,
+                        inviteToken: effectiveInviteToken ?? null,
+                        tierId: selectedTierId!,
+                      },
+                      {
+                        onSuccess: (data) => {
+                          setClientSecret(data.clientSecret);
+                          setCheckoutOrderId(data.orderId);
+                          eventsApi.storage.stashCheckoutOrderId(
+                            slug,
+                            data.orderId,
+                          );
+                        },
+                      },
+                    );
+                  }}
                 >
                   {intentMutation.isPending ? "…" : t.ctaIntent}
                 </NeonButton>
@@ -867,7 +837,7 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
                 (intentMutation.isPending ||
                   !selectedTierId ||
                   profileLoading ||
-                  !checkoutEmailReady) ? (
+                  !checkoutContactReady) ? (
                   <p className="text-xs text-foreground/40">
                     {checkoutDisabledReason}
                   </p>
@@ -921,10 +891,9 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
               <ParticipantSessionPanel
                 embedded
                 codeExchangePending={!codeHandled}
-                locale={locale}
                 returnPath={detailReturnPath}
                 sessionEstablishedQueryKeys={[
-                  eventDetailQueryKey(slug, effectiveInviteToken),
+                  eventsKeys.detail(slug, effectiveInviteToken),
                 ]}
               />
             </div>
@@ -941,13 +910,7 @@ function EventDetailsInner({ locale, slug }: { locale: Locale; slug: string }) {
   );
 }
 
-export function EventDetailsClient({
-  locale,
-  slug,
-}: {
-  locale: Locale;
-  slug: string;
-}) {
+export function EventDetailsClient({ slug }: { slug: string }) {
   return (
     <Suspense
       fallback={
@@ -956,7 +919,7 @@ export function EventDetailsClient({
         </div>
       }
     >
-      <EventDetailsInner locale={locale} slug={slug} />
+      <EventDetailsInner slug={slug} />
     </Suspense>
   );
 }

@@ -11,27 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api, type ListResponse } from "@/lib/api-client";
-import { adminKeys } from "@/lib/query-keys";
+import { adminApi } from "@/hooks/use-admin-api";
 import { isUuid } from "@/lib/uuid";
 
-type EventRow = {
-  id: string;
-  slug: string;
-  title: string;
-  status: string;
-  accessMode: string;
-  startsAt: string | null;
-};
-
 export function EventsPage() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: adminKeys.events.list(),
-    queryFn: async () => {
-      const res = await api.get<ListResponse<EventRow>>("/admin/events");
-      return res.data;
-    },
-  });
+  const { data, isLoading, error } = useQuery(adminApi.events.list());
 
   return (
     <div className="space-y-6">
@@ -60,16 +44,22 @@ export function EventsPage() {
             {data.items.map((event) => (
               <TableRow key={event.id ?? event.slug}>
                 <TableCell className="font-medium">{event.title}</TableCell>
-                <TableCell className="text-muted-foreground">{event.slug}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {event.slug}
+                </TableCell>
                 <TableCell>
-                  <Badge variant={event.status === "published" ? "default" : "secondary"}>
+                  <Badge
+                    variant={
+                      event.status === "published" ? "default" : "secondary"
+                    }
+                  >
                     {event.status}
                   </Badge>
                 </TableCell>
                 <TableCell>{event.accessMode}</TableCell>
                 <TableCell>
                   {isUuid(event.id) ? (
-                    <Button variant="ghost" size="sm" asChild>
+                    <Button asChild size="sm" variant="ghost">
                       <Link to={`/events/${event.id}`}>Open</Link>
                     </Button>
                   ) : (

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json.schemastore.org/eslintrc.json",
+  "extends": [
+    "plugin:react/recommended",
+    "plugin:prettier/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:jsx-a11y/recommended",
+    "@neon/eslint-config/react-rules"
+  ],
+  "plugins": ["react", "unused-imports", "import", "jsx-a11y", "prettier", "@tanstack/query"],
+  "rules": {
+    "@tanstack/query/exhaustive-deps": "warn",
+    "import/order": [
+      "warn",
+      {
+        "groups": [
+          "type",
+          "builtin",
+          "object",
+          "external",
+          "internal",
+          "parent",
+          "sibling",
+          "index"
+        ],
+        "pathGroups": [
+          {
+            "pattern": "@/**",
+            "group": "internal",
+            "position": "before"
+          }
+        ],
+        "pathGroupsExcludedImportTypes": ["type"],
+        "newlines-between": "always"
+      }
+    ]
+  }
+}

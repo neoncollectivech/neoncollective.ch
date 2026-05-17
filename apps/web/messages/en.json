@@ -49,7 +49,7 @@
     "checkoutStepPay": "2. Pay",
     "checkoutOrderSummary": "Your selection",
     "checkoutSelectTier": "Select a tier to continue.",
-    "checkoutEnterEmail": "Enter your email to continue.",
+    "checkoutEnterContact": "Enter your email or phone to continue.",
     "checkoutOnePersonHint": "One registration per email or phone.",
     "placesRemaining": "left",
     "placesUnlimited": "Unlimited",

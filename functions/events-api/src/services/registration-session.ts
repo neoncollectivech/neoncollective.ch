@@ -27,6 +27,30 @@ import {
 
 const log = createLogger("registration-session");
 
+const REGISTRATION_NOT_FOUND = "No registration found for this contact.";
+
+type RegistrationSessionFailure = { ok: false; status: number; error: string };
+
+function registrationNotFound(): RegistrationSessionFailure {
+  return { ok: false, status: 404, error: REGISTRATION_NOT_FOUND };
+}
+
+async function resolveEligibleRegistrationPersonId(
+  contact: Parameters<typeof resolvePersonIdForRegistrationContact>[0],
+): Promise<string | undefined> {
+  const personId = await resolvePersonIdForRegistrationContact(contact);
+  if (!personId) {
+    return undefined;
+  }
+
+  await syncRosterInviteesToPerson(personId);
+  if (!(await personHasRegistrationEligibility(personId))) {
+    return undefined;
+  }
+
+  return personId;
+}
+
 const ALPHABET_LEN = REGISTRATION_CODE_ALPHABET.length;
 
 export {
@@ -329,16 +353,9 @@ export async function requestRegistrationSession(params: {
       };
     }
     const email = parsed.email;
-    const personId = await resolvePersonIdForRegistrationContact({
-      kind: "email",
-      email,
-    });
+    const personId = await resolveEligibleRegistrationPersonId({ kind: "email", email });
     if (!personId) {
-      return { ok: false, status: 404, error: "No registration found for this contact." };
-    }
-    await syncRosterInviteesToPerson(personId);
-    if (!(await personHasRegistrationEligibility(personId))) {
-      return { ok: false, status: 404, error: "No registration found for this contact." };
+      return registrationNotFound();
     }
     const rawCode = randomRegistrationExchangeCode();
     const { codeHash } = await insertRegistrationExchangeCode({
@@ -377,16 +394,12 @@ export async function requestRegistrationSession(params: {
   }
 
   const phoneE164 = parsed.e164;
-  const personId = await resolvePersonIdForRegistrationContact({
+  const personId = await resolveEligibleRegistrationPersonId({
     kind: "phone",
     e164: phoneE164,
   });
   if (!personId) {
-    return { ok: false, status: 404, error: "No registration found for this contact." };
-  }
-  await syncRosterInviteesToPerson(personId);
-  if (!(await personHasRegistrationEligibility(personId))) {
-    return { ok: false, status: 404, error: "No registration found for this contact." };
+    return registrationNotFound();
   }
 
   const rawCode = randomRegistrationExchangeCode();

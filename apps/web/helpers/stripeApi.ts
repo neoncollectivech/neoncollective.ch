@@ -1,7 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-
 import { createPublicApiClient } from "@/helpers/createPublicApiClient";
-import { donationTiersQueryKey } from "@/helpers/queryKeys";
 
 const STRIPE_API_URL = process.env.NEXT_PUBLIC_STRIPE_API_URL;
 
@@ -67,15 +64,4 @@ export async function fetchDonationTiers(): Promise<DonationTiers> {
   const { data } = await stripeClient.get<DonationTiers>("/donations");
 
   return data;
-}
-
-/**
- * React Query hook for donation tiers. Cached for 5 minutes.
- */
-export function useDonationTiers() {
-  return useQuery({
-    queryKey: donationTiersQueryKey,
-    queryFn: fetchDonationTiers,
-    staleTime: 5 * 60 * 1000,
-  });
 }

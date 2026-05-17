@@ -26,16 +26,19 @@ export function InviteeBulkImport({
   const handleImport = () => {
     try {
       const invitees = parseInviteesCsv(csv);
+
       onImport(invitees);
     } catch (e) {
       const message =
         e instanceof ParseInviteesCsvError ? e.message : "Invalid CSV";
+
       toast.error(message);
     }
   };
 
   const loadFile = (file: File) => {
     const reader = new FileReader();
+
     reader.onload = () => {
       setCsv(typeof reader.result === "string" ? reader.result : "");
     };
@@ -45,7 +48,9 @@ export function InviteeBulkImport({
 
   return (
     <details className="text-sm">
-      <summary className="cursor-pointer text-muted-foreground">Bulk import (CSV)</summary>
+      <summary className="cursor-pointer text-muted-foreground">
+        Bulk import (CSV)
+      </summary>
       <div className="mt-2 space-y-2">
         <p className="text-xs text-muted-foreground">
           Header row required. Each row needs email or phoneE164.
@@ -58,36 +63,37 @@ export function InviteeBulkImport({
         </div>
         <textarea
           className="w-full min-h-28 rounded-md border border-input bg-background p-3 text-sm font-mono"
-          value={csv}
           placeholder="Paste or upload CSV…"
+          value={csv}
           onChange={(e) => setCsv(e.target.value)}
         />
         <div className="flex flex-wrap items-center gap-2">
           <input
             ref={fileRef}
-            type="file"
             accept=".csv,text/csv"
             className="hidden"
+            type="file"
             onChange={(e) => {
               const file = e.target.files?.[0];
+
               if (file) loadFile(file);
               e.target.value = "";
             }}
           />
           <Button
+            disabled={disabled}
+            size="sm"
             type="button"
             variant="outline"
-            size="sm"
-            disabled={disabled}
             onClick={() => fileRef.current?.click()}
           >
             Choose file
           </Button>
           <Button
+            disabled={disabled}
+            size="sm"
             type="button"
             variant="ghost"
-            size="sm"
-            disabled={disabled}
             onClick={() => setCsv(INVITEES_CSV_TEMPLATE)}
           >
             Insert template

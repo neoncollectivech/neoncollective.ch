@@ -1,5 +1,8 @@
 "use client";
 
+import type { DonationTier } from "@/helpers/stripeApi";
+
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Card, CardBody } from "@heroui/card";
 import { Spinner } from "@heroui/react";
@@ -8,11 +11,8 @@ import clsx from "clsx";
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
 import { useDictionary } from "@/i18n/DictionaryContext";
-import {
-  createCheckoutSession,
-  useDonationTiers,
-  type DonationTier,
-} from "@/helpers/stripeApi";
+import { useLocale } from "@/hooks/use-locale";
+import { stripeApi } from "@/hooks/use-stripe-api";
 
 type DonationMode = "recurring" | "onetime";
 
@@ -24,14 +24,20 @@ const toggleInactive =
   "!border-foreground/10 !text-foreground/30 hover:!text-foreground/50 hover:!bg-transparent hover:!border-foreground/10";
 
 export function DonationPicker() {
-  const { dictionary, locale } = useDictionary();
+  const { dictionary } = useDictionary();
+  const locale = useLocale();
   const t = dictionary.donationPicker;
 
   const [mode, setMode] = useState<DonationMode>("recurring");
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const { data: tiers, isLoading, isError } = useDonationTiers();
+  const checkoutMutation = useMutation(stripeApi.checkout.session());
+  const {
+    data: tiers,
+    isLoading,
+    isError,
+  } = useQuery(stripeApi.donation.tiers());
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -47,7 +53,7 @@ export function DonationPicker() {
     try {
       const stripeMode = mode === "recurring" ? "subscription" : "payment";
 
-      const url = await createCheckoutSession({
+      const url = await checkoutMutation.mutateAsync({
         priceId: tier.priceId,
         mode: stripeMode,
         locale,

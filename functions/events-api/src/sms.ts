@@ -116,6 +116,13 @@ function isSingleGsmSegmentRegistrationSms(body: string): boolean {
   return REGISTRATION_SMS_BODY_SAFE.test(body);
 }
 
+function twilioSendErrorMessage(raw: string): string {
+  if (!/^authenticate$/i.test(raw.trim())) {
+    return raw;
+  }
+  return "Twilio rejected the API credentials (check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN, or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET in production).";
+}
+
 export async function sendRegistrationSmsCode(params: {
   toE164: string;
   code: string;
@@ -124,15 +131,14 @@ export async function sendRegistrationSmsCode(params: {
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const client = twilioClient();
   if (!client) {
-    return {
-      ok: false,
-      error: missingCredentialsMessage,
-    };
+    return { ok: false, error: missingCredentialsMessage };
   }
+
   const outbound = twilioOutboundParams();
   if ("error" in outbound) {
     return { ok: false, error: outbound.error };
   }
+
   // One line break only; ASCII labels so entire body stays GSM-7 and fits one segment.
   const body = `NEON ${params.code}\n${params.accessUrl}`;
   if (!isSingleGsmSegmentRegistrationSms(body)) {
@@ -146,6 +152,7 @@ export async function sendRegistrationSmsCode(params: {
         "SMS template too long or non-ASCII for one segment. Use a shorter PUBLIC_SITE_URL / path, ASCII-only slugs, and no special characters.",
     };
   }
+
   try {
     await client.messages.create({
       body,
@@ -155,8 +162,8 @@ export async function sendRegistrationSmsCode(params: {
     log.info({ to: params.toE164 }, "Registration SMS sent");
     return { ok: true };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "SMS send failed.";
-    log.error({ err: e }, msg);
-    return { ok: false, error: msg };
+    const raw = e instanceof Error ? e.message : "SMS send failed.";
+    log.error({ err: e }, raw);
+    return { ok: false, error: twilioSendErrorMessage(raw) };
   }
 }

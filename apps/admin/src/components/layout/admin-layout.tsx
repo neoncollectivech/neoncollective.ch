@@ -19,31 +19,35 @@ export function AdminLayout() {
     <div className="min-h-screen flex">
       <aside className="w-56 border-r border-border bg-card p-4 flex flex-col gap-6">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">NEON</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">
+            NEON
+          </p>
           <h1 className="text-lg font-semibold text-primary">Admin</h1>
         </div>
         <nav className="flex flex-col gap-1">
           {nav.map((item) => (
             <Link
               key={item.href}
-              to={item.href}
               className={cn(
                 "rounded-md px-3 py-2 text-sm transition-colors",
                 pathname.startsWith(`${adminBasename}${item.href}`)
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
+              to={item.href}
             >
               {item.label}
             </Link>
           ))}
         </nav>
         <div className="mt-auto space-y-2">
-          <p className="text-xs text-muted-foreground truncate">{session?.user.email}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {session?.user.email}
+          </p>
           <Button
-            variant="outline"
-            size="sm"
             className="w-full"
+            size="sm"
+            variant="outline"
             onClick={() => signOut()}
           >
             Sign out

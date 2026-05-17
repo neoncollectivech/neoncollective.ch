@@ -1,7 +1,6 @@
 "use client";
 
-import type { Locale } from "@/i18n/config";
-import type { ProfileModalLabels } from "@/hooks/use-participant-profile";
+import type { ProfileModalLabels } from "@/hooks/use-events-api";
 
 import { useCallback, useEffect, useState } from "react";
 import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
@@ -11,6 +10,7 @@ import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
 import { apiErrorMessage } from "@/helpers/apiErrorMessage";
+import { useLocale } from "@/hooks/use-locale";
 import {
   confirmProfileVerification,
   requestProfileVerification,
@@ -21,7 +21,6 @@ import {
 type Step = "details" | "verify";
 
 type ParticipantProfileModalProps = {
-  locale: Locale;
   open: boolean;
   /** When true, the user can close without saving (manage flow). */
   dismissable?: boolean;
@@ -80,7 +79,6 @@ function profileContactsVerified(profile: ParticipantProfile): boolean {
 }
 
 export function ParticipantProfileModal({
-  locale,
   open,
   dismissable = false,
   initialProfile,
@@ -88,6 +86,7 @@ export function ParticipantProfileModal({
   onComplete,
   onDismiss,
 }: ParticipantProfileModalProps) {
+  const locale = useLocale();
   const [step, setStep] = useState<Step>("details");
   const [givenName, setGivenName] = useState(initialProfile?.givenName ?? "");
   const [familyName, setFamilyName] = useState(

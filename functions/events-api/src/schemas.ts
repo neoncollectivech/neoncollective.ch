@@ -2,7 +2,8 @@ import { type } from "arktype";
 
 export const checkoutIntentSchema = type({
   slug: "string",
-  email: "string.email",
+  /** Omitted or null when the session profile already has a verified phone. */
+  email: "string.email | null",
   locale: "'de' | 'en' | 'it'",
   phoneE164: "string | null",
   inviteToken: "string | null",

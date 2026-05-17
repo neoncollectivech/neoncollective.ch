@@ -6,13 +6,14 @@ import type {
 } from "@/lib/content/types";
 import type { Dictionary } from "@/i18n/getDictionary";
 
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { SplitFlapText } from "@/components/split-flap-text";
 import { NeonLink } from "@/components/neon-link";
 import { useDictionary } from "@/i18n/DictionaryContext";
+import { eventsApi, type EventCatalogItem } from "@/hooks/use-events-api";
 import { eventDetailPath } from "@/helpers/eventRoutes";
-import { fetchEventsCatalog, type EventCatalogItem } from "@/helpers/eventsApi";
 
 /* ── Status ordering & styling ────────────────────────────── */
 
@@ -230,37 +231,21 @@ export function InterventionFeedBlockComponent({
 }: InterventionFeedBlock & { locale: string }) {
   const utc = useUtcClock();
   const { dictionary } = useDictionary();
-  const [catalogApiEvents, setCatalogApiEvents] = useState<
-    EventCatalogItem[] | null
-  >(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchEventsCatalog().then((rows) => {
-      if (!cancelled) {
-        setCatalogApiEvents(rows);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const catalogQuery = useQuery(eventsApi.catalog());
 
   const mergedEntries = useMemo(() => {
-    if (catalogApiEvents === null) {
+    if (!catalogQuery.data) {
       return entries;
     }
 
     return mergeDispatchEntries(
       entries,
-      catalogApiEvents,
+      catalogQuery.data,
       dictionary.events,
       locale,
       Date.now(),
     );
-  }, [entries, catalogApiEvents, dictionary.events, locale]);
+  }, [entries, catalogQuery.data, dictionary.events, locale]);
 
   // Group entries by status in the defined order.
   const grouped = STATUS_ORDER.map((status) => ({

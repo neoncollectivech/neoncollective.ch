@@ -1,14 +1,9 @@
 "use client";
 
-import type { Locale } from "@/i18n/config";
+import type { QueryKey } from "@tanstack/react-query";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type QueryKey,
-} from "@tanstack/react-query";
 import { Spinner } from "@heroui/react";
 
 import { FormError } from "@/components/form-error";
@@ -17,15 +12,10 @@ import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
 import { NeonLink } from "@/components/neon-link";
 import { useDictionary } from "@/i18n/DictionaryContext";
-import {
-  exchangeRegistrationSessionCode,
-  fetchParticipantSessionStatus,
-  requestRegistrationSessionLink,
-} from "@/helpers/eventsApi";
-import { participantSessionQueryKey } from "@/helpers/queryKeys";
+import { useLocale } from "@/hooks/use-locale";
+import { eventsApi } from "@/hooks/use-events-api";
 
 type ParticipantSessionPanelProps = {
-  locale: Locale;
   returnPath: string;
   codeExchangePending?: boolean;
   /** Parent provides section title (e.g. on events index card). */
@@ -37,7 +27,6 @@ type ParticipantSessionPanelProps = {
 };
 
 export function ParticipantSessionPanel({
-  locale,
   returnPath,
   codeExchangePending,
   embedded,
@@ -46,6 +35,7 @@ export function ParticipantSessionPanel({
   sessionEstablishedQueryKeys = [],
   onManageProfile,
 }: ParticipantSessionPanelProps) {
+  const locale = useLocale();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
   const queryClient = useQueryClient();
@@ -61,49 +51,15 @@ export function ParticipantSessionPanel({
   );
   const [accessCode, setAccessCode] = useState("");
 
-  const sessionStatusQuery = useQuery({
-    queryKey: participantSessionQueryKey,
-    queryFn: fetchParticipantSessionStatus,
-    enabled: !codeExchangePending,
-    retry: false,
-  });
+  const sessionStatusQuery = useQuery(
+    eventsApi.participant.session({ enabled: !codeExchangePending }),
+  );
+  const sessionMutation = useMutation(eventsApi.registration.requestSession());
+  const exchangeMutation = useMutation(
+    eventsApi.registration.exchangeSession(),
+  );
 
   const sessionEstablished = sessionStatusQuery.data?.session === true;
-
-  const sessionMutation = useMutation({
-    mutationFn: () =>
-      requestRegistrationSessionLink({
-        contact,
-        locale,
-        returnUrl: `${window.location.origin}${returnPath}`,
-      }),
-    retry: false,
-    onSuccess: (channel) => {
-      setAccessChannel(channel);
-      setAwaitingCode(true);
-      setAccessCode("");
-    },
-  });
-
-  const exchangeMutation = useMutation({
-    mutationFn: (code: string) => exchangeRegistrationSessionCode(code),
-    onSuccess: async () => {
-      setAwaitingCode(false);
-      setAccessCode("");
-      setAccessChannel(null);
-      sessionMutation.reset();
-      await queryClient.invalidateQueries({
-        queryKey: participantSessionQueryKey,
-      });
-      await queryClient.fetchQuery({
-        queryKey: participantSessionQueryKey,
-        queryFn: fetchParticipantSessionStatus,
-      });
-      for (const key of sessionEstablishedQueryKeys) {
-        await queryClient.invalidateQueries({ queryKey: key });
-      }
-    },
-  });
 
   if (codeExchangePending || sessionStatusQuery.isLoading) {
     return (
@@ -163,7 +119,17 @@ export function ParticipantSessionPanel({
             if (!accessCode.trim()) {
               return;
             }
-            exchangeMutation.mutate(accessCode.trim());
+            exchangeMutation.mutate(accessCode.trim(), {
+              onSuccess: async () => {
+                setAwaitingCode(false);
+                setAccessCode("");
+                setAccessChannel(null);
+                sessionMutation.reset();
+                for (const key of sessionEstablishedQueryKeys) {
+                  await queryClient.invalidateQueries({ queryKey: key });
+                }
+              },
+            });
           }}
         >
           <NeonInput
@@ -224,7 +190,20 @@ export function ParticipantSessionPanel({
           if (!contact.trim()) {
             return;
           }
-          sessionMutation.mutate();
+          sessionMutation.mutate(
+            {
+              contact,
+              locale,
+              returnUrl: `${window.location.origin}${returnPath}`,
+            },
+            {
+              onSuccess: (channel) => {
+                setAccessChannel(channel);
+                setAwaitingCode(true);
+                setAccessCode("");
+              },
+            },
+          );
         }}
       >
         <NeonButton

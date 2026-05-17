@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 
@@ -13,19 +13,14 @@ import { OrderDetailPage } from "@/pages/order-detail-page";
 import { OrdersPage } from "@/pages/orders-page";
 import { PeoplePage } from "@/pages/people-page";
 import { PersonDetailPage } from "@/pages/person-detail-page";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { staleTime: 30_000, retry: 1 },
-  },
-});
+import { queryClient } from "@/lib/query-client";
 
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={adminBasename || undefined}>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route element={<LoginPage />} path="/login" />
           <Route
             element={
               <AuthGuard>
@@ -33,18 +28,18 @@ export function App() {
               </AuthGuard>
             }
           >
-            <Route index element={<Navigate to="/events" replace />} />
-            <Route path="events" element={<EventsPage />} />
-            <Route path="events/new" element={<EventFormPage />} />
-            <Route path="events/:id" element={<EventDetailPage />} />
-            <Route path="orders" element={<OrdersPage />} />
-            <Route path="orders/:id" element={<OrderDetailPage />} />
-            <Route path="people" element={<PeoplePage />} />
-            <Route path="people/:id" element={<PersonDetailPage />} />
+            <Route index element={<Navigate replace to="/events" />} />
+            <Route element={<EventsPage />} path="events" />
+            <Route element={<EventFormPage />} path="events/new" />
+            <Route element={<EventDetailPage />} path="events/:id" />
+            <Route element={<OrdersPage />} path="orders" />
+            <Route element={<OrderDetailPage />} path="orders/:id" />
+            <Route element={<PeoplePage />} path="people" />
+            <Route element={<PersonDetailPage />} path="people/:id" />
           </Route>
         </Routes>
       </BrowserRouter>
-      <Toaster theme="dark" richColors />
+      <Toaster richColors theme="dark" />
     </QueryClientProvider>
   );
 }

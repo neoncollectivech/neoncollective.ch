@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, or, type SQL } from "drizzle-orm";
 
 import { normalizeEmailTypo, phoneToStoredDigits } from "../contact.js";
 import { getDb } from "../db/index.js";
@@ -8,8 +8,19 @@ import {
   orders,
   people,
 } from "../db/schema.js";
+import { resolvePersonIdFromPendingRosterContact } from "./materialize-invitee-person.js";
 
 type DbTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+function orClauses(clauses: SQL[]): SQL | null {
+  if (clauses.length === 0) {
+    return null;
+  }
+  if (clauses.length === 1) {
+    return clauses[0]!;
+  }
+  return or(...clauses)!;
+}
 
 /** Resolve or create a `people` row; fills missing phone/email when safe; errors on conflicting identities. */
 export async function ensurePersonInTx(
@@ -42,73 +53,79 @@ export async function ensurePersonInTx(
   }
 
   const existing = byEmail ?? byPhone;
-  const now = new Date();
-
-  if (existing) {
-    const nextEmail = em ?? existing.email ?? null;
-    const nextPhone = phoneDigits ?? existing.phone ?? null;
-    if (!nextEmail && !nextPhone) {
-      throw new Error("ensurePersonInTx: lost contact fields");
-    }
-    let gn = existing.givenName;
-    let fn = existing.familyName;
-    if (
-      params.givenName &&
-      (gn === "Guest" || gn === "Customer" || gn.length === 0) &&
-      params.givenName !== "Guest"
-    ) {
-      gn = params.givenName;
-    }
-    if (
-      params.familyName &&
-      (fn === "" || fn === "Customer") &&
-      params.familyName.length > 0
-    ) {
-      fn = params.familyName;
-    }
-    await tx
-      .update(people)
-      .set({
-        givenName: gn,
-        familyName: fn,
-        email: nextEmail,
-        phone: nextPhone,
-        updatedAt: now,
+  if (!existing) {
+    const [ins] = await tx
+      .insert(people)
+      .values({
+        givenName: params.givenName,
+        familyName: params.familyName,
+        email: em,
+        phone: phoneDigits,
       })
-      .where(eq(people.id, existing.id));
-    return existing.id;
+      .returning({ id: people.id });
+    return ins!.id;
   }
 
-  const [ins] = await tx
-    .insert(people)
-    .values({
-      givenName: params.givenName,
-      familyName: params.familyName,
-      email: em,
-      phone: phoneDigits,
+  const nextEmail = em ?? existing.email ?? null;
+  const nextPhone = phoneDigits ?? existing.phone ?? null;
+  if (!nextEmail && !nextPhone) {
+    throw new Error("ensurePersonInTx: lost contact fields");
+  }
+
+  let gn = existing.givenName;
+  let fn = existing.familyName;
+  if (
+    params.givenName &&
+    (gn === "Guest" || gn === "Customer" || gn.length === 0) &&
+    params.givenName !== "Guest"
+  ) {
+    gn = params.givenName;
+  }
+  if (
+    params.familyName &&
+    (fn === "" || fn === "Customer") &&
+    params.familyName.length > 0
+  ) {
+    fn = params.familyName;
+  }
+
+  const now = new Date();
+  await tx
+    .update(people)
+    .set({
+      givenName: gn,
+      familyName: fn,
+      email: nextEmail,
+      phone: nextPhone,
+      updatedAt: now,
     })
-    .returning({ id: people.id });
-  return ins!.id;
+    .where(eq(people.id, existing.id));
+  return existing.id;
 }
 
 function rosterContactMatchForPerson(person: {
   email: string | null;
   phone: string | null;
-}) {
-  const contactMatch = [];
-  if (person.email?.trim()) {
-    contactMatch.push(eq(eventInvitees.email, person.email.trim().toLowerCase()));
+}): SQL | null {
+  const contactMatch: SQL[] = [];
+
+  const email = person.email?.trim().toLowerCase();
+  if (email) {
+    contactMatch.push(eq(eventInvitees.email, email));
   }
-  if (person.phone?.trim()) {
-    const stored = person.phone.trim();
-    contactMatch.push(eq(eventInvitees.phone, stored));
-    for (const variant of phoneDigitsLookupVariants(`+${stored}`)) {
-      if (variant !== stored) {
-        contactMatch.push(eq(eventInvitees.phone, variant));
+
+  const storedPhone = person.phone?.trim();
+  if (storedPhone) {
+    contactMatch.push(eq(eventInvitees.phone, storedPhone));
+    for (const variant of phoneDigitsLookupVariants(`+${storedPhone}`)) {
+      if (variant === storedPhone) {
+        continue;
       }
+      contactMatch.push(eq(eventInvitees.phone, variant));
     }
   }
-  return contactMatch.length > 0 ? or(...contactMatch) : null;
+
+  return orClauses(contactMatch);
 }
 
 /** Link roster rows that match this person's contact but lack `person_id`. */
@@ -118,29 +135,31 @@ export async function syncRosterInviteesToPerson(personId: string): Promise<void
   if (!person) {
     return;
   }
+
   const contactMatch = rosterContactMatchForPerson(person);
   if (!contactMatch) {
     return;
   }
+
   await db
     .update(eventInvitees)
     .set({ personId })
     .where(and(isNull(eventInvitees.personId), contactMatch));
 }
 
-export async function personHasRegistrationEligibility(
-  personId: string,
-): Promise<boolean> {
+async function hasOrderForPerson(personId: string): Promise<boolean> {
   const db = getDb();
-  const [o] = await db
+  const [row] = await db
     .select({ id: orders.id })
     .from(orders)
     .where(eq(orders.personId, personId))
     .limit(1);
-  if (o) {
-    return true;
-  }
-  const [i] = await db
+  return Boolean(row);
+}
+
+async function hasLinkedPublishedInvitee(personId: string): Promise<boolean> {
+  const db = getDb();
+  const [row] = await db
     .select({ id: eventInvitees.id })
     .from(eventInvitees)
     .innerJoin(events, eq(events.id, eventInvitees.eventId))
@@ -152,19 +171,22 @@ export async function personHasRegistrationEligibility(
       ),
     )
     .limit(1);
-  if (i) {
-    return true;
-  }
+  return Boolean(row);
+}
 
+async function hasPublishedRosterContactMatch(personId: string): Promise<boolean> {
+  const db = getDb();
   const [person] = await db.select().from(people).where(eq(people.id, personId)).limit(1);
   if (!person) {
     return false;
   }
+
   const contactMatch = rosterContactMatchForPerson(person);
   if (!contactMatch) {
     return false;
   }
-  const [roster] = await db
+
+  const [row] = await db
     .select({ id: eventInvitees.id })
     .from(eventInvitees)
     .innerJoin(events, eq(events.id, eventInvitees.eventId))
@@ -176,7 +198,22 @@ export async function personHasRegistrationEligibility(
       ),
     )
     .limit(1);
-  return Boolean(roster);
+  return Boolean(row);
+}
+
+export async function personHasRegistrationEligibility(
+  personId: string,
+): Promise<boolean> {
+  if (await hasOrderForPerson(personId)) {
+    return true;
+  }
+  if (await hasLinkedPublishedInvitee(personId)) {
+    return true;
+  }
+  if (await hasPublishedRosterContactMatch(personId)) {
+    return true;
+  }
+  return false;
 }
 
 /** Resolve person for registration sign-in (email or E.164 phone). */
@@ -184,9 +221,16 @@ export async function resolvePersonIdForRegistrationContact(
   contact: { kind: "email"; email: string } | { kind: "phone"; e164: string },
 ): Promise<string | undefined> {
   if (contact.kind === "email") {
-    return findPersonIdByEmail(contact.email);
+    return (
+      (await findPersonIdByEmail(contact.email)) ??
+      (await resolvePersonIdFromPendingRosterContact(contact))
+    );
   }
-  return findPersonIdByPhoneE164(contact.e164);
+
+  return (
+    (await findPersonIdByPhoneE164(contact.e164)) ??
+    (await resolvePersonIdFromPendingRosterContact(contact))
+  );
 }
 
 /** DB digit variants (e.g. 41796829564 vs legacy 0796829564). */
@@ -195,6 +239,7 @@ export function phoneDigitsLookupVariants(phoneE164: string): string[] {
   if (!digits) {
     return [];
   }
+
   const variants = new Set<string>([digits]);
   if (digits.startsWith("41") && digits.length >= 11) {
     variants.add(`0${digits.slice(2)}`);
@@ -208,16 +253,22 @@ export function phoneDigitsLookupVariants(phoneE164: string): string[] {
 export async function findPersonIdByEmail(email: string): Promise<string | undefined> {
   const db = getDb();
   const em = normalizeEmailTypo(email.trim()).toLowerCase();
-  const [r] = await db.select({ id: people.id }).from(people).where(eq(people.email, em)).limit(1);
-  if (r) {
-    return r.id;
+
+  const [person] = await db
+    .select({ id: people.id })
+    .from(people)
+    .where(eq(people.email, em))
+    .limit(1);
+  if (person) {
+    return person.id;
   }
-  const [inv] = await db
+
+  const [invitee] = await db
     .select({ personId: eventInvitees.personId })
     .from(eventInvitees)
     .where(and(eq(eventInvitees.email, em), isNotNull(eventInvitees.personId)))
     .limit(1);
-  return inv?.personId ?? undefined;
+  return invitee?.personId ?? undefined;
 }
 
 export async function findPersonIdByPhoneE164(
@@ -227,26 +278,29 @@ export async function findPersonIdByPhoneE164(
   if (variants.length === 0) {
     return undefined;
   }
-  const db = getDb();
-  const [r] = await db
-    .select({ id: people.id })
-    .from(people)
-    .where(or(...variants.map((d) => eq(people.phone, d))))
-    .limit(1);
-  if (r) {
-    return r.id;
+
+  const phoneMatch = orClauses(variants.map((d) => eq(people.phone, d)));
+  if (!phoneMatch) {
+    return undefined;
   }
-  const [inv] = await db
+
+  const db = getDb();
+  const [person] = await db.select({ id: people.id }).from(people).where(phoneMatch).limit(1);
+  if (person) {
+    return person.id;
+  }
+
+  const inviteePhoneMatch = orClauses(variants.map((d) => eq(eventInvitees.phone, d)));
+  if (!inviteePhoneMatch) {
+    return undefined;
+  }
+
+  const [invitee] = await db
     .select({ personId: eventInvitees.personId })
     .from(eventInvitees)
-    .where(
-      and(
-        isNotNull(eventInvitees.personId),
-        or(...variants.map((d) => eq(eventInvitees.phone, d))),
-      ),
-    )
+    .where(and(isNotNull(eventInvitees.personId), inviteePhoneMatch))
     .limit(1);
-  return inv?.personId ?? undefined;
+  return invitee?.personId ?? undefined;
 }
 
 /** Attach a phone to an email-only person; no-op if phone already set to same; 409 if phone belongs to another row. */
@@ -259,6 +313,7 @@ export async function attachPhoneToPerson(params: {
   if (!digits) {
     return { ok: false, code: "not_found" };
   }
+
   const [self] = await db.select().from(people).where(eq(people.id, params.personId)).limit(1);
   if (!self) {
     return { ok: false, code: "not_found" };
@@ -266,10 +321,12 @@ export async function attachPhoneToPerson(params: {
   if (self.phone === digits) {
     return { ok: true };
   }
+
   const [other] = await db.select().from(people).where(eq(people.phone, digits)).limit(1);
   if (other && other.id !== self.id) {
     return { ok: false, code: "conflict" };
   }
+
   await db
     .update(people)
     .set({ phone: digits, updatedAt: new Date() })
