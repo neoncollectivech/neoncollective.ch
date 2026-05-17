@@ -9,14 +9,7 @@ export const siteConfig = {
       key: "home",
       href: "/",
     },
-    {
-      key: "manifesto",
-      href: "/manifesto",
-    },
-    {
-      key: "engage",
-      href: "/engage",
-    },
+    // Engage hidden from nav temporarily — page remains at /engage
     {
       key: "events",
       href: "/events",
@@ -25,13 +18,14 @@ export const siteConfig = {
       key: "donate",
       href: "/donate",
     },
+    {
+      key: "manifesto",
+      href: "/manifesto",
+    },
   ],
   navMenuItems: [],
   links: {
     instagram: "https://www.instagram.com/neoncollective.ch/",
-    membership:
-      "https://tickets.neoncollective.ch/account/login?next=/membership-2025",
-    tickets: "https://tickets.neoncollective.ch/",
     statutes:
       "https://drive.google.com/uc?export=download&id=1y8fKbgmIRkfN1GI5aC4IT_RuIgeJV9pP",
   },

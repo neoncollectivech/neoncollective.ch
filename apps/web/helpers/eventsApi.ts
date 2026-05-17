@@ -132,11 +132,20 @@ export async function fetchEvent(
       )
     : [];
 
+  const tiers = Array.isArray(data.tiers)
+    ? data.tiers.map((tier) => ({
+        ...tier,
+        selectionMode:
+          tier.selectionMode === "addon" ? ("addon" as const) : ("exclusive" as const),
+      }))
+    : undefined;
+
   return {
     ...data,
     summary: data.summary ?? null,
     location: data.location ?? null,
     imageUrls,
+    tiers,
     registrationConfirmed: Boolean(data.registrationConfirmed),
     registeredTierName:
       typeof data.registeredTierName === "string" &&

@@ -57,6 +57,31 @@ function formatPlacesRemaining(
   return `${tier.placesRemaining} ${placesRemainingLabel}`;
 }
 
+function isAddonTier(tier: EventTier): boolean {
+  return tier.selectionMode === "addon";
+}
+
+function isExclusiveTier(tier: EventTier): boolean {
+  return !isAddonTier(tier);
+}
+
+function isSelectableTier(tier: EventTier): boolean {
+  return tier.placesRemaining == null || tier.placesRemaining > 0;
+}
+
+/** Auto-pick when there is exactly one exclusive tier, or only one that still has capacity. */
+function defaultExclusiveTierId(tiers: EventTier[]): string | null {
+  const exclusive = tiers.filter(isExclusiveTier);
+  if (exclusive.length === 1) {
+    return exclusive[0]!.id;
+  }
+  const selectableExclusive = exclusive.filter(isSelectableTier);
+  if (selectableExclusive.length === 1) {
+    return selectableExclusive[0]!.id;
+  }
+  return null;
+}
+
 function EventHero({
   title,
   startsAt,
@@ -467,35 +492,35 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const [confirmingRegistration, setConfirmingRegistration] = useState(false);
 
   const exclusiveTiers = useMemo(
-    () =>
-      (eventQuery.data?.tiers ?? []).filter(
-        (tier) => tier.selectionMode !== "addon",
-      ),
+    () => (eventQuery.data?.tiers ?? []).filter(isExclusiveTier),
     [eventQuery.data?.tiers],
   );
   const addonTiers = useMemo(
-    () =>
-      (eventQuery.data?.tiers ?? []).filter(
-        (tier) => tier.selectionMode === "addon",
-      ),
+    () => (eventQuery.data?.tiers ?? []).filter(isAddonTier),
     [eventQuery.data?.tiers],
   );
 
   useEffect(() => {
-    if (exclusiveTiers.length === 0) {
+    const tiers = eventQuery.data?.tiers ?? [];
+    const autoId = defaultExclusiveTierId(tiers);
+
+    if (autoId) {
+      setSelectedExclusiveId(autoId);
       return;
     }
+
+    if (exclusiveTiers.length === 0) {
+      setSelectedExclusiveId(null);
+      return;
+    }
+
     setSelectedExclusiveId((prev) => {
       if (prev && exclusiveTiers.some((tier) => tier.id === prev)) {
         return prev;
       }
-      if (exclusiveTiers.length === 1) {
-        return exclusiveTiers[0]!.id;
-      }
-
       return null;
     });
-  }, [exclusiveTiers]);
+  }, [eventQuery.data?.tiers, exclusiveTiers, slug]);
 
   useEffect(() => {
     const addonIds = new Set(addonTiers.map((tier) => tier.id));

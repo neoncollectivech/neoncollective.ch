@@ -44,6 +44,7 @@ export type TierRow = {
 };
 
 export type TierFormRow = {
+  id: string | null;
   name: string;
   description: string;
   priceChf: string;

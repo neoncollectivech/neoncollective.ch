@@ -91,7 +91,7 @@ async function runMigrationStatements(
 
 async function main() {
   const migrations = readMigrationFiles({ migrationsFolder });
-  const client = postgres(DATABASE_URL, { max: 1 });
+  const client = postgres(DATABASE_URL!, { max: 1 });
 
   try {
     const applied = await appliedHashes(client);

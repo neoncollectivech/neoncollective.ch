@@ -17,6 +17,7 @@ type TierEditorProps = {
 
 function tierToFormRow(tier: TierRow): TierFormRow {
   return {
+    id: tier.id,
     name: tier.name,
     description: tier.description ?? "",
     priceChf: (tier.priceCents / 100).toFixed(2),
@@ -28,6 +29,7 @@ function tierToFormRow(tier: TierRow): TierFormRow {
 
 function emptyTierRow(): TierFormRow {
   return {
+    id: null,
     name: "",
     description: "",
     priceChf: "",
@@ -58,7 +60,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
   };
 
   const handleSave = () => {
-    if (!confirm("This replaces all tiers for this event. Continue?")) {
+    if (!confirm("Save tier changes for this event?")) {
       return;
     }
 
@@ -79,7 +81,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
 
     const payload = {
       tiers: rows.map((row, index) => ({
-        id: null,
+        id: row.id,
         name: row.name.trim(),
         description: row.description.trim(),
         priceCents: Math.round(Number(row.priceChf) * 100),
