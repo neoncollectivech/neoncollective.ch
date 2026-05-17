@@ -182,6 +182,10 @@ export async function refundOrder(orderId: string) {
   await api.post(`/admin/orders/${orderId}/refund`);
 }
 
+export async function deleteOrder(orderId: string) {
+  await api.delete(`/admin/orders/${orderId}`);
+}
+
 export async function listPeople(params?: { q?: string; pageSize?: string }) {
   const res = await api.get<ListResponse<PersonRow>>("/admin/people", {
     params,

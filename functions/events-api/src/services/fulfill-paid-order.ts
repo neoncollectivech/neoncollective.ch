@@ -12,9 +12,9 @@ import {
   inviteRedemptions,
   orders,
   people,
-  stripeEventsProcessed,
 } from "../db/schema.js";
 import { getExclusiveTierIdForOrderTx } from "./event-read.js";
+import { claimStripeWebhookEventTx } from "./order-failure.js";
 import { ensureHostInviteLinkForPersonInTx } from "./host-invite-link.js";
 
 const log = createLogger("fulfill-paid-order");
@@ -92,12 +92,8 @@ export async function fulfillPaidOrderInTx(
   },
 ): Promise<PostCheckoutEmailJob | null> {
   if (params.source === "webhook" && params.stripeEventId) {
-    const inserted = await tx
-      .insert(stripeEventsProcessed)
-      .values({ stripeEventId: params.stripeEventId })
-      .onConflictDoNothing()
-      .returning({ id: stripeEventsProcessed.stripeEventId });
-    if (inserted.length === 0) {
+    const claimed = await claimStripeWebhookEventTx(tx, params.stripeEventId);
+    if (!claimed) {
       log.info({ eventId: params.stripeEventId }, "Duplicate webhook — skipping fulfillment");
       return null;
     }

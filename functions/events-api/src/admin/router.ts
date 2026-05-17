@@ -27,6 +27,7 @@ import {
 import { requireInviteOnlyEvent } from "../services/event-read.js";
 import { listTiersForEvent, replaceEventTiers } from "../services/admin/event-tiers.js";
 import { getAdminInviteeDetail, listAdminInviteesForEvent } from "../services/admin/invitees-read.js";
+import { deleteUnpaidAdminOrder } from "../services/admin/orders-mutate.js";
 import { getAdminOrderDetail, listAdminOrdersQuery } from "../services/admin/orders-read.js";
 import { getAdminPersonDetail } from "../services/admin/people-read.js";
 import { prepareAdminPersonUpdate } from "../services/admin/update-person.js";
@@ -254,6 +255,14 @@ export function createAdminRouter(): Hono<AdminEnv> {
       return c.json({ error: "Not found." }, 404);
     }
     return c.json({ item: detail });
+  });
+
+  routes.delete("/orders/:id", ...adminAuth, async (c: import("hono").Context) => {
+    const res = await deleteUnpaidAdminOrder(c.req.param("id")!);
+    if (!res.ok) {
+      return c.json({ error: res.error }, res.status as ContentfulStatusCode);
+    }
+    return c.json({ ok: true });
   });
 
   routes.get("/events/:eventId/invitees", ...adminAuth, async (c: import("hono").Context) => {

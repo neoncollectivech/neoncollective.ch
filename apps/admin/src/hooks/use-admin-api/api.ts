@@ -20,6 +20,7 @@ import {
   patchInviteLink,
   patchPerson,
   putEventTiers,
+  deleteOrder,
   refundOrder,
   regenerateInviteeLink,
   revokeEventInvitee,
@@ -214,6 +215,14 @@ export const adminApi = {
           await invalidateOrders(boundOrderId ?? id);
         },
         onError: (err) => toast.error(getApiErrorMessage(err, "Refund failed")),
+      }),
+    delete: (boundOrderId?: string) =>
+      mutationOptions({
+        mutationFn: (id: string) => deleteOrder(id),
+        onSuccess: async () => {
+          await invalidateOrders(boundOrderId);
+        },
+        onError: (err) => toast.error(getApiErrorMessage(err, "Delete failed")),
       }),
   },
   people: {

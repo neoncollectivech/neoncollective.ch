@@ -23,6 +23,7 @@ import {
 import { isSessionProfileComplete } from "./participant-profile.js";
 import { ensurePersonInTx } from "./people.js";
 import { fulfillPaidOrderInTx } from "./fulfill-paid-order.js";
+import { failOrderInTx } from "./order-failure.js";
 import { resolveParticipantSessionFromCookie } from "./registration-session.js";
 
 type CheckoutTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
@@ -102,10 +103,7 @@ async function supersedePendingOrderTx(
       /* already canceled or captured */
     }
   }
-  await tx
-    .update(orders)
-    .set({ status: "failed", updatedAt: new Date() })
-    .where(eq(orders.id, order.id));
+  await failOrderInTx(tx, order.id);
 }
 
 type ExistingOrderResolution =

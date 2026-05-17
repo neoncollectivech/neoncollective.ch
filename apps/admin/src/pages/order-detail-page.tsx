@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,15 @@ import { adminApi } from "@/hooks/use-admin-api";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
 import { isUuid } from "@/lib/uuid";
 
+const DELETABLE_STATUSES = new Set(["pending", "failed"]);
+
 export function OrderDetailPage() {
+  const navigate = useNavigate();
   const { id: orderId, isValid } = useUuidRouteParam();
   const { data: order, isLoading } = useQuery(adminApi.order.detail(orderId));
   const refundMutation = useMutation(adminApi.order.refund(orderId));
+  const deleteMutation = useMutation(adminApi.order.delete(orderId));
+  const canDelete = order && DELETABLE_STATUSES.has(order.status);
 
   if (!isValid) {
     return <Navigate replace to="/orders" />;
@@ -33,24 +38,49 @@ export function OrderDetailPage() {
       {order && (
         <>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle>Summary</CardTitle>
-              {order.status === "paid" && (
-                <Button
-                  disabled={refundMutation.isPending}
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => {
-                    if (confirm("Refund this order?")) {
-                      refundMutation.mutate(orderId, {
-                        onSuccess: () => toast.success("Order refunded"),
-                      });
-                    }
-                  }}
-                >
-                  Refund
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {canDelete && (
+                  <Button
+                    disabled={deleteMutation.isPending}
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          "Delete this order? This cannot be undone. Tier quota will be released.",
+                        )
+                      ) {
+                        deleteMutation.mutate(orderId, {
+                          onSuccess: () => {
+                            toast.success("Order deleted");
+                            navigate("/orders");
+                          },
+                        });
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                )}
+                {order.status === "paid" && (
+                  <Button
+                    disabled={refundMutation.isPending}
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (confirm("Refund this order?")) {
+                        refundMutation.mutate(orderId, {
+                          onSuccess: () => toast.success("Order refunded"),
+                        });
+                      }
+                    }}
+                  >
+                    Refund
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p>
