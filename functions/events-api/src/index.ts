@@ -26,6 +26,7 @@ import {
   sessionRequestSchema,
 } from "./schemas.js";
 import { createAdminRouter } from "./admin/router.js";
+import { mountBetterAuth } from "./auth/mount.js";
 import {
   buildEventPayload,
   findInviteLinkByRawToken,
@@ -96,6 +97,7 @@ app.use("*", createCorsFromEnv("credentials"));
 app.use("*", createHttpRequestLogger(log));
 app.onError(createHttpJsonErrorHandler(log));
 
+mountBetterAuth(app);
 app.route("/admin", createAdminRouter());
 
 app.get("/health", (c) => {

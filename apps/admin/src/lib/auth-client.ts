@@ -9,9 +9,10 @@ function resolveAuthBaseURL(): string {
   return `${root.replace(/\/$/, "")}${AUTH_PATH}`;
 }
 
-export const authClient = createAuthClient({
-  baseURL: resolveAuthBaseURL(),
-  basePath: AUTH_PATH,
-});
+export const authClient = createAuthClient(
+  import.meta.env.DEV
+    ? { baseURL: "", basePath: AUTH_PATH }
+    : { baseURL: resolveAuthBaseURL() },
+);
 
 export const { useSession, signIn, signOut } = authClient;

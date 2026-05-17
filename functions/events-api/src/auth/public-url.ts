@@ -6,7 +6,7 @@ export function resolveEventsApiPublicUrl(): string {
   return (process.env.EVENTS_API_PUBLIC_URL ?? "http://localhost:8082").trim().replace(/\/$/, "");
 }
 
-/** Public Better Auth base URL (`{EVENTS_API_PUBLIC_URL}/api/auth`). */
+/** Public Better Auth base URL (`{EVENTS_API_PUBLIC_URL}/admin/auth`). */
 export function resolveBetterAuthPublicUrl(): string {
   const root = resolveEventsApiPublicUrl();
   return root.endsWith(AUTH_PATH) ? root : `${root}${AUTH_PATH}`;
