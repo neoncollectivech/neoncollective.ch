@@ -11,6 +11,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import { getDb } from "../db/index.js";
 import { eventInvitees, events, people } from "../db/schema.js";
+import { mountBetterAuth } from "../auth/mount.js";
 import { requireAdminSession } from "../auth/require-admin-session.js";
 import {
   InviteMechanismDisabledError,
@@ -58,6 +59,8 @@ function parseStartsAt(value: string | null | undefined): Date | null {
 
 export function createAdminRouter(): Hono<AdminEnv> {
   const admin = new Hono<AdminEnv>();
+
+  mountBetterAuth(admin);
 
   admin.onError((err, c) => {
     if (err instanceof InviteMechanismDisabledError) {

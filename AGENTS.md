@@ -252,7 +252,7 @@ functions/stripe-api/
 ## Admin portal (`apps/admin` + `/admin` API)
 
 - **Frontend:** `@neon/admin` — Vite + React Router + TanStack Query + Shadcn-style UI (dark). No SSR. Local dev proxies `/api` and `/admin` to `events-api` (8082).
-- **Auth:** Better Auth on `events-api` at `/api/auth/*` — **Google OAuth only** (no email/password). `databaseHooks` + session guard enforce `@neonclub.ch` emails. Env: `EVENTS_API_PUBLIC_URL` (function root; auth at `/api/auth`), `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
+- **Auth:** Better Auth on `events-api` at `/admin/auth/*` (not `/api/auth` — CDN must route `/neo-events-api/admin/*` to the function). **Google OAuth only** (no email/password). `databaseHooks` + session guard enforce `@neonclub.ch` emails. Env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
 - **Admin routes:** `functions/events-api/src/admin/router.ts` mounted at `/admin`. All routes use `requireAdminSession` (not `ADMIN_API_KEY` in the browser).
 - **`@neon/admin-crud`:** Call `registerAdminCrud(app, config)` once per entity to get list/read/create/update/delete with envelope `{ items, meta }` / `{ item }`. Use `operations: [...]` to omit endpoints (e.g. no delete on events). Use `registerAdminRoute` for non-CRUD actions (invitee upsert, revoke, refund, tier PUT). Do **not** use the registrar for nested business flows that need custom joins unless `serialize` / custom routes cover it.
 

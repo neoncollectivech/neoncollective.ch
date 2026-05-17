@@ -1,4 +1,5 @@
-const AUTH_PATH = "/api/auth";
+/** Under `/admin/auth` so GCP/CDN routes match other admin paths (not `/api/auth`). */
+const AUTH_PATH = "/admin/auth";
 
 /** Public events-api root (Cloud Function URL, no trailing slash). */
 export function resolveEventsApiPublicUrl(): string {
@@ -11,11 +12,11 @@ export function resolveBetterAuthPublicUrl(): string {
   return root.endsWith(AUTH_PATH) ? root : `${root}${AUTH_PATH}`;
 }
 
-/** Rewrite an internal `/api/auth/*` request to the public URL Better Auth routes on. */
-export function toPublicAuthRequest(internal: Request): Request {
+/** Rewrite to the public `/admin/auth/*` URL Better Auth routes on. */
+export function toPublicAuthRequest(internal: Request, honoAuthPath: string): Request {
   const pub = new URL(resolveBetterAuthPublicUrl());
-  const internalUrl = new URL(internal.url);
-  const suffix = internalUrl.pathname.replace(/^\/api\/auth/, "") || "/";
-  const publicUrl = `${pub.origin}${pub.pathname}${suffix}${internalUrl.search}`;
+  const suffix = honoAuthPath.replace(/^\/admin\/auth/, "") || "/";
+  const query = new URL(internal.url).search;
+  const publicUrl = `${pub.origin}${pub.pathname}${suffix}${query}`;
   return new Request(publicUrl, internal);
 }
