@@ -19,6 +19,7 @@ import { Spinner } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { FormError } from "@/components/form-error";
+import { absoluteSiteUrl, getSiteOrigin } from "@/helpers/site-url";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
 import { NeonLink } from "@/components/neon-link";
@@ -75,13 +76,16 @@ function isSelectableTier(tier: EventTier): boolean {
 /** Auto-pick when there is exactly one exclusive tier, or only one that still has capacity. */
 function defaultExclusiveTierId(tiers: EventTier[]): string | null {
   const exclusive = tiers.filter(isExclusiveTier);
+
   if (exclusive.length === 1) {
     return exclusive[0]!.id;
   }
   const selectableExclusive = exclusive.filter(isSelectableTier);
+
   if (selectableExclusive.length === 1) {
     return selectableExclusive[0]!.id;
   }
+
   return null;
 }
 
@@ -205,9 +209,7 @@ function buildHostInviteUrl(
   _slug: string,
   token: string,
 ): string {
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "http://localhost";
-  const url = new URL(`/${locale}/events`, origin);
+  const url = new URL(`/${locale}/events`, getSiteOrigin());
 
   url.searchParams.set("invite", token);
 
@@ -246,7 +248,7 @@ function HostInviteShareBlock({
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       /* ignore */
     }
@@ -514,11 +516,13 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
     if (autoId) {
       setSelectedExclusiveId(autoId);
+
       return;
     }
 
     if (exclusiveTiers.length === 0) {
       setSelectedExclusiveId(null);
+
       return;
     }
 
@@ -526,6 +530,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       if (prev && exclusiveTiers.some((tier) => tier.id === prev)) {
         return prev;
       }
+
       return null;
     });
   }, [eventQuery.data?.tiers, exclusiveTiers, slug]);
@@ -599,25 +604,25 @@ function EventDetailsInner({ slug }: { slug: string }) {
     if (searchParams.get("redirect_status") !== "succeeded") {
       return;
     }
-    if (typeof window === "undefined") {
-      return;
-    }
-    const url = new URL(window.location.href);
+    const params = new URLSearchParams(searchParams.toString());
 
     for (const key of [
       "payment_intent",
       "payment_intent_client_secret",
       "redirect_status",
     ]) {
-      url.searchParams.delete(key);
+      params.delete(key);
     }
-    router.replace(`${url.pathname}${url.search}`);
-  }, [codeHandled, confirmingRegistration, router, searchParams]);
+    const qs = params.toString();
 
-  const returnUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}${window.location.pathname}${window.location.search}`
-      : `/${locale}/events/${slug}`;
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [codeHandled, confirmingRegistration, pathname, router, searchParams]);
+
+  const returnUrl = useMemo(() => {
+    const qs = searchParams.toString();
+
+    return absoluteSiteUrl(qs ? `${pathname}?${qs}` : pathname);
+  }, [pathname, searchParams]);
 
   const elementsOptions: StripeElementsOptions | undefined = clientSecret
     ? {
@@ -654,7 +659,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const registrationSettled =
     Boolean(ev.registrationConfirmed) && !confirmingRegistration;
   const hasCheckoutProfile = Boolean(profile?.profileComplete);
-  const showProfileGateModal = profileGateOpen && needsProfile && !profileLoading;
+  const showProfileGateModal =
+    profileGateOpen && needsProfile && !profileLoading;
   const showContactForm = !profileLoading && !hasCheckoutProfile;
   const checkoutContactReady = hasCheckoutProfile
     ? true
@@ -719,153 +725,114 @@ function EventDetailsInner({ slug }: { slug: string }) {
         }
       >
         <EventHero
-        backHref={backHref}
-        backLabel={t.backToEvents}
-        imageAlt={t.detailImageAlt}
-        imageUrl={heroImage}
-        locale={locale}
-        location={ev.location ?? null}
-        locationLabel={t.detailLocation}
-        startsAt={ev.startsAt}
-        title={ev.title}
-      />
+          backHref={backHref}
+          backLabel={t.backToEvents}
+          imageAlt={t.detailImageAlt}
+          imageUrl={heroImage}
+          locale={locale}
+          location={ev.location ?? null}
+          locationLabel={t.detailLocation}
+          startsAt={ev.startsAt}
+          title={ev.title}
+        />
 
-      {registrationSettled ? (
-        <Card
-          className="mb-10 md:mb-12 border border-neon/30 bg-transparent max-w-xl"
-          radius="sm"
-        >
-          <CardBody className="px-6 py-8">
-            <h2 className="text-xl font-bold tracking-tight text-foreground/90 mb-3">
-              {t.registrationConfirmedTitle}
-            </h2>
-            <p className="text-base text-neon/80 leading-relaxed">
-              {confirmationBody}
-            </p>
-            {ev.inviteOnly && ev.hostInvite ? (
-              <details className="mt-6 group" open>
-                <summary className="cursor-pointer text-sm font-semibold text-foreground/70 list-none flex items-center gap-2">
-                  <span className="group-open:rotate-90 transition-transform">
-                    ›
-                  </span>
-                  {t.hostInviteGuestsTitle}
-                </summary>
-                <div className="mt-4 pl-4">
-                  <HostInviteShareBlock
-                    conversions={ev.hostInvite.conversions}
-                    labels={{
-                      copied: t.hostInviteCopied,
-                      conversionsEmpty: t.hostInviteConversionsEmpty,
-                      conversionsTitle: t.hostInviteConversionsTitle,
-                      copy: t.hostInviteCopy,
-                      invitesLeft: t.hostInvitesLeft,
-                      linkLabel: t.hostInviteLinkLabel,
-                    }}
-                    locale={locale}
-                    remaining={ev.hostInvite.remaining}
-                    slug={slug}
-                    token={ev.hostInvite.token}
-                  />
-                </div>
-              </details>
-            ) : null}
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {ev.inviteOnly && !ev.tiers && !ev.registrationConfirmed ? (
-        <p className="text-base text-foreground/50 leading-relaxed max-w-2xl mb-10">
-          {t.needInvite}
-        </p>
-      ) : null}
-
-      {confirmingRegistration && !registrationSettled ? (
-        <div className="flex flex-col items-center gap-4 py-12 mb-10 max-w-xl">
-          <Spinner color="success" size="lg" />
-          <p className="text-sm font-mono text-foreground/50 text-center">
-            {t.checkoutConfirming}
-          </p>
-        </div>
-      ) : null}
-
-      {checkoutConfirmError && !confirmingRegistration && !registrationSettled ? (
-        <FormError className="mb-10 max-w-xl">{checkoutConfirmError}</FormError>
-      ) : null}
-
-      {!ev.registrationConfirmed &&
-      !confirmingRegistration &&
-      ev.tiers &&
-      ev.tiers.length > 0 ? (
-        <Card
-          className="mb-10 md:mb-12 border border-foreground/10 bg-foreground/[0.02] max-w-xl"
-          radius="sm"
-        >
-          <CardBody className="px-6 py-8">
-            <p className="text-xs font-mono text-foreground/40 mb-4">
-              {clientSecret ? t.checkoutStepPay : t.checkoutStepChoose}
-            </p>
-            <h2
-              className="text-xl font-bold tracking-tight text-foreground/90 mb-1"
-              id="event-checkout-heading"
-            >
-              {t.contributionTitle}
-            </h2>
-            <p className="text-sm text-foreground/45 mb-6">
-              {t.contributionSubtitle}
-            </p>
-
-            {exclusiveTiers.length > 0 ? (
-              <RadioGroup
-                aria-labelledby="event-checkout-heading"
-                classNames={{ wrapper: "gap-6" }}
-                isDisabled={Boolean(clientSecret)}
-                value={selectedExclusiveId ?? ""}
-                onValueChange={setSelectedExclusiveId}
-              >
-                {exclusiveTiers.map((tier) => {
-                  const tierDescription = tier.description.trim();
-                  const priceLabel = formatTierPrice(tier);
-                  const placesLabel = formatPlacesRemaining(
-                    tier,
-                    t.placesRemaining,
-                    t.placesUnlimited,
-                  );
-
-                  return (
-                    <Radio
-                      key={tier.id}
-                      classNames={{
-                        base: "max-w-full m-0 p-3 border border-foreground/10 data-[selected=true]:border-neon/40 rounded-sm",
-                        wrapper: "mt-0.5",
-                        label: "w-full max-w-full",
-                        labelWrapper: "w-full max-w-full",
-                        description:
-                          "text-xs text-foreground/45 leading-relaxed mt-1.5",
+        {registrationSettled ? (
+          <Card
+            className="mb-10 md:mb-12 border border-neon/30 bg-transparent max-w-xl"
+            radius="sm"
+          >
+            <CardBody className="px-6 py-8">
+              <h2 className="text-xl font-bold tracking-tight text-foreground/90 mb-3">
+                {t.registrationConfirmedTitle}
+              </h2>
+              <p className="text-base text-neon/80 leading-relaxed">
+                {confirmationBody}
+              </p>
+              {ev.inviteOnly && ev.hostInvite ? (
+                <details open className="mt-6 group">
+                  <summary className="cursor-pointer text-sm font-semibold text-foreground/70 list-none flex items-center gap-2">
+                    <span className="group-open:rotate-90 transition-transform">
+                      ›
+                    </span>
+                    {t.hostInviteGuestsTitle}
+                  </summary>
+                  <div className="mt-4 pl-4">
+                    <HostInviteShareBlock
+                      conversions={ev.hostInvite.conversions}
+                      labels={{
+                        copied: t.hostInviteCopied,
+                        conversionsEmpty: t.hostInviteConversionsEmpty,
+                        conversionsTitle: t.hostInviteConversionsTitle,
+                        copy: t.hostInviteCopy,
+                        invitesLeft: t.hostInvitesLeft,
+                        linkLabel: t.hostInviteLinkLabel,
                       }}
-                      description={tierDescription || undefined}
-                      value={tier.id}
-                    >
-                      <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-sm font-medium text-foreground/80">
-                          {tier.name}
-                        </span>
-                        <span className="text-xs font-mono text-foreground/45 shrink-0">
-                          {priceLabel} · {placesLabel}
-                        </span>
-                      </span>
-                    </Radio>
-                  );
-                })}
-              </RadioGroup>
-            ) : null}
+                      locale={locale}
+                      remaining={ev.hostInvite.remaining}
+                      slug={slug}
+                      token={ev.hostInvite.token}
+                    />
+                  </div>
+                </details>
+              ) : null}
+            </CardBody>
+          </Card>
+        ) : null}
 
-            {addonTiers.length > 0 ? (
-              <div className="mt-8 space-y-4">
-                <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
-                  {t.addonsTitle}
-                </p>
-                <div className="space-y-3">
-                  {addonTiers.map((tier) => {
+        {ev.inviteOnly && !ev.tiers && !ev.registrationConfirmed ? (
+          <p className="text-base text-foreground/50 leading-relaxed max-w-2xl mb-10">
+            {t.needInvite}
+          </p>
+        ) : null}
+
+        {confirmingRegistration && !registrationSettled ? (
+          <div className="flex flex-col items-center gap-4 py-12 mb-10 max-w-xl">
+            <Spinner color="success" size="lg" />
+            <p className="text-sm font-mono text-foreground/50 text-center">
+              {t.checkoutConfirming}
+            </p>
+          </div>
+        ) : null}
+
+        {checkoutConfirmError &&
+        !confirmingRegistration &&
+        !registrationSettled ? (
+          <FormError className="mb-10 max-w-xl">
+            {checkoutConfirmError}
+          </FormError>
+        ) : null}
+
+        {!ev.registrationConfirmed &&
+        !confirmingRegistration &&
+        ev.tiers &&
+        ev.tiers.length > 0 ? (
+          <Card
+            className="mb-10 md:mb-12 border border-foreground/10 bg-foreground/[0.02] max-w-xl"
+            radius="sm"
+          >
+            <CardBody className="px-6 py-8">
+              <p className="text-xs font-mono text-foreground/40 mb-4">
+                {clientSecret ? t.checkoutStepPay : t.checkoutStepChoose}
+              </p>
+              <h2
+                className="text-xl font-bold tracking-tight text-foreground/90 mb-1"
+                id="event-checkout-heading"
+              >
+                {t.contributionTitle}
+              </h2>
+              <p className="text-sm text-foreground/45 mb-6">
+                {t.contributionSubtitle}
+              </p>
+
+              {exclusiveTiers.length > 0 ? (
+                <RadioGroup
+                  aria-labelledby="event-checkout-heading"
+                  classNames={{ wrapper: "gap-6" }}
+                  isDisabled={Boolean(clientSecret)}
+                  value={selectedExclusiveId ?? ""}
+                  onValueChange={setSelectedExclusiveId}
+                >
+                  {exclusiveTiers.map((tier) => {
                     const tierDescription = tier.description.trim();
                     const priceLabel = formatTierPrice(tier);
                     const placesLabel = formatPlacesRemaining(
@@ -873,207 +840,253 @@ function EventDetailsInner({ slug }: { slug: string }) {
                       t.placesRemaining,
                       t.placesUnlimited,
                     );
-                    const isSelected = selectedAddonIds.has(tier.id);
 
                     return (
-                      <div
+                      <Radio
                         key={tier.id}
-                        className="p-3 border border-foreground/10 rounded-sm data-[selected=true]:border-neon/40"
-                        data-selected={isSelected ? true : undefined}
+                        classNames={{
+                          base: "max-w-full m-0 p-3 border border-foreground/10 data-[selected=true]:border-neon/40 rounded-sm",
+                          wrapper: "mt-0.5",
+                          label: "w-full max-w-full",
+                          labelWrapper: "w-full max-w-full",
+                          description:
+                            "text-xs text-foreground/45 leading-relaxed mt-1.5",
+                        }}
+                        description={tierDescription || undefined}
+                        value={tier.id}
                       >
-                        <Checkbox
-                          classNames={{
-                            base: "max-w-full m-0 items-start",
-                            label: "w-full max-w-full",
-                          }}
-                          isDisabled={Boolean(clientSecret)}
-                          isSelected={isSelected}
-                          onValueChange={(checked) => {
-                            setSelectedAddonIds((prev) => {
-                              const next = new Set(prev);
-
-                              if (checked) {
-                                next.add(tier.id);
-                              } else {
-                                next.delete(tier.id);
-                              }
-
-                              return next;
-                            });
-                          }}
-                        >
-                          <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                            <span className="text-sm font-medium text-foreground/80">
-                              {tier.name}
-                            </span>
-                            <span className="text-xs font-mono text-foreground/45 shrink-0">
-                              {priceLabel} · {placesLabel}
-                            </span>
+                        <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                          <span className="text-sm font-medium text-foreground/80">
+                            {tier.name}
                           </span>
-                        </Checkbox>
-                        {tierDescription ? (
-                          <p className="text-xs text-foreground/45 leading-relaxed mt-1.5 pl-7">
-                            {tierDescription}
-                          </p>
-                        ) : null}
-                      </div>
+                          <span className="text-xs font-mono text-foreground/45 shrink-0">
+                            {priceLabel} · {placesLabel}
+                          </span>
+                        </span>
+                      </Radio>
                     );
                   })}
-                </div>
-              </div>
-            ) : null}
+                </RadioGroup>
+              ) : null}
 
-            {selectedTiers.length > 0 ? (
-              <p className="mt-6 text-sm font-mono text-foreground/55">
-                {t.checkoutTotal}: CHF {(checkoutTotalCents / 100).toFixed(0)}
-              </p>
-            ) : null}
-
-            {showContactForm ? (
-              <div className="mt-6 space-y-3">
-                <NeonInput
-                  isRequired
-                  label={t.email}
-                  type="email"
-                  value={email}
-                  onValueChange={setEmail}
-                />
-                <NeonInput
-                  label={t.phone}
-                  type="tel"
-                  value={phone}
-                  onValueChange={setPhone}
-                />
-              </div>
-            ) : null}
-
-            {!clientSecret ? (
-              <div className="mt-6 space-y-2">
-                <NeonButton
-                  className="w-full sm:w-auto"
-                  isDisabled={
-                    intentMutation.isPending ||
-                    !tierSelectionReady ||
-                    profileLoading ||
-                    !checkoutContactReady
-                  }
-                  type="button"
-                  onPress={() => {
-                    const useProfileContact = Boolean(profile?.profileComplete);
-                    const profileEmail = profile?.email?.trim() ?? "";
-                    const profilePhone = profile?.phoneE164?.trim() ?? "";
-
-                    intentMutation.mutate(
-                      {
-                        slug,
-                        email: useProfileContact
-                          ? profileEmail || null
-                          : email.trim()
-                            ? email.trim()
-                            : null,
-                        locale,
-                        phoneE164: useProfileContact
-                          ? profilePhone || null
-                          : phone.trim()
-                            ? phone.trim()
-                            : null,
-                        inviteToken: effectiveInviteToken ?? null,
-                        exclusiveTierId: selectedExclusiveId ?? "",
-                        addonTierIds: Array.from(selectedAddonIds),
-                      },
-                      {
-                        onSuccess: (data) => {
-                          setClientSecret(data.clientSecret);
-                          setCheckoutOrderId(data.orderId);
-                          eventsApi.storage.stashCheckoutOrderId(
-                            slug,
-                            data.orderId,
-                          );
-                        },
-                      },
-                    );
-                  }}
-                >
-                  {intentMutation.isPending ? "…" : t.ctaIntent}
-                </NeonButton>
-                {checkoutDisabledReason &&
-                (intentMutation.isPending ||
-                  !tierSelectionReady ||
-                  profileLoading ||
-                  !checkoutContactReady) ? (
-                  <p className="text-xs text-foreground/40">
-                    {checkoutDisabledReason}
+              {addonTiers.length > 0 ? (
+                <div className="mt-8 space-y-4">
+                  <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
+                    {t.addonsTitle}
                   </p>
-                ) : null}
-              </div>
-            ) : null}
+                  <div className="space-y-3">
+                    {addonTiers.map((tier) => {
+                      const tierDescription = tier.description.trim();
+                      const priceLabel = formatTierPrice(tier);
+                      const placesLabel = formatPlacesRemaining(
+                        tier,
+                        t.placesRemaining,
+                        t.placesUnlimited,
+                      );
+                      const isSelected = selectedAddonIds.has(tier.id);
 
-            {intentMutation.isError ? (
-              <FormError className="mt-4">
-                {intentMutation.error instanceof AxiosError &&
-                intentMutation.error.response?.data &&
-                typeof (
-                  intentMutation.error.response.data as { error?: string }
-                ).error === "string"
-                  ? (intentMutation.error.response.data as { error: string })
-                      .error
-                  : t.intentError}
-              </FormError>
-            ) : null}
+                      return (
+                        <div
+                          key={tier.id}
+                          className="p-3 border border-foreground/10 rounded-sm data-[selected=true]:border-neon/40"
+                          data-selected={isSelected ? true : undefined}
+                        >
+                          <Checkbox
+                            classNames={{
+                              base: "max-w-full m-0 items-start",
+                              label: "w-full max-w-full",
+                            }}
+                            isDisabled={Boolean(clientSecret)}
+                            isSelected={isSelected}
+                            onValueChange={(checked) => {
+                              setSelectedAddonIds((prev) => {
+                                const next = new Set(prev);
 
-            {clientSecret && selectedTiers.length > 0 ? (
-              <div className="mt-6 pt-6 border-t border-foreground/10">
-                <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-1">
-                  {t.checkoutOrderSummary}
-                </p>
-                <ul className="text-sm font-medium text-foreground/80 mb-2 space-y-1">
-                  {selectedTiers.map((tier) => (
-                    <li key={tier.id}>
-                      {tier.name} — {formatTierPrice(tier)}
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-sm font-mono text-foreground/55">
+                                if (checked) {
+                                  next.add(tier.id);
+                                } else {
+                                  next.delete(tier.id);
+                                }
+
+                                return next;
+                              });
+                            }}
+                          >
+                            <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                              <span className="text-sm font-medium text-foreground/80">
+                                {tier.name}
+                              </span>
+                              <span className="text-xs font-mono text-foreground/45 shrink-0">
+                                {priceLabel} · {placesLabel}
+                              </span>
+                            </span>
+                          </Checkbox>
+                          {tierDescription ? (
+                            <p className="text-xs text-foreground/45 leading-relaxed mt-1.5 pl-7">
+                              {tierDescription}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {selectedTiers.length > 0 ? (
+                <p className="mt-6 text-sm font-mono text-foreground/55">
                   {t.checkoutTotal}: CHF {(checkoutTotalCents / 100).toFixed(0)}
                 </p>
-              </div>
-            ) : null}
+              ) : null}
 
-            {clientSecret &&
-            checkoutOrderId &&
-            stripePromise &&
-            elementsOptions ? (
-              <Elements
-                key={clientSecret}
-                options={elementsOptions}
-                stripe={stripePromise}
-              >
-                <PaymentStep
-                  onePersonHint={t.checkoutOnePersonHint}
-                  payLabel={t.pay}
-                  returnUrl={returnUrl}
-                  onPaymentSucceeded={() => {
-                    if (checkoutOrderId) {
-                      startCheckoutAfterPayment(checkoutOrderId);
+              {showContactForm ? (
+                <div className="mt-6 space-y-3">
+                  <NeonInput
+                    isRequired
+                    label={t.email}
+                    type="email"
+                    value={email}
+                    onValueChange={setEmail}
+                  />
+                  <NeonInput
+                    label={t.phone}
+                    type="tel"
+                    value={phone}
+                    onValueChange={setPhone}
+                  />
+                </div>
+              ) : null}
+
+              {!clientSecret ? (
+                <div className="mt-6 space-y-2">
+                  <NeonButton
+                    className="w-full sm:w-auto"
+                    isDisabled={
+                      intentMutation.isPending ||
+                      !tierSelectionReady ||
+                      profileLoading ||
+                      !checkoutContactReady
                     }
-                  }}
-                />
-              </Elements>
-            ) : null}
+                    type="button"
+                    onPress={() => {
+                      const useProfileContact = Boolean(
+                        profile?.profileComplete,
+                      );
+                      const profileEmail = profile?.email?.trim() ?? "";
+                      const profilePhone = profile?.phoneE164?.trim() ?? "";
 
-            <div className="mt-8 pt-6 border-t border-foreground/10">
-              <ParticipantSessionPanel
-                embedded
-                codeExchangePending={!codeHandled}
-                returnPath={detailReturnPath}
-                sessionEstablishedQueryKeys={[
-                  eventsKeys.detail(slug, effectiveInviteToken),
-                ]}
-              />
-            </div>
-          </CardBody>
-        </Card>
-      ) : null}
+                      intentMutation.mutate(
+                        {
+                          slug,
+                          email: useProfileContact
+                            ? profileEmail || null
+                            : email.trim()
+                              ? email.trim()
+                              : null,
+                          locale,
+                          phoneE164: useProfileContact
+                            ? profilePhone || null
+                            : phone.trim()
+                              ? phone.trim()
+                              : null,
+                          inviteToken: effectiveInviteToken ?? null,
+                          exclusiveTierId: selectedExclusiveId ?? "",
+                          addonTierIds: Array.from(selectedAddonIds),
+                        },
+                        {
+                          onSuccess: (data) => {
+                            setClientSecret(data.clientSecret);
+                            setCheckoutOrderId(data.orderId);
+                            eventsApi.storage.stashCheckoutOrderId(
+                              slug,
+                              data.orderId,
+                            );
+                          },
+                        },
+                      );
+                    }}
+                  >
+                    {intentMutation.isPending ? "…" : t.ctaIntent}
+                  </NeonButton>
+                  {checkoutDisabledReason &&
+                  (intentMutation.isPending ||
+                    !tierSelectionReady ||
+                    profileLoading ||
+                    !checkoutContactReady) ? (
+                    <p className="text-xs text-foreground/40">
+                      {checkoutDisabledReason}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {intentMutation.isError ? (
+                <FormError className="mt-4">
+                  {intentMutation.error instanceof AxiosError &&
+                  intentMutation.error.response?.data &&
+                  typeof (
+                    intentMutation.error.response.data as { error?: string }
+                  ).error === "string"
+                    ? (intentMutation.error.response.data as { error: string })
+                        .error
+                    : t.intentError}
+                </FormError>
+              ) : null}
+
+              {clientSecret && selectedTiers.length > 0 ? (
+                <div className="mt-6 pt-6 border-t border-foreground/10">
+                  <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-1">
+                    {t.checkoutOrderSummary}
+                  </p>
+                  <ul className="text-sm font-medium text-foreground/80 mb-2 space-y-1">
+                    {selectedTiers.map((tier) => (
+                      <li key={tier.id}>
+                        {tier.name} — {formatTierPrice(tier)}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-sm font-mono text-foreground/55">
+                    {t.checkoutTotal}: CHF{" "}
+                    {(checkoutTotalCents / 100).toFixed(0)}
+                  </p>
+                </div>
+              ) : null}
+
+              {clientSecret &&
+              checkoutOrderId &&
+              stripePromise &&
+              elementsOptions ? (
+                <Elements
+                  key={clientSecret}
+                  options={elementsOptions}
+                  stripe={stripePromise}
+                >
+                  <PaymentStep
+                    onePersonHint={t.checkoutOnePersonHint}
+                    payLabel={t.pay}
+                    returnUrl={returnUrl}
+                    onPaymentSucceeded={() => {
+                      if (checkoutOrderId) {
+                        startCheckoutAfterPayment(checkoutOrderId);
+                      }
+                    }}
+                  />
+                </Elements>
+              ) : null}
+
+              <div className="mt-8 pt-6 border-t border-foreground/10">
+                <ParticipantSessionPanel
+                  embedded
+                  codeExchangePending={!codeHandled}
+                  returnPath={detailReturnPath}
+                  sessionEstablishedQueryKeys={[
+                    eventsKeys.detail(slug, effectiveInviteToken),
+                  ]}
+                />
+              </div>
+            </CardBody>
+          </Card>
+        ) : null}
 
         <EventAboutSection
           imageAlt={t.detailImageAlt}

@@ -16,6 +16,7 @@ export function isRetryableCheckoutConfirmError(err: unknown): boolean {
     return true;
   }
   const status = err.response?.status;
+
   if (status == null) {
     return true;
   }
@@ -32,6 +33,7 @@ export function isRetryableCheckoutConfirmError(err: unknown): boolean {
     typeof (err.response.data as { error?: string }).error === "string"
       ? (err.response.data as { error: string }).error
       : "";
+
   return message.includes("not complete yet");
 }
 
@@ -53,9 +55,11 @@ export function checkoutConfirmErrorMessage(
       typeof (err.response.data as { error?: string }).error === "string"
         ? (err.response.data as { error: string }).error
         : null;
+
     if (apiError) {
       return apiError;
     }
   }
+
   return labels.generic;
 }

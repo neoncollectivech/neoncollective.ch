@@ -136,7 +136,9 @@ export async function fetchEvent(
     ? data.tiers.map((tier) => ({
         ...tier,
         selectionMode:
-          tier.selectionMode === "addon" ? ("addon" as const) : ("exclusive" as const),
+          tier.selectionMode === "addon"
+            ? ("addon" as const)
+            : ("exclusive" as const),
       }))
     : undefined;
 

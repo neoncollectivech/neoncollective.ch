@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AxiosError } from "axios";
 
 import { FormError } from "@/components/form-error";
+import { absoluteSiteUrl } from "@/helpers/site-url";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
@@ -33,7 +34,7 @@ export function ManageDonation() {
       await portalMutation.mutateAsync({
         email,
         locale,
-        returnUrl: `${window.location.origin}/${locale}/donate`,
+        returnUrl: absoluteSiteUrl(`/${locale}/donate`),
       });
       setStatus("sent");
     } catch (err) {

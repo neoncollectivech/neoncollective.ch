@@ -4,6 +4,7 @@ import type { Locale } from "@/i18n/config";
 import type { ParticipantProfile } from "@/helpers/eventsApi";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { checkoutConfirmErrorMessage } from "@/helpers/checkout-confirm";
@@ -120,6 +121,9 @@ export function useExchangeRegistrationCode(params: {
   sessionErrorLabel: string;
   onInvalidated?: () => void | Promise<void>;
 }): { codeHandled: boolean; codeError: string | null } {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const exchangeMutation = useMutation(
     eventsApi.registration.exchangeSession(),
   );
@@ -147,10 +151,12 @@ export function useExchangeRegistrationCode(params: {
           return;
         }
         setCodeHandled(true);
-        const url = new URL(window.location.href);
+        const nextParams = new URLSearchParams(searchParams.toString());
 
-        url.searchParams.delete("code");
-        window.history.replaceState({}, "", url.toString());
+        nextParams.delete("code");
+        const qs = nextParams.toString();
+
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
         await onInvalidatedRef.current?.();
       } catch {
         if (!cancelled) {
@@ -164,7 +170,14 @@ export function useExchangeRegistrationCode(params: {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per code
-  }, [params.code, params.sessionErrorLabel, codeHandled]);
+  }, [
+    params.code,
+    params.sessionErrorLabel,
+    codeHandled,
+    pathname,
+    router,
+    searchParams,
+  ]);
 
   return { codeHandled, codeError };
 }
@@ -230,6 +243,7 @@ export function useCheckoutConfirmation(params: {
         params.errorLabels,
       );
     }
+
     return null;
   })();
 

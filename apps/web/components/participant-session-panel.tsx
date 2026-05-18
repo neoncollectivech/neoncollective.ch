@@ -3,11 +3,13 @@
 import type { QueryKey } from "@tanstack/react-query";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Spinner } from "@heroui/react";
 
 import { FormError } from "@/components/form-error";
 import { apiErrorMessage } from "@/helpers/apiErrorMessage";
+import { absoluteSiteUrl } from "@/helpers/site-url";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
 import { NeonLink } from "@/components/neon-link";
@@ -40,6 +42,9 @@ export function ParticipantSessionPanel({
   const t = dictionary.events;
   const queryClient = useQueryClient();
 
+  const searchParams = useSearchParams();
+  const loginPrefill = searchParams.get("login")?.trim() ?? "";
+
   const isControlled = onContactChange != null;
   const [internalContact, setInternalContact] = useState("");
   const contact = isControlled ? (controlledContact ?? "") : internalContact;
@@ -60,6 +65,55 @@ export function ParticipantSessionPanel({
   );
 
   const sessionEstablished = sessionStatusQuery.data?.session === true;
+
+  useEffect(() => {
+    if (
+      !loginPrefill ||
+      codeExchangePending ||
+      sessionStatusQuery.isLoading ||
+      sessionEstablished
+    ) {
+      return;
+    }
+    if (isControlled) {
+      if (!controlledContact?.trim()) {
+        onContactChange?.(loginPrefill);
+      }
+
+      return;
+    }
+    setInternalContact((prev) => (prev.trim() ? prev : loginPrefill));
+  }, [
+    codeExchangePending,
+    controlledContact,
+    isControlled,
+    loginPrefill,
+    onContactChange,
+    sessionEstablished,
+    sessionStatusQuery.isLoading,
+  ]);
+
+  const requestSession = useCallback(() => {
+    const trimmed = contact.trim();
+
+    if (!trimmed || sessionMutation.isPending) {
+      return;
+    }
+    sessionMutation.mutate(
+      {
+        contact: trimmed,
+        locale,
+        returnUrl: absoluteSiteUrl(returnPath),
+      },
+      {
+        onSuccess: (channel) => {
+          setAccessChannel(channel);
+          setAwaitingCode(true);
+          setAccessCode("");
+        },
+      },
+    );
+  }, [contact, locale, returnPath, sessionMutation]);
 
   if (codeExchangePending || sessionStatusQuery.isLoading) {
     return (
@@ -171,42 +225,27 @@ export function ParticipantSessionPanel({
           {t.sessionIntro}
         </p>
       )}
-      {!isControlled ? (
-        <div className="mb-4 max-w-md">
+      <form
+        className="flex flex-col gap-4 max-w-md"
+        onSubmit={(e) => {
+          e.preventDefault();
+          requestSession();
+        }}
+      >
+        {!isControlled ? (
           <NeonInput
             isRequired
+            autoComplete="email tel"
             label={t.sessionContactLabel}
+            name="contact"
             placeholder={t.sessionContactPlaceholder}
             type="text"
             value={contact}
             onValueChange={setContact}
           />
-        </div>
-      ) : null}
-      <form
-        className="flex flex-col sm:flex-row gap-3 items-start"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!contact.trim()) {
-            return;
-          }
-          sessionMutation.mutate(
-            {
-              contact,
-              locale,
-              returnUrl: `${window.location.origin}${returnPath}`,
-            },
-            {
-              onSuccess: (channel) => {
-                setAccessChannel(channel);
-                setAwaitingCode(true);
-                setAccessCode("");
-              },
-            },
-          );
-        }}
-      >
+        ) : null}
         <NeonButton
+          className="self-start"
           isDisabled={sessionMutation.isPending || !contact.trim()}
           type="submit"
           variant="bordered"

@@ -6,6 +6,7 @@ export function useEventUrlParams() {
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get("invite") ?? undefined;
   const code = searchParams.get("code") ?? undefined;
+  const loginPrefill = searchParams.get("login")?.trim() || undefined;
 
-  return { inviteToken, code };
+  return { inviteToken, code, loginPrefill };
 }

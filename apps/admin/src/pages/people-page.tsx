@@ -15,11 +15,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminApi } from "@/hooks/use-admin-api";
+import { buildPublicLoginUrl, personLoginContact } from "@/lib/invite-url";
 import {
   personNeedsVerification,
   personVerificationSummary,
 } from "@/lib/person-verification";
 import { isUuid } from "@/lib/uuid";
+
+async function copyPersonLoginLink(person: {
+  email: string | null;
+  phone: string | null;
+}) {
+  const contact = personLoginContact(person);
+
+  if (!contact) {
+    toast.error("No email or phone on file");
+
+    return;
+  }
+  await navigator.clipboard.writeText(buildPublicLoginUrl(contact));
+  toast.success("Login link copied");
+}
 
 export function PeoplePage() {
   const [q, setQ] = useState("");
@@ -135,7 +151,7 @@ export function PeoplePage() {
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Verification</TableHead>
-              <TableHead />
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -144,6 +160,7 @@ export function PeoplePage() {
               const verified =
                 !personNeedsVerification(p) &&
                 Boolean(p.email?.trim() || p.phone?.trim());
+              const loginContact = personLoginContact(p);
 
               return (
                 <TableRow key={p.id}>
@@ -174,14 +191,24 @@ export function PeoplePage() {
                       {personVerificationSummary(p)}
                     </p>
                   </TableCell>
-                  <TableCell>
-                    {isUuid(p.id) ? (
-                      <Button asChild size="sm" variant="ghost">
-                        <Link to={`/people/${p.id}`}>View</Link>
-                      </Button>
-                    ) : (
-                      "—"
-                    )}
+                  <TableCell className="text-right">
+                    <div className="flex flex-wrap justify-end gap-1">
+                      {loginContact ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void copyPersonLoginLink(p)}
+                        >
+                          Copy login link
+                        </Button>
+                      ) : null}
+                      {isUuid(p.id) ? (
+                        <Button asChild size="sm" variant="ghost">
+                          <Link to={`/people/${p.id}`}>View</Link>
+                        </Button>
+                      ) : null}
+                      {!loginContact && !isUuid(p.id) ? "—" : null}
+                    </div>
                   </TableCell>
                 </TableRow>
               );

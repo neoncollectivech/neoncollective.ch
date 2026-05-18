@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { detectBrowserLocale, getSavedLocale } from "@/i18n/client";
 
@@ -17,15 +17,24 @@ import { detectBrowserLocale, getSavedLocale } from "@/i18n/client";
  * When output: "export" is removed, replace with middleware.ts
  * for server-side browser locale detection and redirect.
  */
-export default function RootPage() {
+function RootRedirect() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const locale = getSavedLocale() ?? detectBrowserLocale();
-    const search = typeof window !== "undefined" ? window.location.search : "";
+    const qs = searchParams.toString();
 
-    router.replace(`/${locale}${search}`);
-  }, [router]);
+    router.replace(`/${locale}${qs ? `?${qs}` : ""}`);
+  }, [router, searchParams]);
 
   return null;
+}
+
+export default function RootPage() {
+  return (
+    <Suspense fallback={null}>
+      <RootRedirect />
+    </Suspense>
+  );
 }

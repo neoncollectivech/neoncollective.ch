@@ -95,7 +95,8 @@ function EventsIndexInner() {
     return <FormError>{codeError}</FormError>;
   }
 
-  const showProfileGateModal = profileGateOpen && needsProfile && !profileLoading;
+  const showProfileGateModal =
+    profileGateOpen && needsProfile && !profileLoading;
   const showProfileManageModal = profileManageOpen && !profileLoading;
   const profileModalOpen = showProfileGateModal || showProfileManageModal;
 

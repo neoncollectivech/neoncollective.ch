@@ -3,13 +3,15 @@
 import type { DonationTier } from "@/helpers/stripeApi";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Card, CardBody } from "@heroui/card";
 import { Spinner } from "@heroui/react";
 import clsx from "clsx";
 
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
+import { absoluteSiteUrl, navigateExternally } from "@/helpers/site-url";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useLocale } from "@/hooks/use-locale";
 import { stripeApi } from "@/hooks/use-stripe-api";
@@ -23,9 +25,10 @@ function formatAmount(amount: number): string {
 const toggleInactive =
   "!border-foreground/10 !text-foreground/30 hover:!text-foreground/50 hover:!bg-transparent hover:!border-foreground/10";
 
-export function DonationPicker() {
+function DonationPickerInner() {
   const { dictionary } = useDictionary();
   const locale = useLocale();
+  const searchParams = useSearchParams();
   const t = dictionary.donationPicker;
 
   const [mode, setMode] = useState<DonationMode>("recurring");
@@ -40,12 +43,10 @@ export function DonationPicker() {
   } = useQuery(stripeApi.donation.tiers());
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-
-    if (params.get("success") === "true") {
+    if (searchParams.get("success") === "true") {
       setSuccess(true);
     }
-  }, []);
+  }, [searchParams]);
 
   async function handleDonate(tier: DonationTier) {
     setLoadingPriceId(tier.priceId);
@@ -57,11 +58,11 @@ export function DonationPicker() {
         priceId: tier.priceId,
         mode: stripeMode,
         locale,
-        successUrl: `${window.location.origin}/${locale}/donate?success=true`,
-        cancelUrl: `${window.location.origin}/${locale}/donate`,
+        successUrl: absoluteSiteUrl(`/${locale}/donate?success=true`),
+        cancelUrl: absoluteSiteUrl(`/${locale}/donate`),
       });
 
-      window.location.href = url;
+      navigateExternally(url);
     } catch {
       setLoadingPriceId(null);
     }
@@ -160,5 +161,19 @@ export function DonationPicker() {
         })}
       </div>
     </div>
+  );
+}
+
+export function DonationPicker() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-16">
+          <Spinner color="success" size="lg" />
+        </div>
+      }
+    >
+      <DonationPickerInner />
+    </Suspense>
   );
 }

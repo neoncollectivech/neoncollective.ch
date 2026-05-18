@@ -14,6 +14,7 @@ function formatCap(value: number | null | undefined): string {
   if (value == null) {
     return "Unlimited";
   }
+
   return String(value);
 }
 
@@ -78,7 +79,9 @@ export function EventCapacityStats({
                     {tier.active ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right">{formatCap(tier.quota)}</TableCell>
+                <TableCell className="text-right">
+                  {formatCap(tier.quota)}
+                </TableCell>
                 <TableCell className="text-right">{tier.sold ?? 0}</TableCell>
                 <TableCell className="text-right">
                   {formatCap(tier.placesRemaining)}
@@ -88,7 +91,9 @@ export function EventCapacityStats({
           </TableBody>
         </Table>
       ) : (
-        <p className="text-sm text-muted-foreground">No tiers configured yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No tiers configured yet.
+        </p>
       )}
     </div>
   );

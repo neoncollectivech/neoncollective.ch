@@ -148,9 +148,11 @@ export const eventsApi = {
           const event = await fetchEvent(opts.slug, {
             inviteToken: opts.inviteToken,
           });
+
           if (!event.registrationConfirmed) {
             throw new RegistrationPendingError();
           }
+
           return event;
         },
         enabled: enabled && Boolean(opts.slug),
