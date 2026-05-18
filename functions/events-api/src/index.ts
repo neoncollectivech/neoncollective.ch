@@ -11,6 +11,7 @@ import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import { phoneToStoredDigits } from "./contact.js";
 import { isDatabaseConfigured, getDb } from "./db/index.js";
 import { events } from "./db/schema.js";
 import {
@@ -31,6 +32,7 @@ import {
   buildEventPayload,
   findInviteLinkByRawToken,
   findPaidRegistrationForViewer,
+  findRosterInviteeByContact,
   findRosterInviteeByPersonId,
   getInviteRedemptionQty,
   getHostInviteShareForViewer,
@@ -39,6 +41,7 @@ import {
   inviteRemainingForLink,
   resolveInviteEventId,
 } from "./services/event-read.js";
+import { loadPublishedOrphanInviteeContact } from "./services/materialize-invitee-person.js";
 import { confirmEventCheckout } from "./services/checkout-confirm.js";
 import { createCheckoutIntent } from "./services/checkout-intent.js";
 import {
@@ -174,6 +177,21 @@ app.get("/events/:slug", async (c) => {
       if (linkEventId === evRow.id) {
         entitled = true;
         linkIdForRemaining = session.inviteLinkId;
+      }
+    }
+    if (!entitled && session?.rosterInviteeId) {
+      const pendingContact = await loadPublishedOrphanInviteeContact(session.rosterInviteeId);
+      if (pendingContact) {
+        const roster = await findRosterInviteeByContact(
+          evRow.id,
+          pendingContact.email ?? "",
+          pendingContact.phoneE164
+            ? phoneToStoredDigits(pendingContact.phoneE164)
+            : null,
+        );
+        if (roster && roster !== "ambiguous") {
+          entitled = true;
+        }
       }
     }
     if (!entitled && session?.personId) {
@@ -331,14 +349,14 @@ app.get("/registrations/session/me", async (c) => {
   if (!isDatabaseConfigured()) {
     return c.json({ session: false });
   }
-  const identity = await resolveParticipantIdentityFromCookie(c.req.header("Cookie"));
-  if (!identity?.personId) {
+  const row = await resolveParticipantSessionFromCookie(c.req.header("Cookie"));
+  if (!row) {
     return c.json({ session: false });
   }
   return c.json({
     session: true,
-    ...(identity.givenName ? { givenName: identity.givenName } : {}),
-    ...(identity.familyName ? { familyName: identity.familyName } : {}),
+    ...(row.givenName ? { givenName: row.givenName } : {}),
+    ...(row.familyName ? { familyName: row.familyName } : {}),
   });
 });
 

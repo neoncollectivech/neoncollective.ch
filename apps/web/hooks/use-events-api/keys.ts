@@ -13,4 +13,10 @@ export const eventsKeys = {
       [...participantRoot, "profile", inviteToken ?? ""] as const,
     session: () => [...participantRoot, "session"] as const,
   },
+  checkout: {
+    confirm: (orderId: string) =>
+      [...eventsRoot, "checkout", "confirm", orderId] as const,
+    registration: (slug: string, inviteToken?: string) =>
+      [...eventsRoot, "checkout", "registration", slug, inviteToken ?? ""] as const,
+  },
 };

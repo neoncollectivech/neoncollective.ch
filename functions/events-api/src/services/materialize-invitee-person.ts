@@ -148,35 +148,8 @@ export function shouldMaterializeInvitee(inv: {
   });
 }
 
-/** Placeholder names until the guest completes profile after OTP sign-in. */
-const REGISTRATION_BOOTSTRAP_GIVEN = "Invitee";
-const REGISTRATION_BOOTSTRAP_FAMILY = "Pending";
-
-/**
- * Roster row has email/phone but no `person_id` yet (profile pending at invite time).
- * Creates or merges a `people` row from roster contact and links the invitee.
- */
-export async function resolvePersonIdFromPendingRosterContact(
-  contact: { kind: "email"; email: string } | { kind: "phone"; e164: string },
-): Promise<string | undefined> {
-  const inviteeId = await findPublishedOrphanInviteeId(contact);
-  if (!inviteeId) {
-    return undefined;
-  }
-
-  try {
-    const personId = await bootstrapPersonFromOrphanInvitee(inviteeId);
-    await syncRosterInviteesToPerson(personId);
-    return personId;
-  } catch (e) {
-    if (e instanceof Error && e.message === "identity_conflict") {
-      return undefined;
-    }
-    throw e;
-  }
-}
-
-async function findPublishedOrphanInviteeId(
+/** Published roster row with contact but no linked person yet. */
+export async function findPublishedOrphanInviteeId(
   contact: { kind: "email"; email: string } | { kind: "phone"; e164: string },
 ): Promise<string | undefined> {
   if (contact.kind === "email") {
@@ -222,48 +195,21 @@ async function findPublishedOrphanInviteeIdByPhone(
   return row?.id;
 }
 
-async function bootstrapPersonFromOrphanInvitee(inviteeId: string): Promise<string> {
+export async function loadPublishedOrphanInviteeContact(
+  inviteeId: string,
+): Promise<{ email: string | null; phoneE164: string | null } | null> {
   const db = getDb();
-  return db.transaction(async (innerTx) => {
-    const [row] = await innerTx
-      .select({ invitee: eventInvitees, event: events })
-      .from(eventInvitees)
-      .innerJoin(events, eq(events.id, eventInvitees.eventId))
-      .where(eq(eventInvitees.id, inviteeId))
-      .limit(1);
-    if (!row) {
-      throw new MaterializeInviteeError("Invitee not found.", "not_found");
-    }
-    if (row.invitee.personId) {
-      return row.invitee.personId;
-    }
-    if (row.event.status !== "published") {
-      throw new MaterializeInviteeError("Invitee not eligible.", "not_found");
-    }
-    if (row.invitee.revokedAt) {
-      throw new MaterializeInviteeError("Invitee not eligible.", "not_found");
-    }
-
-    const inv = row.invitee;
-    const email = inv.email?.trim().toLowerCase() ?? null;
-    const phoneE164 = inv.phone ? e164FromStoredDigits(inv.phone) : null;
-    if (!email && !phoneE164) {
-      throw new MaterializeInviteeError(
-        "Invitee does not have enough identity to create a person.",
-        "not_found",
-      );
-    }
-
-    const personId = await ensurePersonInTx(innerTx, {
-      givenName: REGISTRATION_BOOTSTRAP_GIVEN,
-      familyName: REGISTRATION_BOOTSTRAP_FAMILY,
-      email,
-      phoneE164,
-    });
-    await innerTx
-      .update(eventInvitees)
-      .set({ personId })
-      .where(eq(eventInvitees.id, inviteeId));
-    return personId;
-  });
+  const [row] = await db
+    .select({ invitee: eventInvitees, event: events })
+    .from(eventInvitees)
+    .innerJoin(events, eq(events.id, eventInvitees.eventId))
+    .where(eq(eventInvitees.id, inviteeId))
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+  if (row.invitee.personId || row.invitee.revokedAt || row.event.status !== "published") {
+    return null;
+  }
+  return pendingIdentityFromInvitee(row.invitee);
 }

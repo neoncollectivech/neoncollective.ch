@@ -74,10 +74,10 @@ function EventsIndexInner() {
   });
 
   useEffect(() => {
-    if (!profileLoading && needsProfile && inviteFlow) {
+    if (!profileLoading && needsProfile) {
       setProfileGateOpen(true);
     }
-  }, [profileLoading, needsProfile, inviteFlow]);
+  }, [profileLoading, needsProfile]);
 
   const listQuery = useQuery(
     eventsApi.catalog({
@@ -95,8 +95,7 @@ function EventsIndexInner() {
     return <FormError>{codeError}</FormError>;
   }
 
-  const showProfileGateModal =
-    inviteFlow && profileGateOpen && needsProfile && !profileLoading;
+  const showProfileGateModal = profileGateOpen && needsProfile && !profileLoading;
   const showProfileManageModal = profileManageOpen && !profileLoading;
   const profileModalOpen = showProfileGateModal || showProfileManageModal;
 

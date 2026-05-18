@@ -21,7 +21,12 @@ import { REGISTRATION_EXCHANGE_TTL_MS } from "../registration-exchange-constants
 import { isSmsEnabled, sendRegistrationSmsCode } from "../sms.js";
 import { isEmailEnabled } from "../email.js";
 import { createLogger } from "@neon/server-kit";
-import { ensurePersonInTx } from "./people.js";
+import {
+  materializePersonFromInvitee,
+  MaterializeInviteeError,
+  loadPublishedOrphanInviteeContact,
+} from "./materialize-invitee-person.js";
+import { ensurePersonInTx, syncRosterInviteesToPerson } from "./people.js";
 import {
   randomRegistrationExchangeCode,
   normalizeRegistrationExchangeCodeInput,
@@ -118,15 +123,38 @@ function profileFieldsUnchanged(
   );
 }
 
+function toProfileResponseFromRosterContact(
+  contact: { email: string | null; phoneE164: string | null },
+  inviteFlow: boolean,
+): ProfileMeResponse {
+  return {
+    profileComplete: false,
+    inviteFlow,
+    givenName: "",
+    familyName: "",
+    email: contact.email,
+    phoneE164: contact.phoneE164,
+    emailVerified: false,
+    phoneVerified: false,
+    pendingVerification: contact.email ? "email" : contact.phoneE164 ? "phone" : null,
+  };
+}
+
 export async function getParticipantProfile(
   session: ParticipantSessionContext,
 ): Promise<ProfileMeResponse> {
   const inviteFlow = sessionInviteFlow(session);
-  if (!session.personId) {
-    return toProfileResponse(null, inviteFlow);
+  if (session.personId) {
+    const person = await loadPerson(session.personId);
+    return toProfileResponse(person, inviteFlow);
   }
-  const person = await loadPerson(session.personId);
-  return toProfileResponse(person, inviteFlow);
+  if (session.rosterInviteeId) {
+    const contact = await loadPublishedOrphanInviteeContact(session.rosterInviteeId);
+    if (contact) {
+      return toProfileResponseFromRosterContact(contact, inviteFlow);
+    }
+  }
+  return toProfileResponse(null, inviteFlow);
 }
 
 export async function updateParticipantProfile(params: {
@@ -227,6 +255,38 @@ export async function updateParticipantProfile(params: {
             updatedAt: now,
           })
           .where(eq(people.id, personId));
+      } else if (params.session.rosterInviteeId) {
+        try {
+          personId = await materializePersonFromInvitee(
+            params.session.rosterInviteeId,
+            { givenName: gn, familyName: fn },
+            tx,
+          );
+          await syncRosterInviteesToPerson(personId);
+        } catch (e) {
+          if (e instanceof MaterializeInviteeError) {
+            if (e.code === "identity_conflict") {
+              return {
+                ok: false,
+                status: 409,
+                error: "These contact details belong to another profile.",
+              };
+            }
+            if (e.code === "duplicate_contact") {
+              return {
+                ok: false,
+                status: 409,
+                error: "Email or phone is already in use.",
+              };
+            }
+            return { ok: false, status: 404, error: e.message };
+          }
+          throw e;
+        }
+        await tx
+          .update(participantSessions)
+          .set({ personId })
+          .where(eq(participantSessions.id, params.session.sessionId));
       } else {
         try {
           personId = await ensurePersonInTx(tx, {

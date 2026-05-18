@@ -22,20 +22,23 @@ import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
 import { NeonLink } from "@/components/neon-link";
+import { ParticipantProfileModal } from "@/components/participant-profile-modal";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useEventUrlParams } from "@/hooks/use-event-url-params";
 import { useLocale } from "@/hooks/use-locale";
+import { useProfileModalLabels } from "@/hooks/use-profile-modal-labels";
 import { useStripePromise } from "@/hooks/use-stripe-promise";
 import {
   eventsApi,
   eventsKeys,
+  useCheckoutConfirmation,
   useExchangeRegistrationCode,
+  useProfileBootstrap,
   type EventPayload,
   type EventTier,
   type InviteLinkConversion,
 } from "@/hooks/use-events-api";
-import { fetchEvent } from "@/helpers/eventsApi";
 import {
   formatLocaleDate,
   formatLocaleDateTime,
@@ -315,7 +318,7 @@ function PaymentStep({
   payLabel: string;
   onePersonHint: string;
   returnUrl: string;
-  onPaymentSucceeded: () => Promise<void>;
+  onPaymentSucceeded: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -342,22 +345,8 @@ function PaymentStep({
       return;
     }
 
-    try {
-      await onPaymentSucceeded();
-    } catch (confirmErr) {
-      setErr(
-        confirmErr instanceof AxiosError &&
-          typeof confirmErr.response?.data === "object" &&
-          confirmErr.response.data &&
-          "error" in confirmErr.response.data &&
-          typeof (confirmErr.response.data as { error?: string }).error ===
-            "string"
-          ? (confirmErr.response.data as { error: string }).error
-          : "Payment succeeded but registration could not be confirmed. Refresh the page.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    onPaymentSucceeded();
+    setBusy(false);
   }
 
   return (
@@ -401,6 +390,9 @@ function EventDetailsInner({ slug }: { slug: string }) {
       await queryClient.invalidateQueries({
         queryKey: eventsKeys.detail(slug, urlInviteToken),
       });
+      await queryClient.invalidateQueries({
+        queryKey: eventsKeys.participant.profile(),
+      });
     },
   });
 
@@ -420,11 +412,20 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const showCheckout =
     Boolean(eventQuery.data?.tiers?.length) &&
     !eventQuery.data?.registrationConfirmed;
-  const profileQuery = useQuery(
-    eventsApi.participant.profileRead({
-      enabled: codeHandled && showCheckout,
-    }),
-  );
+  const profileLabels = useProfileModalLabels();
+  const [profileGateOpen, setProfileGateOpen] = useState(true);
+  const {
+    profile,
+    needsProfile,
+    isLoading: profileLoading,
+    invalidateAfterProfileComplete,
+  } = useProfileBootstrap(effectiveInviteToken);
+
+  useEffect(() => {
+    if (!profileLoading && needsProfile) {
+      setProfileGateOpen(true);
+    }
+  }, [profileLoading, needsProfile]);
 
   useEffect(() => {
     const ev = eventQuery.data;
@@ -489,7 +490,14 @@ function EventDetailsInner({ slug }: { slug: string }) {
   );
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
-  const [confirmingRegistration, setConfirmingRegistration] = useState(false);
+  const checkoutConfirmation = useCheckoutConfirmation({
+    slug,
+    inviteToken: effectiveInviteToken,
+    errorLabels: {
+      timeout: t.checkoutConfirmTimeout,
+      generic: t.checkoutConfirmError,
+    },
+  });
 
   const exclusiveTiers = useMemo(
     () => (eventQuery.data?.tiers ?? []).filter(isExclusiveTier),
@@ -558,45 +566,21 @@ function EventDetailsInner({ slug }: { slug: string }) {
   );
 
   const intentMutation = useMutation(eventsApi.checkout.intent());
-  const confirmCheckoutMutation = useMutation(eventsApi.checkout.confirm());
 
-  async function syncEventRegistration(): Promise<EventPayload> {
-    const retryMs = [0, 400, 800, 1200, 2000];
-    let latest = eventQuery.data as EventPayload;
+  const confirmingRegistration = checkoutConfirmation.isConfirming;
+  const checkoutConfirmError = checkoutConfirmation.errorMessage;
 
-    for (const wait of retryMs) {
-      if (wait > 0) {
-        await new Promise((resolve) => setTimeout(resolve, wait));
-      }
-      latest = await fetchEvent(slug, { inviteToken: effectiveInviteToken });
-      queryClient.setQueryData(eventDetailOptions.queryKey, latest);
-      if (latest.registrationConfirmed) {
-        return latest;
-      }
-    }
-
-    return latest;
-  }
-
-  async function finalizeCheckout(orderId: string): Promise<void> {
-    setConfirmingRegistration(true);
+  function startCheckoutAfterPayment(orderId: string): void {
     setClientSecret(null);
     setCheckoutOrderId(null);
-    try {
-      await confirmCheckoutMutation.mutateAsync(orderId);
-      await syncEventRegistration();
-    } finally {
-      setConfirmingRegistration(false);
-    }
+    checkoutConfirmation.startConfirmation(orderId);
   }
 
   useEffect(() => {
     if (!codeHandled) {
       return;
     }
-    const redirectStatus = searchParams.get("redirect_status");
-
-    if (redirectStatus !== "succeeded") {
+    if (searchParams.get("redirect_status") !== "succeeded") {
       return;
     }
     const orderId = eventsApi.storage.takeCheckoutOrderId(slug);
@@ -604,35 +588,31 @@ function EventDetailsInner({ slug }: { slug: string }) {
     if (!orderId) {
       return;
     }
-
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        await finalizeCheckout(orderId);
-      } catch {
-        /* user can refresh; webhook may still reconcile */
-      }
-      if (cancelled || typeof window === "undefined") {
-        return;
-      }
-      const url = new URL(window.location.href);
-
-      for (const key of [
-        "payment_intent",
-        "payment_intent_client_secret",
-        "redirect_status",
-      ]) {
-        url.searchParams.delete(key);
-      }
-      router.replace(`${url.pathname}${url.search}`);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    startCheckoutAfterPayment(orderId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per Stripe return
   }, [codeHandled, slug]);
+
+  useEffect(() => {
+    if (!codeHandled || confirmingRegistration) {
+      return;
+    }
+    if (searchParams.get("redirect_status") !== "succeeded") {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    const url = new URL(window.location.href);
+
+    for (const key of [
+      "payment_intent",
+      "payment_intent_client_secret",
+      "redirect_status",
+    ]) {
+      url.searchParams.delete(key);
+    }
+    router.replace(`${url.pathname}${url.search}`);
+  }, [codeHandled, confirmingRegistration, router, searchParams]);
 
   const returnUrl =
     typeof window !== "undefined"
@@ -673,8 +653,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const ev = eventQuery.data as EventPayload;
   const registrationSettled =
     Boolean(ev.registrationConfirmed) && !confirmingRegistration;
-  const profileLoading = profileQuery.isLoading;
-  const hasCheckoutProfile = Boolean(profileQuery.data?.profileComplete);
+  const hasCheckoutProfile = Boolean(profile?.profileComplete);
+  const showProfileGateModal = profileGateOpen && needsProfile && !profileLoading;
   const showContactForm = !profileLoading && !hasCheckoutProfile;
   const checkoutContactReady = hasCheckoutProfile
     ? true
@@ -714,8 +694,31 @@ function EventDetailsInner({ slug }: { slug: string }) {
     : t.registrationConfirmedBodyNoTier;
 
   return (
-    <div>
-      <EventHero
+    <>
+      {showProfileGateModal ? (
+        <ParticipantProfileModal
+          open
+          dismissable={false}
+          initialProfile={profile ?? undefined}
+          labels={profileLabels}
+          onComplete={async (p) => {
+            queryClient.setQueryData(
+              eventsKeys.participant.profile(effectiveInviteToken),
+              p,
+            );
+            await invalidateAfterProfileComplete();
+            setProfileGateOpen(false);
+          }}
+        />
+      ) : null}
+      <div
+        className={
+          showProfileGateModal
+            ? "pointer-events-none opacity-40 select-none"
+            : undefined
+        }
+      >
+        <EventHero
         backHref={backHref}
         backLabel={t.backToEvents}
         imageAlt={t.detailImageAlt}
@@ -740,7 +743,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
               {confirmationBody}
             </p>
             {ev.inviteOnly && ev.hostInvite ? (
-              <details className="mt-6 group">
+              <details className="mt-6 group" open>
                 <summary className="cursor-pointer text-sm font-semibold text-foreground/70 list-none flex items-center gap-2">
                   <span className="group-open:rotate-90 transition-transform">
                     ›
@@ -777,9 +780,16 @@ function EventDetailsInner({ slug }: { slug: string }) {
       ) : null}
 
       {confirmingRegistration && !registrationSettled ? (
-        <div className="flex justify-center py-12 mb-10">
+        <div className="flex flex-col items-center gap-4 py-12 mb-10 max-w-xl">
           <Spinner color="success" size="lg" />
+          <p className="text-sm font-mono text-foreground/50 text-center">
+            {t.checkoutConfirming}
+          </p>
         </div>
+      ) : null}
+
+      {checkoutConfirmError && !confirmingRegistration && !registrationSettled ? (
+        <FormError className="mb-10 max-w-xl">{checkoutConfirmError}</FormError>
       ) : null}
 
       {!ev.registrationConfirmed &&
@@ -949,7 +959,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   }
                   type="button"
                   onPress={() => {
-                    const profile = profileQuery.data;
                     const useProfileContact = Boolean(profile?.profileComplete);
                     const profileEmail = profile?.email?.trim() ?? "";
                     const profilePhone = profile?.phoneE164?.trim() ?? "";
@@ -1043,7 +1052,11 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   onePersonHint={t.checkoutOnePersonHint}
                   payLabel={t.pay}
                   returnUrl={returnUrl}
-                  onPaymentSucceeded={() => finalizeCheckout(checkoutOrderId)}
+                  onPaymentSucceeded={() => {
+                    if (checkoutOrderId) {
+                      startCheckoutAfterPayment(checkoutOrderId);
+                    }
+                  }}
                 />
               </Elements>
             ) : null}
@@ -1062,12 +1075,13 @@ function EventDetailsInner({ slug }: { slug: string }) {
         </Card>
       ) : null}
 
-      <EventAboutSection
-        imageAlt={t.detailImageAlt}
-        imageUrls={ev.imageUrls ?? []}
-        summary={ev.summary ?? null}
-      />
-    </div>
+        <EventAboutSection
+          imageAlt={t.detailImageAlt}
+          imageUrls={ev.imageUrls ?? []}
+          summary={ev.summary ?? null}
+        />
+      </div>
+    </>
   );
 }
 

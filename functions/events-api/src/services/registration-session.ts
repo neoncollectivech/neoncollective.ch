@@ -4,7 +4,12 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { parseContactInput } from "../contact.js";
 import { getDb } from "../db/index.js";
-import { participantSessions, people, registrationExchangeCodes } from "../db/schema.js";
+import {
+  participantSessions,
+  people,
+  profileVerificationCodes,
+  registrationExchangeCodes,
+} from "../db/schema.js";
 import { findInviteLinkByRawToken } from "./event-read.js";
 import {
   isEmailEnabled,
@@ -19,6 +24,7 @@ import {
   REGISTRATION_CODE_LENGTH,
   REGISTRATION_EXCHANGE_TTL_MS,
 } from "../registration-exchange-constants.js";
+import { findPublishedOrphanInviteeId, loadPublishedOrphanInviteeContact } from "./materialize-invitee-person.js";
 import {
   personHasRegistrationEligibility,
   resolvePersonIdForRegistrationContact,
@@ -35,20 +41,27 @@ function registrationNotFound(): RegistrationSessionFailure {
   return { ok: false, status: 404, error: REGISTRATION_NOT_FOUND };
 }
 
-async function resolveEligibleRegistrationPersonId(
+type RegistrationTarget =
+  | { kind: "person"; personId: string }
+  | { kind: "roster_invitee"; inviteeId: string };
+
+async function resolveRegistrationTarget(
   contact: Parameters<typeof resolvePersonIdForRegistrationContact>[0],
-): Promise<string | undefined> {
+): Promise<RegistrationTarget | undefined> {
   const personId = await resolvePersonIdForRegistrationContact(contact);
-  if (!personId) {
-    return undefined;
+  if (personId) {
+    await syncRosterInviteesToPerson(personId);
+    if (await personHasRegistrationEligibility(personId)) {
+      return { kind: "person", personId };
+    }
   }
 
-  await syncRosterInviteesToPerson(personId);
-  if (!(await personHasRegistrationEligibility(personId))) {
-    return undefined;
+  const inviteeId = await findPublishedOrphanInviteeId(contact);
+  if (inviteeId) {
+    return { kind: "roster_invitee", inviteeId };
   }
 
-  return personId;
+  return undefined;
 }
 
 const ALPHABET_LEN = REGISTRATION_CODE_ALPHABET.length;
@@ -138,6 +151,65 @@ export async function insertRegistrationExchangeCode(params: {
     expiresAt,
   });
   return { codeHash };
+}
+
+const ROSTER_PENDING_CONTACT_PREFIX = "roster-pending:";
+
+function rosterPendingContactHash(inviteeId: string): string {
+  return `${ROSTER_PENDING_CONTACT_PREFIX}${inviteeId}`;
+}
+
+export function parseRosterInviteeIdFromContactHash(
+  contactHash: string,
+): string | null {
+  if (!contactHash.startsWith(ROSTER_PENDING_CONTACT_PREFIX)) {
+    return null;
+  }
+  const id = contactHash.slice(ROSTER_PENDING_CONTACT_PREFIX.length).trim();
+  return id.length > 0 ? id : null;
+}
+
+/** Session cookie token for roster guests before a `people` row exists (no DB column). */
+export function buildRosterPendingSessionToken(inviteeId: string): string {
+  return `r.${inviteeId}.${randomBytes(32).toString("hex")}`;
+}
+
+export function parseRosterInviteeIdFromSessionToken(token: string): string | null {
+  const m = /^r\.([0-9a-f-]{36})\.([0-9a-f]+)$/i.exec(token.trim());
+  return m?.[1] ?? null;
+}
+
+/**
+ * Roster guest sign-in before profile completion: session without `person_id`, OTP via
+ * `profile_verification_codes` (reuses existing tables — no schema migration).
+ */
+async function insertRosterPendingSignInCode(params: {
+  inviteeId: string;
+  rawCode: string;
+  channel: "email" | "phone";
+}): Promise<{ codeHash: string; sessionId: string }> {
+  const sessionToken = buildRosterPendingSessionToken(params.inviteeId);
+  const tokenHash = sha256Hex(sessionToken);
+  const sessionExpiresAt = new Date(Date.now() + sessionMaxAgeSec() * 1000);
+  const codeHash = sha256Hex(params.rawCode);
+  const codeExpiresAt = new Date(Date.now() + REGISTRATION_EXCHANGE_TTL_MS);
+  const db = getDb();
+  const [session] = await db
+    .insert(participantSessions)
+    .values({
+      tokenHash,
+      personId: null,
+      expiresAt: sessionExpiresAt,
+    })
+    .returning({ id: participantSessions.id });
+  await db.insert(profileVerificationCodes).values({
+    sessionId: session!.id,
+    codeHash,
+    channel: params.channel,
+    contactHash: rosterPendingContactHash(params.inviteeId),
+    expiresAt: codeExpiresAt,
+  });
+  return { codeHash, sessionId: session!.id };
 }
 
 async function markRegistrationChannelVerified(
@@ -308,6 +380,8 @@ export type ParticipantIdentity = {
 export type ParticipantSessionContext = {
   sessionId: string;
   personId: string | null;
+  /** Parsed from session token when roster guest has not completed profile yet. */
+  rosterInviteeId: string | null;
   inviteLinkId: string | null;
 };
 
@@ -353,16 +427,28 @@ export async function requestRegistrationSession(params: {
       };
     }
     const email = parsed.email;
-    const personId = await resolveEligibleRegistrationPersonId({ kind: "email", email });
-    if (!personId) {
+    const target = await resolveRegistrationTarget({ kind: "email", email });
+    if (!target) {
       return registrationNotFound();
     }
     const rawCode = randomRegistrationExchangeCode();
-    const { codeHash } = await insertRegistrationExchangeCode({
-      personId,
-      rawCode,
-      channel: "email",
-    });
+    let codeHash: string;
+    let pendingSessionId: string | undefined;
+    if (target.kind === "person") {
+      ({ codeHash } = await insertRegistrationExchangeCode({
+        personId: target.personId,
+        rawCode,
+        channel: "email",
+      }));
+    } else {
+      const pending = await insertRosterPendingSignInCode({
+        inviteeId: target.inviteeId,
+        rawCode,
+        channel: "email",
+      });
+      codeHash = pending.codeHash;
+      pendingSessionId = pending.sessionId;
+    }
     const accessUrl = appendCodeToReturnUrl(safeReturn, rawCode);
     try {
       await sendRegistrationAccessEmail({
@@ -373,9 +459,20 @@ export async function requestRegistrationSession(params: {
       });
     } catch (e) {
       const db = getDb();
-      await db
-        .delete(registrationExchangeCodes)
-        .where(eq(registrationExchangeCodes.codeHash, codeHash));
+      if (target.kind === "person") {
+        await db
+          .delete(registrationExchangeCodes)
+          .where(eq(registrationExchangeCodes.codeHash, codeHash));
+      } else {
+        await db
+          .delete(profileVerificationCodes)
+          .where(eq(profileVerificationCodes.codeHash, codeHash));
+        if (pendingSessionId) {
+          await db
+            .delete(participantSessions)
+            .where(eq(participantSessions.id, pendingSessionId));
+        }
+      }
       const msg = e instanceof Error ? e.message : "Email send failed.";
       log.error({ err: e, email }, msg);
       return { ok: false, status: 503, error: msg };
@@ -394,20 +491,32 @@ export async function requestRegistrationSession(params: {
   }
 
   const phoneE164 = parsed.e164;
-  const personId = await resolveEligibleRegistrationPersonId({
+  const target = await resolveRegistrationTarget({
     kind: "phone",
     e164: phoneE164,
   });
-  if (!personId) {
+  if (!target) {
     return registrationNotFound();
   }
 
   const rawCode = randomRegistrationExchangeCode();
-  const { codeHash } = await insertRegistrationExchangeCode({
-    personId,
-    rawCode,
-    channel: "phone",
-  });
+  let codeHash: string;
+  let pendingSessionId: string | undefined;
+  if (target.kind === "person") {
+    ({ codeHash } = await insertRegistrationExchangeCode({
+      personId: target.personId,
+      rawCode,
+      channel: "phone",
+    }));
+  } else {
+    const pending = await insertRosterPendingSignInCode({
+      inviteeId: target.inviteeId,
+      rawCode,
+      channel: "phone",
+    });
+    codeHash = pending.codeHash;
+    pendingSessionId = pending.sessionId;
+  }
   const accessUrl = appendCodeToReturnUrl(safeReturn, rawCode);
   const sms = await sendRegistrationSmsCode({
     toE164: phoneE164,
@@ -416,9 +525,20 @@ export async function requestRegistrationSession(params: {
   });
   if (!sms.ok) {
     const db = getDb();
-    await db
-      .delete(registrationExchangeCodes)
-      .where(eq(registrationExchangeCodes.codeHash, codeHash));
+    if (target.kind === "person") {
+      await db
+        .delete(registrationExchangeCodes)
+        .where(eq(registrationExchangeCodes.codeHash, codeHash));
+    } else {
+      await db
+        .delete(profileVerificationCodes)
+        .where(eq(profileVerificationCodes.codeHash, codeHash));
+      if (pendingSessionId) {
+        await db
+          .delete(participantSessions)
+          .where(eq(participantSessions.id, pendingSessionId));
+      }
+    }
     return { ok: false, status: 503, error: sms.error };
   }
   log.info({ phoneE164 }, "Registration SMS code sent");
@@ -451,23 +571,67 @@ export async function exchangeRegistrationCode(params: {
         ),
       )
       .limit(1);
-    if (!row) {
+    if (row) {
+      await tx
+        .update(registrationExchangeCodes)
+        .set({ usedAt: new Date() })
+        .where(eq(registrationExchangeCodes.id, row.id));
+      await markRegistrationChannelVerified(tx, row.personId, row.channel);
+      const sessionToken = randomBytes(32).toString("hex");
+      const tokenHash = sha256Hex(sessionToken);
+      const expiresAt = new Date(Date.now() + sessionMaxAgeSec() * 1000);
+      await tx.insert(participantSessions).values({
+        tokenHash,
+        personId: row.personId,
+        expiresAt,
+      });
+      return {
+        ok: true,
+        setCookie: buildSessionCookieHeader(sessionToken, params.crossSiteCookie),
+      };
+    }
+
+    const [pendingRow] = await tx
+      .select()
+      .from(profileVerificationCodes)
+      .where(
+        and(
+          eq(profileVerificationCodes.codeHash, codeHash),
+          isNull(profileVerificationCodes.usedAt),
+          gt(profileVerificationCodes.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+    if (!pendingRow) {
       return { ok: false, status: 400, error: "Invalid or expired code." };
     }
+
+    const inviteeId = parseRosterInviteeIdFromContactHash(pendingRow.contactHash);
+    if (!inviteeId) {
+      return { ok: false, status: 400, error: "Invalid or expired code." };
+    }
+    const contact = await loadPublishedOrphanInviteeContact(inviteeId);
+    if (!contact) {
+      return { ok: false, status: 400, error: "Invalid or expired code." };
+    }
+
     await tx
-      .update(registrationExchangeCodes)
+      .update(profileVerificationCodes)
       .set({ usedAt: new Date() })
-      .where(eq(registrationExchangeCodes.id, row.id));
-    await markRegistrationChannelVerified(tx, row.personId, row.channel);
-    const sessionToken = randomBytes(32).toString("hex");
+      .where(eq(profileVerificationCodes.id, pendingRow.id));
+
+    const sessionToken = buildRosterPendingSessionToken(inviteeId);
     const tokenHash = sha256Hex(sessionToken);
     const expiresAt = new Date(Date.now() + sessionMaxAgeSec() * 1000);
-    await tx.insert(participantSessions).values({
-      tokenHash,
-      personId: row.personId,
-      expiresAt,
-    });
-    return { ok: true, setCookie: buildSessionCookieHeader(sessionToken, params.crossSiteCookie) };
+    await tx
+      .update(participantSessions)
+      .set({ tokenHash, expiresAt })
+      .where(eq(participantSessions.id, pendingRow.sessionId));
+
+    return {
+      ok: true,
+      setCookie: buildSessionCookieHeader(sessionToken, params.crossSiteCookie),
+    };
   });
 }
 
@@ -489,6 +653,7 @@ export async function resolveParticipantSessionFromCookie(
   if (!raw) {
     return null;
   }
+  const rosterInviteeId = parseRosterInviteeIdFromSessionToken(raw);
   const tokenHash = sha256Hex(raw);
   const db = getDb();
   const [row] = await db
@@ -514,9 +679,28 @@ export async function resolveParticipantSessionFromCookie(
   if (!row) {
     return null;
   }
+
+  if (!row.personId && rosterInviteeId) {
+    const contact = await loadPublishedOrphanInviteeContact(rosterInviteeId);
+    if (!contact) {
+      return null;
+    }
+    return {
+      sessionId: row.sessionId,
+      personId: null,
+      rosterInviteeId,
+      inviteLinkId: row.inviteLinkId,
+      email: contact.email,
+      phoneE164: contact.phoneE164,
+      givenName: "",
+      familyName: "",
+    };
+  }
+
   return {
     sessionId: row.sessionId,
     personId: row.personId,
+    rosterInviteeId: null,
     inviteLinkId: row.inviteLinkId,
     email: row.email ?? null,
     phoneE164: e164FromStoredDigits(row.phone),
@@ -600,6 +784,7 @@ export async function createAnonymousParticipantSession(params: {
       session: {
         sessionId: existing.sessionId,
         personId: existing.personId,
+        rosterInviteeId: existing.rosterInviteeId,
         inviteLinkId: inviteLinkId ?? existing.inviteLinkId,
       },
       created: false,
@@ -630,7 +815,7 @@ export async function createAnonymousParticipantSession(params: {
   return {
     ok: true,
     setCookie,
-    session: { sessionId, personId: null, inviteLinkId },
+    session: { sessionId, personId: null, rosterInviteeId: null, inviteLinkId },
     created: true,
   };
 }

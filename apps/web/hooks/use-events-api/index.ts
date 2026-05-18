@@ -7,6 +7,8 @@ export {
   useParticipantSession,
   useExchangeRegistrationCode,
   useExchangeRegistrationSessionCode,
+  useCheckoutConfirmation,
+  type CheckoutConfirmationLabels,
   type ProfileModalLabels,
   type ProfileBootstrapResult,
 } from "./flows";

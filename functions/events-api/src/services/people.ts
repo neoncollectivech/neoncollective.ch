@@ -8,7 +8,6 @@ import {
   orders,
   people,
 } from "../db/schema.js";
-import { resolvePersonIdFromPendingRosterContact } from "./materialize-invitee-person.js";
 
 type DbTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 
@@ -221,16 +220,10 @@ export async function resolvePersonIdForRegistrationContact(
   contact: { kind: "email"; email: string } | { kind: "phone"; e164: string },
 ): Promise<string | undefined> {
   if (contact.kind === "email") {
-    return (
-      (await findPersonIdByEmail(contact.email)) ??
-      (await resolvePersonIdFromPendingRosterContact(contact))
-    );
+    return findPersonIdByEmail(contact.email);
   }
 
-  return (
-    (await findPersonIdByPhoneE164(contact.e164)) ??
-    (await resolvePersonIdFromPendingRosterContact(contact))
-  );
+  return findPersonIdByPhoneE164(contact.e164);
 }
 
 /** DB digit variants (e.g. 41796829564 vs legacy 0796829564). */

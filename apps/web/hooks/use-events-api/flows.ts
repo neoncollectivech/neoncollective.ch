@@ -6,7 +6,10 @@ import type { ParticipantProfile } from "@/helpers/eventsApi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
+import { checkoutConfirmErrorMessage } from "@/helpers/checkout-confirm";
+
 import { eventsApi } from "./api";
+import { eventsKeys } from "./keys";
 import { useEventsInvalidate } from "./invalidate";
 
 export type ProfileModalLabels = {
@@ -47,14 +50,17 @@ export function useProfileBootstrap(
   const invalidate = useEventsInvalidate();
   const hasInviteInUrl = Boolean(inviteToken?.trim());
 
+  const sessionQuery = useQuery(eventsApi.participant.session());
   const profileQuery = useQuery(eventsApi.participant.profile({ inviteToken }));
 
   const inviteFlow = hasInviteInUrl || Boolean(profileQuery.data?.inviteFlow);
+  const sessionEstablished = Boolean(sessionQuery.data?.session);
   const needsProfile =
-    inviteFlow &&
     profileQuery.data != null &&
-    !profileQuery.data.profileComplete;
-  const profileLoading = hasInviteInUrl && profileQuery.isLoading;
+    !profileQuery.data.profileComplete &&
+    (inviteFlow || sessionEstablished);
+  const profileLoading =
+    profileQuery.isLoading || (sessionEstablished && profileQuery.isFetching);
 
   return {
     profile: profileQuery.data ?? undefined,
@@ -165,3 +171,88 @@ export function useExchangeRegistrationCode(params: {
 
 /** @deprecated Use useExchangeRegistrationCode */
 export const useExchangeRegistrationSessionCode = useExchangeRegistrationCode;
+
+export type CheckoutConfirmationLabels = {
+  timeout: string;
+  generic: string;
+};
+
+/**
+ * After Stripe payment: confirm order (retry) then poll event until registered (retry).
+ * Syncs confirmed event into the detail query cache on success.
+ */
+export function useCheckoutConfirmation(params: {
+  slug: string;
+  inviteToken?: string;
+  errorLabels: CheckoutConfirmationLabels;
+}) {
+  const queryClient = useQueryClient();
+  const [orderId, setOrderId] = useState<string | null>(null);
+
+  const confirmQuery = useQuery(eventsApi.checkout.confirmPoll(orderId));
+
+  const registrationQuery = useQuery(
+    eventsApi.checkout.registrationPoll({
+      slug: params.slug,
+      inviteToken: params.inviteToken,
+      enabled: Boolean(orderId) && confirmQuery.isSuccess,
+    }),
+  );
+
+  useEffect(() => {
+    if (!registrationQuery.data) {
+      return;
+    }
+    queryClient.setQueryData(
+      eventsKeys.detail(params.slug, params.inviteToken),
+      registrationQuery.data,
+    );
+    setOrderId(null);
+  }, [params.inviteToken, params.slug, queryClient, registrationQuery.data]);
+
+  const isConfirming =
+    Boolean(orderId) &&
+    (confirmQuery.isPending ||
+      confirmQuery.isFetching ||
+      registrationQuery.isPending ||
+      registrationQuery.isFetching);
+
+  const errorMessage = (() => {
+    if (confirmQuery.isError) {
+      return checkoutConfirmErrorMessage(
+        confirmQuery.error,
+        params.errorLabels,
+      );
+    }
+    if (registrationQuery.isError) {
+      return checkoutConfirmErrorMessage(
+        registrationQuery.error,
+        params.errorLabels,
+      );
+    }
+    return null;
+  })();
+
+  const resetConfirmation = () => {
+    setOrderId(null);
+    if (orderId) {
+      queryClient.removeQueries({
+        queryKey: eventsKeys.checkout.confirm(orderId),
+      });
+    }
+    queryClient.removeQueries({
+      queryKey: eventsKeys.checkout.registration(
+        params.slug,
+        params.inviteToken,
+      ),
+    });
+  };
+
+  return {
+    orderId,
+    startConfirmation: setOrderId,
+    resetConfirmation,
+    isConfirming,
+    errorMessage,
+  };
+}

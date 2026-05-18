@@ -2,6 +2,12 @@ import type { Locale } from "@/i18n/config";
 
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
 
+import {
+  checkoutConfirmRetryDelay,
+  isRetryableCheckoutConfirmError,
+  isRegistrationPendingError,
+  RegistrationPendingError,
+} from "@/helpers/checkout-confirm";
 import { queryClient } from "@/helpers/queryClient";
 import {
   confirmEventCheckout,
@@ -116,10 +122,45 @@ export const eventsApi = {
       mutationOptions({
         mutationFn: createEventCheckoutIntent,
       }),
-    confirm: () =>
-      mutationOptions({
-        mutationFn: (orderId: string) => confirmEventCheckout(orderId),
+    /** Retries with exponential backoff until POST /checkout/confirm succeeds. */
+    confirmPoll: (orderId: string | null) =>
+      queryOptions({
+        queryKey: eventsKeys.checkout.confirm(orderId ?? ""),
+        queryFn: () => confirmEventCheckout(orderId!),
+        enabled: Boolean(orderId),
+        retry: (failureCount, error) =>
+          isRetryableCheckoutConfirmError(error) && failureCount < 15,
+        retryDelay: checkoutConfirmRetryDelay,
+        staleTime: Infinity,
+        gcTime: 60_000,
       }),
+    /** Retries with exponential backoff until the event shows registrationConfirmed. */
+    registrationPoll: (opts: {
+      slug: string;
+      inviteToken?: string;
+      enabled?: boolean;
+    }) => {
+      const enabled = opts.enabled ?? false;
+
+      return queryOptions({
+        queryKey: eventsKeys.checkout.registration(opts.slug, opts.inviteToken),
+        queryFn: async () => {
+          const event = await fetchEvent(opts.slug, {
+            inviteToken: opts.inviteToken,
+          });
+          if (!event.registrationConfirmed) {
+            throw new RegistrationPendingError();
+          }
+          return event;
+        },
+        enabled: enabled && Boolean(opts.slug),
+        retry: (failureCount, error) =>
+          isRegistrationPendingError(error) && failureCount < 14,
+        retryDelay: checkoutConfirmRetryDelay,
+        staleTime: 0,
+        gcTime: 0,
+      });
+    },
   },
   profile: {
     update: () =>
