@@ -142,16 +142,9 @@ export function ParticipantProfileModal({
     },
     onSuccess: async (saved) => {
       setProfile(saved);
-      const formValues = { givenName, familyName, email, phone };
-      const unchanged = isProfileFormUnchanged(initialProfile, formValues);
       const pending = channelsToVerify(saved);
 
       if (pending.length === 0) {
-        onComplete(saved);
-
-        return;
-      }
-      if (unchanged) {
         onComplete(saved);
 
         return;
