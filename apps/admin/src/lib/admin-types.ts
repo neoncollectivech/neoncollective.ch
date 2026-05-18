@@ -14,6 +14,11 @@ export type EventFormValues = {
   status?: EventStatus;
 };
 
+export type EventCapacitySnapshot = {
+  used: number;
+  remaining: number | null;
+};
+
 export type EventDetail = {
   id: string;
   slug: string;
@@ -26,6 +31,7 @@ export type EventDetail = {
   accessMode: AccessMode;
   eventQuota: number | null;
   defaultInviteLinkMaxRedemptions: number;
+  capacity?: EventCapacitySnapshot;
   tiers?: TierRow[];
 };
 
@@ -41,6 +47,8 @@ export type TierRow = {
   sortOrder: number;
   active: boolean;
   selectionMode: TierSelectionMode;
+  sold?: number;
+  placesRemaining?: number | null;
 };
 
 export type TierFormRow = {

@@ -33,7 +33,10 @@ import { getAdminPersonDetail } from "../services/admin/people-read.js";
 import { prepareAdminPersonUpdate } from "../services/admin/update-person.js";
 import { verifyPeopleBulk } from "../services/admin/verify-people.js";
 import { refundOrder } from "../services/checkin-refund.js";
-import { normalizeEventImageUrls } from "../services/event-read.js";
+import {
+  enrichTiersWithCapacityStats,
+  normalizeEventImageUrls,
+} from "../services/event-read.js";
 import {
   adminEventCreateSchema,
   adminEventListQuerySchema,
@@ -159,7 +162,12 @@ export function createAdminRouter(): Hono<AdminEnv> {
       const id = c.req.param("id");
       if (id && id === String(row.id)) {
         const tiers = await listTiersForEvent(id);
-        return { ...row, tiers };
+        const { tiers: tiersWithCapacity, capacity } = await enrichTiersWithCapacityStats(
+          id,
+          row.eventQuota as number | null,
+          tiers,
+        );
+        return { ...row, tiers: tiersWithCapacity, capacity };
       }
       return row;
     },

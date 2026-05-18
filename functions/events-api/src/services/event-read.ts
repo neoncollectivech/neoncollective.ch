@@ -480,6 +480,36 @@ export async function getEventHeadcountUsed(eventId: string): Promise<number> {
   return Number(row?.qty ?? 0);
 }
 
+export type EventCapacitySnapshot = {
+  used: number;
+  remaining: number | null;
+};
+
+export async function enrichTiersWithCapacityStats<
+  T extends { id: string; quota: number | null },
+>(
+  eventId: string,
+  eventQuota: number | null,
+  tiers: T[],
+): Promise<{ tiers: (T & { sold: number; placesRemaining: number | null })[]; capacity: EventCapacitySnapshot }> {
+  const used = await getEventHeadcountUsed(eventId);
+  const remaining = eventQuota != null ? Math.max(0, eventQuota - used) : null;
+
+  const enriched = await Promise.all(
+    tiers.map(async (tier) => {
+      const sold = await getTierSoldQty(eventId, tier.id);
+      const placesRemaining = computeTierPlacesRemaining({
+        tierQuota: tier.quota,
+        sold,
+        eventRemaining: remaining,
+      });
+      return { ...tier, sold, placesRemaining };
+    }),
+  );
+
+  return { tiers: enriched, capacity: { used, remaining } };
+}
+
 export async function buildEventPayload(
   slug: string,
   access: EventAccess,

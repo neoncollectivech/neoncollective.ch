@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { EventCapacityStats } from "@/components/event-capacity-stats";
 import { EventForm } from "@/components/event-form";
 import {
   AddInviteeDialog,
@@ -141,6 +142,11 @@ export function EventDetailPage() {
                       </p>
                     )}
                     {event.summary && <p>{event.summary}</p>}
+                    <EventCapacityStats
+                      capacity={event.capacity}
+                      eventQuota={event.eventQuota}
+                      tiers={event.tiers ?? []}
+                    />
                   </div>
                 )}
               </CardContent>

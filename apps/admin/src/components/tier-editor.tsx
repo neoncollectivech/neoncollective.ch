@@ -102,8 +102,17 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
     <div className="space-y-4">
       {rows.map((row, index) => (
         <div key={index} className="border border-border p-4 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium">Tier {index + 1}</span>
+            {tiers[index]?.sold != null ? (
+              <span className="text-xs text-muted-foreground">
+                {tiers[index]!.sold} sold ·{" "}
+                {tiers[index]!.placesRemaining == null
+                  ? "∞"
+                  : tiers[index]!.placesRemaining}{" "}
+                remaining
+              </span>
+            ) : null}
             <Button
               size="sm"
               type="button"
