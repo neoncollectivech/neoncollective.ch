@@ -104,7 +104,7 @@ Published public event (catalog + open checkout)
   slug:     ${SLUG_PUBLIC}
   url:      ${origin}/en/events/${SLUG_PUBLIC}
 
-Published invite-only event (roster; open with invite token or sign in on the private dossier URL)
+Published invite-only event (event invite; open with invite token or sign in on the private dossier URL)
   slug:     ${SLUG_INVITE_ONLY}
   url:      ${origin}/en/events?invite=${encodeURIComponent(rawInviteToken)}
 
@@ -215,7 +215,7 @@ async function ensurePublishedInviteOnlyEvent(db: Db, startsAt: Date): Promise<s
     .values({
       slug: SLUG_INVITE_ONLY,
       title: "[Seed] Invite-only salon",
-      summary: "Local seed — invite link or roster email/phone only.",
+      summary: "Local seed — invite link or invited email/phone only.",
       location: "Private",
       imageUrls: [],
       startsAt,

@@ -144,6 +144,10 @@ export async function patchInviteLink(
   await api.patch(`/admin/events/${eventId}/invite-links/${linkId}`, payload);
 }
 
+export async function deleteInviteLink(eventId: string, linkId: string) {
+  await api.delete(`/admin/events/${eventId}/invite-links/${linkId}`);
+}
+
 export async function regenerateInviteeLink(
   eventId: string,
   inviteeId: string,

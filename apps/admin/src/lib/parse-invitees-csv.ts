@@ -135,7 +135,7 @@ function emptyRow(): InviteeUpsertPayload {
 }
 
 /**
- * Parse invitee roster CSV. First row must be a header with recognized column names.
+ * Parse event-invitee CSV. First row must be a header with recognized column names.
  */
 export function parseInviteesCsv(text: string): InviteeUpsertPayload[] {
   const trimmed = text.trim();

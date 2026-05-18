@@ -14,6 +14,16 @@ export class InviteLinkUpdateError extends Error {
   }
 }
 
+export class InviteLinkDeleteError extends Error {
+  constructor(
+    message: string,
+    public readonly code: "not_found" | "in_use",
+  ) {
+    super(message);
+    this.name = "InviteLinkDeleteError";
+  }
+}
+
 export async function updateInviteLinkMaxRedemptions(
   eventId: string,
   linkId: string,
@@ -54,6 +64,36 @@ export async function updateInviteLinkMaxRedemptions(
     .returning({ id: inviteLinks.id, maxRedemptions: inviteLinks.maxRedemptions });
 
   return updated!;
+}
+
+/** Remove an invite link when it has no pending or paid redemptions yet. */
+export async function deleteInviteLink(
+  eventId: string,
+  linkId: string,
+): Promise<{ id: string }> {
+  await requireInviteOnlyEvent(eventId);
+  const db = getDb();
+
+  const [link] = await db
+    .select({ id: inviteLinks.id })
+    .from(inviteLinks)
+    .where(and(eq(inviteLinks.id, linkId), eq(inviteLinks.eventId, eventId)))
+    .limit(1);
+
+  if (!link) {
+    throw new InviteLinkDeleteError("Invite link not found.", "not_found");
+  }
+
+  const used = await getInviteRedemptionQty(linkId);
+  if (used > 0) {
+    throw new InviteLinkDeleteError(
+      `Cannot delete: ${used} redemption(s) already recorded (pending or paid).`,
+      "in_use",
+    );
+  }
+
+  await db.delete(inviteLinks).where(eq(inviteLinks.id, linkId));
+  return { id: linkId };
 }
 
 /** Batch count pending+paid orders per invite link. */

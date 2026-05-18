@@ -103,14 +103,18 @@ export function ParticipantProfileModal({
   );
 
   useEffect(() => {
-    if (initialProfile) {
-      setGivenName(initialProfile.givenName);
-      setFamilyName(initialProfile.familyName);
-      setEmail(initialProfile.email ?? "");
-      setPhone(initialProfile.phoneE164 ?? "");
-      setProfile(initialProfile);
+    if (!initialProfile) {
+      return;
     }
-  }, [initialProfile]);
+    setProfile(initialProfile);
+    if (step === "verify") {
+      return;
+    }
+    setGivenName(initialProfile.givenName);
+    setFamilyName(initialProfile.familyName);
+    setEmail(initialProfile.email ?? "");
+    setPhone(initialProfile.phoneE164 ?? "");
+  }, [initialProfile, step]);
 
   const saveMutation = useMutation({
     mutationFn: () => {

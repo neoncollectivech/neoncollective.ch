@@ -103,7 +103,7 @@ function formatInviteeRow(
   const pendingEmail = r.invitee.email;
   const pendingPhone = r.invitee.phone;
   const hostLink =
-    r.invitee.personId != null
+    r.invitee.personId != null && r.invitee.inviterId == null
       ? links.find((l) => l.inviterId === r.invitee.personId) ?? null
       : null;
   const adminLinks = links.filter((l) => l.inviterId === null);

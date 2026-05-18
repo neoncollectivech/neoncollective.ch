@@ -35,8 +35,8 @@ export type FulfillPaidOrderSource = "client" | "webhook";
 
 type FulfillTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 
-/** Record a paid guest on the roster with lineage from the host link they used. */
-async function ensureRosterInviteeFromGuestCheckoutInTx(
+/** Record a paid guest event invite with lineage from the host link they used. */
+async function ensureEventInviteeFromGuestCheckoutInTx(
   tx: FulfillTx,
   order: typeof orders.$inferSelect,
   ev: typeof events.$inferSelect,
@@ -77,6 +77,25 @@ async function ensureRosterInviteeFromGuestCheckoutInTx(
     email: person.email?.trim().toLowerCase() ?? null,
     phone: person.phone ?? null,
   });
+}
+
+/** Host share links are only for first-degree invitees, not guests who paid via someone else's link. */
+async function shouldMintHostInviteLinkForOrderInTx(
+  tx: FulfillTx,
+  order: typeof orders.$inferSelect,
+): Promise<boolean> {
+  if (!order.inviteLinkId) {
+    return true;
+  }
+  const [link] = await tx
+    .select({ inviterId: inviteLinks.inviterId })
+    .from(inviteLinks)
+    .where(eq(inviteLinks.id, order.inviteLinkId))
+    .limit(1);
+  if (!link?.inviterId) {
+    return true;
+  }
+  return link.inviterId === order.personId;
 }
 
 /**
@@ -183,8 +202,10 @@ export async function fulfillPaidOrderInTx(
   }
 
   if (ev && person) {
-    await ensureRosterInviteeFromGuestCheckoutInTx(tx, order, ev, person);
-    await ensureHostInviteLinkForPersonInTx(tx, order.eventId, order.personId);
+    await ensureEventInviteeFromGuestCheckoutInTx(tx, order, ev, person);
+    if (await shouldMintHostInviteLinkForOrderInTx(tx, order)) {
+      await ensureHostInviteLinkForPersonInTx(tx, order.eventId, order.personId);
+    }
   }
 
   if (!ev) {

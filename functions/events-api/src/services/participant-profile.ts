@@ -26,7 +26,7 @@ import {
   MaterializeInviteeError,
   loadPublishedOrphanInviteeContact,
 } from "./materialize-invitee-person.js";
-import { ensurePersonInTx, syncRosterInviteesToPerson } from "./people.js";
+import { ensurePersonInTx, syncEventInviteesToPerson } from "./people.js";
 import {
   randomRegistrationExchangeCode,
   normalizeRegistrationExchangeCodeInput,
@@ -123,7 +123,7 @@ function profileFieldsUnchanged(
   );
 }
 
-function toProfileResponseFromRosterContact(
+function toProfileResponseFromEventInviteContact(
   contact: { email: string | null; phoneE164: string | null },
   inviteFlow: boolean,
 ): ProfileMeResponse {
@@ -148,10 +148,10 @@ export async function getParticipantProfile(
     const person = await loadPerson(session.personId);
     return toProfileResponse(person, inviteFlow);
   }
-  if (session.rosterInviteeId) {
-    const contact = await loadPublishedOrphanInviteeContact(session.rosterInviteeId);
+  if (session.eventInviteeId) {
+    const contact = await loadPublishedOrphanInviteeContact(session.eventInviteeId);
     if (contact) {
-      return toProfileResponseFromRosterContact(contact, inviteFlow);
+      return toProfileResponseFromEventInviteContact(contact, inviteFlow);
     }
   }
   return toProfileResponse(null, inviteFlow);
@@ -255,14 +255,14 @@ export async function updateParticipantProfile(params: {
             updatedAt: now,
           })
           .where(eq(people.id, personId));
-      } else if (params.session.rosterInviteeId) {
+      } else if (params.session.eventInviteeId) {
         try {
           personId = await materializePersonFromInvitee(
-            params.session.rosterInviteeId,
+            params.session.eventInviteeId,
             { givenName: gn, familyName: fn },
             tx,
           );
-          await syncRosterInviteesToPerson(personId);
+          await syncEventInviteesToPerson(personId);
         } catch (e) {
           if (e instanceof MaterializeInviteeError) {
             if (e.code === "identity_conflict") {

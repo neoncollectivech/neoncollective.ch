@@ -25,7 +25,7 @@ export type InviteeInput = {
   familyName: string;
   email: string | null;
   phoneE164: string | null;
-  /** Max guest redemptions when minting an admin link via regenerate (not stored on roster). */
+  /** Max guest redemptions when minting an admin link via regenerate (not stored on event invite). */
   maxRedemptions: number | null;
   notes: string | null;
 };
@@ -78,7 +78,7 @@ function normalizeInviteeInput(inv: InviteeInput): NormalizedInvitee {
   };
 }
 
-function hasRosterIdentity(norm: {
+function hasEventInviteIdentity(norm: {
   email: string | null;
   phone: string | null;
 }): boolean {
@@ -169,7 +169,7 @@ export async function upsertInviteesForEvent(
   await db.transaction(async (tx) => {
     for (const inv of invitees) {
       const norm = normalizeInviteeInput(inv);
-      if (!hasRosterIdentity(norm)) {
+      if (!hasEventInviteIdentity(norm)) {
         invalid++;
         continue;
       }
@@ -256,7 +256,10 @@ export async function revokeInvitee(eventId: string, inviteeId: string): Promise
 
 export type RegenerateInviteLinkResult =
   | { ok: true; inviteToken: string }
-  | { ok: false; reason: "invitee_not_found" | "profile_pending" };
+  | {
+      ok: false;
+      reason: "invitee_not_found" | "profile_pending" | "not_eligible_host";
+    };
 
 export type EnsureInviteLinkResult = RegenerateInviteLinkResult;
 
@@ -269,7 +272,10 @@ export async function ensureInviteLink(
   const db = getDb();
   return await db.transaction(async (tx) => {
     const [inv] = await tx
-      .select({ personId: eventInvitees.personId })
+      .select({
+        personId: eventInvitees.personId,
+        inviterId: eventInvitees.inviterId,
+      })
       .from(eventInvitees)
       .where(
         and(
@@ -284,6 +290,9 @@ export async function ensureInviteLink(
     }
     if (!inv.personId) {
       return { ok: false, reason: "profile_pending" };
+    }
+    if (inv.inviterId != null) {
+      return { ok: false, reason: "not_eligible_host" };
     }
 
     const raw = await ensureHostInviteLinkForPersonInTx(tx, eventId, inv.personId);
@@ -304,7 +313,10 @@ export async function regenerateInviteLink(
   const db = getDb();
   return await db.transaction(async (tx) => {
     const [inv] = await tx
-      .select({ personId: eventInvitees.personId })
+      .select({
+        personId: eventInvitees.personId,
+        inviterId: eventInvitees.inviterId,
+      })
       .from(eventInvitees)
       .where(
         and(
@@ -319,6 +331,9 @@ export async function regenerateInviteLink(
     }
     if (!inv.personId) {
       return { ok: false, reason: "profile_pending" };
+    }
+    if (inv.inviterId != null) {
+      return { ok: false, reason: "not_eligible_host" };
     }
 
     const raw = await mintOrRotateHostInviteLinkForPersonInTx(

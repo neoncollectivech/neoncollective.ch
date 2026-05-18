@@ -13,7 +13,7 @@ import {
 } from "../db/schema.js";
 import { phoneToStoredDigits } from "../contact.js";
 import { sha256Hex } from "../token.js";
-import { ensureHostInviteLinkForPaidRosterPerson } from "./host-invite-link.js";
+import { isFirstDegreeHostForEvent } from "./host-invite-link.js";
 
 export type EventAccess = "full" | "minimal";
 
@@ -174,7 +174,7 @@ export function computeTierPlacesRemaining(params: {
   return tierCap;
 }
 
-async function findRosterInviteesMatchingContact(
+async function findEventInviteesMatchingContact(
   eventId: string,
   email: string | null,
   phoneDigits: string | null,
@@ -209,9 +209,9 @@ async function findRosterInviteesMatchingContact(
   return out;
 }
 
-export async function findRosterInvitee(eventId: string, email: string) {
+export async function findEventInvitee(eventId: string, email: string) {
   const em = normalizeEmail(email);
-  const rows = await findRosterInviteesMatchingContact(eventId, em, null);
+  const rows = await findEventInviteesMatchingContact(eventId, em, null);
   if (rows.length === 0) {
     return null;
   }
@@ -221,12 +221,12 @@ export async function findRosterInvitee(eventId: string, email: string) {
   return rows[0]!;
 }
 
-export async function findRosterInviteeByPhone(eventId: string, phoneE164: string) {
+export async function findEventInviteeByPhone(eventId: string, phoneE164: string) {
   const digits = phoneToStoredDigits(phoneE164);
   if (!digits) {
     return null;
   }
-  const rows = await findRosterInviteesMatchingContact(eventId, null, digits);
+  const rows = await findEventInviteesMatchingContact(eventId, null, digits);
   if (rows.length === 0) {
     return null;
   }
@@ -236,13 +236,13 @@ export async function findRosterInviteeByPhone(eventId: string, phoneE164: strin
   return rows[0]!;
 }
 
-export async function findRosterInviteeByContact(
+export async function findEventInviteeByContact(
   eventId: string,
   email: string,
   phoneDigits: string | null,
 ) {
   const em = email.trim() ? normalizeEmail(email) : null;
-  const rows = await findRosterInviteesMatchingContact(eventId, em, phoneDigits);
+  const rows = await findEventInviteesMatchingContact(eventId, em, phoneDigits);
   if (rows.length === 0) {
     return null;
   }
@@ -329,12 +329,14 @@ export async function listInviteLinkConversions(
   return out;
 }
 
-/** Roster host with a paid registration — shareable guest link + remaining guest slots. */
+/** First-degree event-invite host with a paid registration — shareable guest link + remaining slots. */
 export async function getHostInviteShareForViewer(
   eventId: string,
   personId: string,
 ): Promise<HostInviteShare | null> {
-  await ensureHostInviteLinkForPaidRosterPerson(eventId, personId);
+  if (!(await isFirstDegreeHostForEvent(eventId, personId))) {
+    return null;
+  }
 
   const db = getDb();
   const [row] = await db
@@ -383,7 +385,7 @@ export async function findPaidRegistrationForViewer(
   return tierName ? { tierName } : null;
 }
 
-export async function findRosterInviteeByPersonId(eventId: string, personId: string) {
+export async function findEventInviteeByPersonId(eventId: string, personId: string) {
   const db = getDb();
   const base = and(eq(eventInvitees.eventId, eventId), isNull(eventInvitees.revokedAt));
   const rows = await db
@@ -597,7 +599,7 @@ export type CatalogListParams = {
 
 /**
  * Published events for `GET /events`: all public events, plus invite-only events where
- * the viewer is on the roster or has a guest invite for that event.
+ * the viewer has an event invite or a guest invite link for that event.
  */
 export async function listPublishedEventsCatalog(
   params: CatalogListParams | string | null,

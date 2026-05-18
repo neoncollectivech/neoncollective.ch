@@ -40,9 +40,9 @@ export type EventPayload = {
   /** True when the session cookie matches a person with a paid order for this event. */
   registrationConfirmed?: boolean;
   registeredTierName?: string;
-  /** Roster host first name when registration is confirmed on invite-only events. */
+  /** Host first name when registration is confirmed on invite-only events. */
   viewerGivenName?: string;
-  /** Guest invite link for roster hosts (session + paid registration). */
+  /** Guest invite link for first-degree hosts (session + paid registration). */
   hostInvite?: {
     token: string;
     remaining: number;
@@ -58,7 +58,7 @@ export type InviteLinkConversion = {
   registeredAt: string;
 };
 
-/** Catalog row from `GET /events` (public + invite-only when session matches roster). */
+/** Catalog row from `GET /events` (public + invite-only when session matches an event invite). */
 export type EventCatalogItem = {
   slug: string;
   title: string;
@@ -125,6 +125,7 @@ export async function fetchEvent(
     ? `?invite=${encodeURIComponent(opts.inviteToken)}`
     : "";
   const { data } = await eventsClient.get<EventPayload>(`/events/${slug}${qs}`);
+  const { hostInvite: rawHostInvite, ...eventFields } = data;
 
   const imageUrls = Array.isArray(data.imageUrls)
     ? data.imageUrls.filter(
@@ -143,32 +144,32 @@ export async function fetchEvent(
     : undefined;
 
   return {
-    ...data,
-    summary: data.summary ?? null,
-    location: data.location ?? null,
+    ...eventFields,
+    summary: eventFields.summary ?? null,
+    location: eventFields.location ?? null,
     imageUrls,
     tiers,
-    registrationConfirmed: Boolean(data.registrationConfirmed),
+    registrationConfirmed: Boolean(eventFields.registrationConfirmed),
     registeredTierName:
-      typeof data.registeredTierName === "string" &&
-      data.registeredTierName.trim().length > 0
-        ? data.registeredTierName.trim()
+      typeof eventFields.registeredTierName === "string" &&
+      eventFields.registeredTierName.trim().length > 0
+        ? eventFields.registeredTierName.trim()
         : undefined,
     viewerGivenName:
-      typeof data.viewerGivenName === "string" &&
-      data.viewerGivenName.trim().length > 0
-        ? data.viewerGivenName.trim()
+      typeof eventFields.viewerGivenName === "string" &&
+      eventFields.viewerGivenName.trim().length > 0
+        ? eventFields.viewerGivenName.trim()
         : undefined,
     hostInvite:
-      data.hostInvite &&
-      typeof data.hostInvite.token === "string" &&
-      data.hostInvite.token.length > 0 &&
-      typeof data.hostInvite.remaining === "number"
+      rawHostInvite &&
+      typeof rawHostInvite.token === "string" &&
+      rawHostInvite.token.length > 0 &&
+      typeof rawHostInvite.remaining === "number"
         ? {
-            token: data.hostInvite.token,
-            remaining: Math.max(0, data.hostInvite.remaining),
-            conversions: Array.isArray(data.hostInvite.conversions)
-              ? data.hostInvite.conversions
+            token: rawHostInvite.token,
+            remaining: Math.max(0, rawHostInvite.remaining),
+            conversions: Array.isArray(rawHostInvite.conversions)
+              ? rawHostInvite.conversions
                   .filter(
                     (c): c is InviteLinkConversion =>
                       Boolean(c) &&
@@ -213,9 +214,15 @@ export async function createEventCheckoutIntent(body: {
   return data;
 }
 
+export type CheckoutConfirmResult = { ok: true };
+
 /** Confirm checkout after Stripe payment; webhook reconciles the same order idempotently. */
-export async function confirmEventCheckout(orderId: string): Promise<void> {
+export async function confirmEventCheckout(
+  orderId: string,
+): Promise<CheckoutConfirmResult> {
   await eventsClient.post("/checkout/confirm", { orderId });
+
+  return { ok: true };
 }
 
 export async function exchangeRegistrationSessionCode(

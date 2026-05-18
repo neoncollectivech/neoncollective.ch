@@ -97,7 +97,7 @@ export function AddInviteeDialog({
           </FormField>
           <p className="text-xs text-muted-foreground">
             Email or phone required. Create or copy the host invite link from
-            the Invite link column after the person is on the roster.
+            the Invite link column after the person has an event invite.
           </p>
         </div>
         <DialogFooter>
@@ -123,7 +123,7 @@ export function AddInviteeDialog({
                   onSuccess: (status) => {
                     toast.success(
                       status === "skipped"
-                        ? "Already on the roster"
+                        ? "Already invited"
                         : "Invitee added",
                     );
                     setForm(emptyUpsertForm());

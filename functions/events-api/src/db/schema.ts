@@ -107,7 +107,7 @@ export const eventInvitees = pgTable(
     personId: uuid("person_id").references(() => people.id, { onDelete: "restrict" }),
     /** Null = admin / first-degree invite; otherwise the inviting person. */
     inviterId: uuid("inviter_id").references(() => people.id, { onDelete: "restrict" }),
-    /** Pending roster contact until person_id is linked (normalized like people). */
+    /** Pending event-invite contact until person_id is linked (normalized like people). */
     email: text("email"),
     /** E.164 digits only, e.g. 41791234567 */
     phone: text("phone"),

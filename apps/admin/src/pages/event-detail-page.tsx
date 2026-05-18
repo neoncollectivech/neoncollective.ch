@@ -126,7 +126,7 @@ export function EventDetailPage() {
                     </p>
                     {event.accessMode === "public" ? (
                       <p className="text-muted-foreground">
-                        Invites and roster are not used for public events.
+                        Event invites are not used for public events.
                       </p>
                     ) : null}
                     {event.location && (
@@ -185,7 +185,7 @@ export function EventDetailPage() {
                           if (meta.created > 0)
                             parts.push(`${meta.created} added`);
                           if (meta.skipped > 0)
-                            parts.push(`${meta.skipped} already on roster`);
+                            parts.push(`${meta.skipped} already invited`);
                           if (meta.invalid > 0)
                             parts.push(
                               `${meta.invalid} invalid (no email/phone)`,

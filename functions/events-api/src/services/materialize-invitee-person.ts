@@ -7,7 +7,7 @@ import { e164FromStoredDigits, hasMinimumPersonIdentity } from "../profile.js";
 import {
   ensurePersonInTx,
   phoneDigitsLookupVariants,
-  syncRosterInviteesToPerson,
+  syncEventInviteesToPerson,
 } from "./people.js";
 
 type DbTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
@@ -148,7 +148,7 @@ export function shouldMaterializeInvitee(inv: {
   });
 }
 
-/** Published roster row with contact but no linked person yet. */
+/** Published event invite with contact but no linked person yet. */
 export async function findPublishedOrphanInviteeId(
   contact: { kind: "email"; email: string } | { kind: "phone"; e164: string },
 ): Promise<string | undefined> {

@@ -102,7 +102,7 @@ export async function ensurePersonInTx(
   return existing.id;
 }
 
-function rosterContactMatchForPerson(person: {
+function eventInviteContactMatchForPerson(person: {
   email: string | null;
   phone: string | null;
 }): SQL | null {
@@ -127,15 +127,15 @@ function rosterContactMatchForPerson(person: {
   return orClauses(contactMatch);
 }
 
-/** Link roster rows that match this person's contact but lack `person_id`. */
-export async function syncRosterInviteesToPerson(personId: string): Promise<void> {
+/** Link event invite rows that match this person's contact but lack `person_id`. */
+export async function syncEventInviteesToPerson(personId: string): Promise<void> {
   const db = getDb();
   const [person] = await db.select().from(people).where(eq(people.id, personId)).limit(1);
   if (!person) {
     return;
   }
 
-  const contactMatch = rosterContactMatchForPerson(person);
+  const contactMatch = eventInviteContactMatchForPerson(person);
   if (!contactMatch) {
     return;
   }
@@ -173,14 +173,14 @@ async function hasLinkedPublishedInvitee(personId: string): Promise<boolean> {
   return Boolean(row);
 }
 
-async function hasPublishedRosterContactMatch(personId: string): Promise<boolean> {
+async function hasPublishedEventInviteContactMatch(personId: string): Promise<boolean> {
   const db = getDb();
   const [person] = await db.select().from(people).where(eq(people.id, personId)).limit(1);
   if (!person) {
     return false;
   }
 
-  const contactMatch = rosterContactMatchForPerson(person);
+  const contactMatch = eventInviteContactMatchForPerson(person);
   if (!contactMatch) {
     return false;
   }
@@ -209,7 +209,7 @@ export async function personHasRegistrationEligibility(
   if (await hasLinkedPublishedInvitee(personId)) {
     return true;
   }
-  if (await hasPublishedRosterContactMatch(personId)) {
+  if (await hasPublishedEventInviteContactMatch(personId)) {
     return true;
   }
   return false;

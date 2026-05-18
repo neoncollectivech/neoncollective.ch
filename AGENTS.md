@@ -276,6 +276,14 @@ functions/events-api/
 
 **Early dev (default):** Treat the events DB as **disposable**. Migrations do **not** need to be backward-compatible, and you may assume a **clean reset** after schema changes (drop/recreate Neon branch, `pnpm db:events-api:push:local`, or re-run from `0000` on an empty database). Do not add expand-contract steps, data backfills, or nullable transition columns solely to preserve existing rows. Prefer editing `schema.ts` and generating a forward migration—or squashing to a single baseline when the journal gets noisy—over preserving production-safe upgrade paths. Re-seed with `pnpm db:events-api:seed:local` after a reset.
 
+**Events terminology (do not use “roster”):**
+
+- **Event invite** — a row in `event_invitees` (table `eventInvitees`). An admin invite or a guest’s lineage after checkout. Say “event invite”, not “roster”.
+- **First-degree event invite** — `event_invitees.inviter_id IS NULL` (admin/host; may mint guest share links in `invite_links`).
+- **Guest / second-degree event invite** — `event_invitees.inviter_id` points at the inviting host.
+- **Guest invite link** — shareable URL token in `invite_links` (`?invite=`).
+- **Naming in code:** `findEventInviteeByContact`, `syncEventInviteesToPerson`, `eventInviteeId` on `ParticipantSessionContext`, `ensureEventInviteeFromGuestCheckoutInTx`.
+
 ### Structure (`functions/stripe-api/`)
 
 ```

@@ -20,6 +20,7 @@ import {
   patchInviteLink,
   patchPerson,
   putEventTiers,
+  deleteInviteLink,
   deleteOrder,
   refundOrder,
   regenerateInviteeLink,
@@ -164,6 +165,15 @@ export const adminApi = {
         },
         onError: (err) =>
           toast.error(getApiErrorMessage(err, "Failed to update cap")),
+      }),
+    deleteInviteLink: (eventId: string) =>
+      mutationOptions({
+        mutationFn: (linkId: string) => deleteInviteLink(eventId, linkId),
+        onSuccess: async () => {
+          await invalidateEvents(eventId);
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to delete link")),
       }),
     regenerateInviteeLink: (eventId: string) =>
       mutationOptions({

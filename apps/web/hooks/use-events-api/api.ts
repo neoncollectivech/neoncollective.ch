@@ -62,6 +62,7 @@ export const eventsApi = {
         queryKey: eventsKeys.detail(slug, inviteToken),
         queryFn: () => fetchEvent(slug, { inviteToken }),
         enabled: enabled && Boolean(slug),
+        staleTime: 0,
       });
     },
   },

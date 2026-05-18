@@ -13,7 +13,7 @@ export function isRegistrationPendingError(err: unknown): boolean {
 
 export function isRetryableCheckoutConfirmError(err: unknown): boolean {
   if (!(err instanceof AxiosError)) {
-    return true;
+    return false;
   }
   const status = err.response?.status;
 

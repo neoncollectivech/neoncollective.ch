@@ -17,7 +17,7 @@ import { stripe } from "../stripe.js";
 import {
   computeTierPlacesRemaining,
   eventIdForInviteLinkId,
-  findRosterInviteeByContact,
+  findEventInviteeByContact,
   getTierSoldQtyTx,
 } from "./event-read.js";
 import { isSessionProfileComplete } from "./participant-profile.js";
@@ -260,7 +260,7 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
             guestLinkMax = linkRow?.maxRedemptions ?? null;
           }
         }
-        const checkoutEmailForRoster =
+        const checkoutEmailForEventInvite =
           profilePerson.email?.trim()?.toLowerCase() ??
           normalizedCheckoutEmail(input.email);
         const phoneDigits = phoneToStoredDigits(
@@ -268,32 +268,32 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
             ? `+${profilePerson.phone.replace(/\D/g, "")}`
             : normalizedPhone,
         );
-        if (!checkoutEmailForRoster && !phoneDigits) {
+        if (!checkoutEmailForEventInvite && !phoneDigits) {
           return {
             ok: false,
             status: 400,
             error: "Email or phone is required.",
           };
         }
-        const roster = await findRosterInviteeByContact(
+        const eventInvitee = await findEventInviteeByContact(
           ev.id,
-          checkoutEmailForRoster ?? "",
+          checkoutEmailForEventInvite ?? "",
           phoneDigits,
         );
-        if (roster === "ambiguous") {
+        if (eventInvitee === "ambiguous") {
           return {
             ok: false,
             status: 400,
-            error: "Multiple roster matches — contact the organizer.",
+            error: "Multiple event invite matches — contact the organizer.",
           };
         }
-        const isHost = roster !== null;
+        const isHost = eventInvitee !== null;
         const isGuest = guestLinkId !== null;
         if (!isHost && !isGuest) {
           return {
             ok: false,
             status: 403,
-            error: "This event is invite-only. Use your invite link or roster email.",
+            error: "This event is invite-only. Use your invite link or invited email.",
           };
         }
         if (isGuest && guestLinkId && guestLinkMax != null) {

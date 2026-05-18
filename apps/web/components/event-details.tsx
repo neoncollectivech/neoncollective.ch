@@ -36,6 +36,7 @@ import {
   useCheckoutConfirmation,
   useExchangeRegistrationCode,
   useProfileBootstrap,
+  writeParticipantProfileCache,
   type EventPayload,
   type EventTier,
   type InviteLinkConversion,
@@ -708,9 +709,10 @@ function EventDetailsInner({ slug }: { slug: string }) {
           initialProfile={profile ?? undefined}
           labels={profileLabels}
           onComplete={async (p) => {
-            queryClient.setQueryData(
-              eventsKeys.participant.profile(effectiveInviteToken),
+            writeParticipantProfileCache(
+              queryClient,
               p,
+              effectiveInviteToken,
             );
             await invalidateAfterProfileComplete();
             setProfileGateOpen(false);

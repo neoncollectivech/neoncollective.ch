@@ -32,8 +32,8 @@ import {
   buildEventPayload,
   findInviteLinkByRawToken,
   findPaidRegistrationForViewer,
-  findRosterInviteeByContact,
-  findRosterInviteeByPersonId,
+  findEventInviteeByContact,
+  findEventInviteeByPersonId,
   getInviteRedemptionQty,
   getHostInviteShareForViewer,
   listPublishedEventsCatalog,
@@ -110,7 +110,7 @@ app.get("/health", (c) => {
   });
 });
 
-/** Published catalog: public events + invite-only rows for roster / guest invite. */
+/** Published catalog: public events + invite-only rows for event invite / guest invite link. */
 app.get("/events", async (c) => {
   if (!isDatabaseConfigured()) {
     return c.json({ events: [] });
@@ -179,24 +179,24 @@ app.get("/events/:slug", async (c) => {
         linkIdForRemaining = session.inviteLinkId;
       }
     }
-    if (!entitled && session?.rosterInviteeId) {
-      const pendingContact = await loadPublishedOrphanInviteeContact(session.rosterInviteeId);
+    if (!entitled && session?.eventInviteeId) {
+      const pendingContact = await loadPublishedOrphanInviteeContact(session.eventInviteeId);
       if (pendingContact) {
-        const roster = await findRosterInviteeByContact(
+        const eventInvitee = await findEventInviteeByContact(
           evRow.id,
           pendingContact.email ?? "",
           pendingContact.phoneE164
             ? phoneToStoredDigits(pendingContact.phoneE164)
             : null,
         );
-        if (roster && roster !== "ambiguous") {
+        if (eventInvitee && eventInvitee !== "ambiguous") {
           entitled = true;
         }
       }
     }
     if (!entitled && session?.personId) {
-      const roster = await findRosterInviteeByPersonId(evRow.id, session.personId);
-      if (roster && roster !== "ambiguous") {
+      const eventInvitee = await findEventInviteeByPersonId(evRow.id, session.personId);
+      if (eventInvitee && eventInvitee !== "ambiguous") {
         entitled = true;
       }
       if (!entitled) {

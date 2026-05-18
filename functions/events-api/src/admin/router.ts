@@ -21,7 +21,9 @@ import {
   upsertInviteesForEvent,
 } from "../services/admin-invitees.js";
 import {
+  InviteLinkDeleteError,
   InviteLinkUpdateError,
+  deleteInviteLink,
   updateInviteLinkMaxRedemptions,
 } from "../services/admin-invite-links.js";
 import { requireInviteOnlyEvent } from "../services/event-read.js";
@@ -364,6 +366,12 @@ export function createAdminRouter(): Hono<AdminEnv> {
             400,
           );
         }
+        if (result.reason === "not_eligible_host") {
+          return c.json(
+            { error: "Only first-degree invitees can have a host share link." },
+            400,
+          );
+        }
         return c.json({ error: "Invitee not found." }, 404);
       }
       return c.json({ inviteToken: result.inviteToken });
@@ -388,6 +396,12 @@ export function createAdminRouter(): Hono<AdminEnv> {
             400,
           );
         }
+        if (result.reason === "not_eligible_host") {
+          return c.json(
+            { error: "Only first-degree invitees can have a host share link." },
+            400,
+          );
+        }
         return c.json({ error: "Invitee not found." }, 404);
       }
       return c.json({ inviteToken: result.inviteToken });
@@ -409,6 +423,29 @@ export function createAdminRouter(): Hono<AdminEnv> {
         return c.json({ item });
       } catch (e) {
         if (e instanceof InviteLinkUpdateError) {
+          if (e.code === "not_found") {
+            return c.json({ error: e.message }, 404);
+          }
+          return c.json({ error: e.message }, 400);
+        }
+        throw e;
+      }
+    },
+  });
+
+  registerAdminRoute(crudApp, {
+    method: "delete",
+    path: "/events/:eventId/invite-links/:linkId",
+    middleware: adminAuth,
+    handler: async (c) => {
+      try {
+        const item = await deleteInviteLink(
+          c.req.param("eventId"),
+          c.req.param("linkId"),
+        );
+        return c.json({ item });
+      } catch (e) {
+        if (e instanceof InviteLinkDeleteError) {
           if (e.code === "not_found") {
             return c.json({ error: e.message }, 404);
           }

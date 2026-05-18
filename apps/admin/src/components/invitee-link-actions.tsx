@@ -46,6 +46,7 @@ export function InviteeLinkActions({
 
   const ensureMutation = useMutation(adminApi.event.ensureInviteeLink(eventId));
   const patchMutation = useMutation(adminApi.event.patchInviteLink(eventId));
+  const deleteMutation = useMutation(adminApi.event.deleteInviteLink(eventId));
   const regenerateMutation = useMutation(
     adminApi.event.regenerateInviteeLink(eventId),
   );
@@ -66,6 +67,7 @@ export function InviteeLinkActions({
   }
 
   const link = invitee.hostInviteLink;
+  const canDelete = link != null && link.usedRedemptions === 0;
 
   if (!link) {
     return (
@@ -117,6 +119,27 @@ export function InviteeLinkActions({
         <Button size="sm" variant="ghost" onClick={openRegenerate}>
           Regenerate
         </Button>
+        {canDelete ? (
+          <Button
+            disabled={deleteMutation.isPending}
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              if (
+                !window.confirm(
+                  "Delete this invite link? The URL will stop working. This cannot be undone.",
+                )
+              ) {
+                return;
+              }
+              deleteMutation.mutate(link.id, {
+                onSuccess: () => toast.success("Invite link deleted"),
+              });
+            }}
+          >
+            {deleteMutation.isPending ? "Deleting…" : "Delete"}
+          </Button>
+        ) : null}
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

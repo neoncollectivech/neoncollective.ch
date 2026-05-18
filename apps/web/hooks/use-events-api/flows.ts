@@ -60,8 +60,8 @@ export function useProfileBootstrap(
     profileQuery.data != null &&
     !profileQuery.data.profileComplete &&
     (inviteFlow || sessionEstablished);
-  const profileLoading =
-    profileQuery.isLoading || (sessionEstablished && profileQuery.isFetching);
+  /** Initial load only — background refetch must not unmount the profile modal mid-verification. */
+  const profileLoading = profileQuery.isLoading;
 
   return {
     profile: profileQuery.data ?? undefined,

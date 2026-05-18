@@ -1,16 +1,22 @@
 "use client";
 
+import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { useMemo } from "react";
-import { loadStripe } from "@stripe/stripe-js";
 
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
-export function useStripePromise() {
-  return useMemo(() => {
-    if (!publishableKey) {
-      return null;
-    }
+let stripePromiseSingleton: Promise<Stripe | null> | null = null;
 
-    return loadStripe(publishableKey);
-  }, []);
+function getStripePromise(): Promise<Stripe | null> | null {
+  if (!publishableKey) {
+    return null;
+  }
+  if (!stripePromiseSingleton) {
+    stripePromiseSingleton = loadStripe(publishableKey);
+  }
+  return stripePromiseSingleton;
+}
+
+export function useStripePromise() {
+  return useMemo(() => getStripePromise(), []);
 }

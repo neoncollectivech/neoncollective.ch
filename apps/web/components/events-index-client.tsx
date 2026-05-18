@@ -22,6 +22,7 @@ import {
   eventsKeys,
   useExchangeRegistrationCode,
   useProfileBootstrap,
+  writeParticipantProfileCache,
   type EventCatalogItem,
 } from "@/hooks/use-events-api";
 import { formatLocaleDateTime } from "@/helpers/format-locale-datetime";
@@ -111,10 +112,7 @@ function EventsIndexInner() {
           initialProfile={profile ?? undefined}
           labels={showProfileManageModal ? manageProfileLabels : profileLabels}
           onComplete={async (p) => {
-            queryClient.setQueryData(
-              eventsKeys.participant.profile(inviteToken),
-              p,
-            );
+            writeParticipantProfileCache(queryClient, p, inviteToken);
             await invalidateAfterProfileComplete();
             setProfileGateOpen(false);
             setProfileManageOpen(false);
