@@ -1,55 +1,53 @@
-import { parseListQuery } from "@neon/admin-crud";
-import { Hono } from "hono";
+import { defineFilterable, filterable } from "@neon/admin-crud";
 
+import { eventInvitees } from "../../../db/schema";
 import { eventsService } from "../../../services/events.service";
 import {
-  eventInviteesEventIdColumn,
   eventInviteesService,
   eventInviteesTable,
 } from "../../../services/event-invitees.service";
-import {
-  countAdminEventInvitees,
-  getAdminInviteeDetail,
-  listAdminEventInvitees,
-} from "../providers/invitees-admin";
-import { createCrudRouter } from "../create-crud-router";
+import { getAdminInviteeDetail } from "../providers/invitees-admin";
 import { defineAdminResource } from "../resource";
-import type { AdminServiceBridge } from "../service-bridge";
 
-const inviteesBridge: AdminServiceBridge = {
-  list: (query, ctx) =>
-    listAdminEventInvitees(
-      query as import("@neon/admin-crud").ListQuery<Record<string, never>>,
-      ctx,
-    ),
-  count: (query, ctx) =>
-    countAdminEventInvitees(
-      query as import("@neon/admin-crud").ListQuery<Record<string, never>>,
-      ctx,
-    ),
-  getDetail: (id, ctx) => getAdminInviteeDetail(id, ctx),
-  update: async (id, data, ctx) => {
-    const eventId = ctx.parent?.value ?? ctx.hono?.req.param("eventId");
-    if (eventId) {
-      await eventsService.requireInviteOnly(eventId);
-    }
-    return eventInviteesService.update(id, data, ctx);
-  },
-  parseListQuery: (raw) => parseListQuery(raw),
-};
+const eventInviteesFilterable = defineFilterable([
+  filterable("eventId", eventInvitees.eventId),
+] as const);
 
-export const eventInviteesAdmin = defineAdminResource({
+const inviteesFilterFields = Object.fromEntries(
+  eventInviteesFilterable.map((f) => [f.name, f.column]),
+) as Record<string, import("drizzle-orm/pg-core").PgColumn>;
+
+export const eventInviteesResource = defineAdminResource({
   table: eventInviteesTable,
-  service: inviteesBridge,
+  detail: async (id) => getAdminInviteeDetail(id),
   opts: {
-    operations: ["update"],
-    parent: { param: "eventId", column: eventInviteesEventIdColumn },
+    operations: ["list", "update"],
+    list: {
+      filterFields: inviteesFilterFields,
+      defaultSort: "-createdAt",
+    },
     fields: {
+      list: [
+        "id",
+        "eventId",
+        "personId",
+        "inviterId",
+        "email",
+        "phone",
+        "notes",
+        "revokedAt",
+        "createdAt",
+      ],
       update: ["notes"],
+    },
+    hooks: {
+      beforeUpdate: async (id, data) => {
+        const row = await eventInviteesService.get(id);
+        if (row) {
+          await eventsService.requireInviteOnly(row.eventId);
+        }
+        return data;
+      },
     },
   },
 });
-
-export function createEventInviteesCrudRouter(): Hono {
-  return createCrudRouter(eventInviteesAdmin);
-}

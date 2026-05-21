@@ -9,6 +9,7 @@ import {
   createEvent,
   ensureInviteeLink,
   getEvent,
+  getEventInvitee,
   getOrder,
   getPerson,
   listEventInvitees,
@@ -36,12 +37,12 @@ import { adminKeys } from "./keys";
 
 async function invalidateEvents(eventId?: string) {
   await queryClient.invalidateQueries({ queryKey: adminKeys.events.all });
+  await queryClient.invalidateQueries({
+    queryKey: adminKeys.eventInvitees.all,
+  });
   if (eventId) {
     await queryClient.invalidateQueries({
       queryKey: adminKeys.events.detail(eventId),
-    });
-    await queryClient.invalidateQueries({
-      queryKey: adminKeys.events.invitees(eventId),
     });
   }
 }
@@ -83,11 +84,28 @@ export const adminApi = {
         queryFn: () => getEvent(eventId),
         enabled: Boolean(eventId),
       }),
-    invitees: (eventId: string) =>
+    invitees: (
+      eventId: string,
+      pagination: { page: number; pageSize: number },
+    ) =>
       queryOptions({
-        queryKey: adminKeys.events.invitees(eventId),
-        queryFn: () => listEventInvitees(eventId),
+        queryKey: adminKeys.eventInvitees.list(
+          buildAdminListQueryKey(pagination.page, pagination.pageSize, {
+            eventId,
+          }),
+        ),
+        queryFn: () =>
+          listEventInvitees({
+            ...pageToLimitSkip(pagination.page, pagination.pageSize),
+            eventId,
+          }),
         enabled: Boolean(eventId),
+      }),
+    inviteeDetail: (inviteeId: string) =>
+      queryOptions({
+        queryKey: adminKeys.eventInvitees.detail(inviteeId),
+        queryFn: () => getEventInvitee(inviteeId),
+        enabled: Boolean(inviteeId),
       }),
     create: () =>
       mutationOptions({
@@ -130,7 +148,7 @@ export const adminApi = {
         }: {
           inviteeId: string;
           notes: string | null;
-        }) => patchEventInvitee(eventId, inviteeId, { notes }),
+        }) => patchEventInvitee(inviteeId, { notes }),
         onSuccess: async () => {
           await invalidateEvents(eventId);
         },

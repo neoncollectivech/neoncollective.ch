@@ -1,18 +1,17 @@
 import { actionProvider } from "@neon/admin-crud";
-import type { ListQuery } from "@neon/admin-crud";
 import type { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import {
-  countAdminOrders,
-  getAdminOrderDetail,
-  listAdminOrders,
-} from "../providers/orders-admin";
-import { ordersService, type OrdersListFilters } from "../../../services/orders.service";
+import { orders as ordersTable } from "../../../db/schema";
+import { ordersFilterable, ordersService } from "../../../services/orders.service";
+import { getAdminOrderDetail } from "../providers/orders-admin";
 import { refundOrder, type RefundOrderFailureReason } from "../refund";
 import { defineAdminResource } from "../resource";
-import type { AdminServiceBridge } from "../service-bridge";
 import { jsonReasonFailure } from "../../shared/respond";
+
+const ordersFilterFields = Object.fromEntries(
+  ordersFilterable.map((f) => [f.name, f.column]),
+) as Record<string, import("drizzle-orm/pg-core").PgColumn>;
 
 const REFUND_ERRORS: Record<RefundOrderFailureReason, { status: ContentfulStatusCode; error: string }> = {
   order_not_found: { status: 404, error: "Order not found." },
@@ -48,15 +47,27 @@ function orderRefundExtension(): Hono {
   );
 }
 
-const ordersBridge: AdminServiceBridge = {
-  list: (query, ctx) => listAdminOrders(query as ListQuery<OrdersListFilters>, ctx),
-  count: (query, ctx) => countAdminOrders(query as ListQuery<OrdersListFilters>, ctx),
-  getDetail: (id, ctx) => getAdminOrderDetail(id, ctx),
-  parseListQuery: (raw) => ordersService.parseListQuery(raw),
-};
-
 export const orders = defineAdminResource({
-  service: ordersBridge,
+  table: ordersTable,
+  detail: async (id) => getAdminOrderDetail(id),
+  opts: {
+    operations: ["list"],
+    list: {
+      filterFields: ordersFilterFields,
+      defaultSort: "-createdAt",
+    },
+    fields: {
+      list: [
+        "id",
+        "eventId",
+        "personId",
+        "status",
+        "amountCents",
+        "locale",
+        "createdAt",
+      ],
+    },
+  },
   actions: [
     {
       method: "delete",

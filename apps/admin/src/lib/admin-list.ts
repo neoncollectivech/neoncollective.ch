@@ -1,12 +1,14 @@
 import type { ListMeta } from "@/lib/api-client";
 
-export const DEFAULT_ADMIN_PAGE_SIZE = 25;
+export const DEFAULT_ADMIN_PAGE_SIZE = 10;
 
 export const ADMIN_PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 
 export type AdminListOffsetParams = {
   limit: string;
   skip: string;
+  q?: string;
+  eventId?: string;
 };
 
 export function pageToLimitSkip(

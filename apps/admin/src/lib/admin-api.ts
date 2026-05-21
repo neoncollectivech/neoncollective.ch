@@ -20,10 +20,24 @@ export type EventRow = {
 
 export type OrderRow = {
   id: string;
+  eventId: string;
+  personId: string;
   status: string;
   amountCents: number;
-  person: { givenName: string; familyName: string; email: string | null };
-  event: { id: string; title: string; slug: string };
+  locale: string;
+  createdAt: string;
+};
+
+export type EventInviteeListRow = {
+  id: string;
+  eventId: string;
+  personId: string | null;
+  inviterId: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  revokedAt: string | null;
+  createdAt: string;
 };
 
 export type PersonRow = {
@@ -56,6 +70,7 @@ export type AdminListRequestParams = {
   limit: string;
   skip: string;
   q?: string;
+  eventId?: string;
 };
 
 export async function listEvents(params: AdminListRequestParams) {
@@ -92,12 +107,21 @@ export async function patchEvent(eventId: string, payload: unknown) {
   return res.data.item;
 }
 
-export async function listEventInvitees(eventId: string) {
-  const res = await api.get<ListResponse<InviteeRow>>(
-    `/admin/events/${eventId}/invitees`,
+export async function listEventInvitees(params: AdminListRequestParams) {
+  const res = await api.get<ListResponse<EventInviteeListRow>>(
+    "/admin/event-invitees",
+    { params },
   );
 
-  return res.data.items;
+  return res.data;
+}
+
+export async function getEventInvitee(inviteeId: string) {
+  const res = await api.get<ItemResponse<InviteeRow>>(
+    `/admin/event-invitees/${inviteeId}`,
+  );
+
+  return res.data.item;
 }
 
 export async function upsertEventInvitees(
@@ -125,11 +149,10 @@ export async function addEventInvitee(
 }
 
 export async function patchEventInvitee(
-  eventId: string,
   inviteeId: string,
   payload: { notes: string | null },
 ) {
-  await api.patch(`/admin/events/${eventId}/invitees/${inviteeId}`, payload);
+  await api.patch(`/admin/event-invitees/${inviteeId}`, payload);
 }
 
 export async function revokeEventInvitee(eventId: string, inviteeId: string) {

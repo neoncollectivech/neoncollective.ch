@@ -1,5 +1,3 @@
-import { type ListQuery, type ListResult } from "@neon/admin-crud";
-
 import { phoneToStoredDigits } from "../../../helpers/contact";
 import { e164FromStoredDigits, hasMinimumPersonIdentity } from "../../../helpers/profile";
 import { runTransaction, type EntityTx } from "../../../services/transaction";
@@ -139,71 +137,21 @@ function resolveEventId(ctx?: ServiceContext): string | undefined {
   return ctx?.parent?.value ?? ctx?.hono?.req.param("eventId");
 }
 
-async function listInviteesForEvent(eventId: string) {
-  const invitees = await eventInviteesService.listByEventId(eventId);
-  const personIds = invitees.map((i) => i.personId).filter((id): id is string => Boolean(id));
-  const peopleById = await peopleService.getByIdsMap(personIds);
-  const links = await inviteLinksService.listByEventId(eventId);
-  const hostLinkIds = links.filter((l) => l.inviterId != null).map((l) => l.id);
-  const usedByLinkId = await ordersService.countPendingOrPaidForInviteLinkIds(hostLinkIds);
-
-  return invitees.map((invitee) =>
-    formatInviteeRow(
-      {
-        invitee,
-        person: invitee.personId ? (peopleById.get(invitee.personId) ?? null) : null,
-      },
-      links,
-      usedByLinkId,
-    ),
-  );
-}
-
 export async function getAdminInviteeDetail(id: string, ctx?: ServiceContext) {
-  const eventId = resolveEventId(ctx);
-  if (!eventId) {
-    return null;
-  }
   const invitee = await eventInviteesService.get(id);
-  if (!invitee || invitee.eventId !== eventId) {
+  if (!invitee) {
     return null;
   }
+  const scopedEventId = resolveEventId(ctx);
+  if (scopedEventId && invitee.eventId !== scopedEventId) {
+    return null;
+  }
+  const eventId = invitee.eventId;
   const person = invitee.personId ? await peopleService.get(invitee.personId) : null;
   const links = await inviteLinksService.listByEventId(eventId);
   const hostLinkIds = links.filter((l) => l.inviterId != null).map((l) => l.id);
   const usedByLinkId = await ordersService.countPendingOrPaidForInviteLinkIds(hostLinkIds);
   return formatInviteeRow({ invitee, person }, links, usedByLinkId);
-}
-
-export async function listAdminEventInvitees(
-  query: ListQuery<Record<string, never>>,
-  ctx?: ServiceContext,
-): Promise<ListResult<unknown>> {
-  const eventId = resolveEventId(ctx);
-  if (!eventId) {
-    return eventInviteesService.list(query, ctx);
-  }
-  const items = await listInviteesForEvent(eventId);
-  return {
-    items,
-    meta: {
-      total: items.length,
-      limit: query.limit,
-      skip: 0,
-    },
-  };
-}
-
-export async function countAdminEventInvitees(
-  query: ListQuery<Record<string, never>>,
-  ctx?: ServiceContext,
-): Promise<number> {
-  const eventId = resolveEventId(ctx);
-  if (!eventId) {
-    return eventInviteesService.count(query, ctx);
-  }
-  const items = await listInviteesForEvent(eventId);
-  return items.length;
 }
 
 function shouldMaterializeInvitee(inv: {

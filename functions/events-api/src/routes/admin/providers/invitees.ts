@@ -1,17 +1,10 @@
-import { actionProvider, detailProvider, listProvider } from "@neon/admin-crud";
+import { actionProvider } from "@neon/admin-crud";
 import { Hono } from "hono";
 
-import { parseListQuery } from "@neon/admin-crud";
-import {
-  eventInviteesEventIdColumn,
-  eventInviteesService,
-} from "../../../services/event-invitees.service";
-import { mapCtx } from "../../../services/base/map-ctx";
 import { InviteMechanismDisabledError } from "../../../services/events.service";
 import {
   InviteeUpsertError,
   ensureInviteeHostLink,
-  getAdminInviteeDetail,
   regenerateInviteeHostLink,
   revokeEventInvitee,
   upsertInviteesForEvent,
@@ -31,18 +24,6 @@ import {
 export function createInviteesProvider(): Hono {
   const router = new Hono();
   const noMiddleware: never[] = [];
-
-  router.route(
-    "/invitees",
-    listProvider(async (c) => {
-      const raw = c.req.query() as Record<string, string | string[] | undefined>;
-      const query = parseListQuery(raw);
-      return eventInviteesService.list(
-        query,
-        mapCtx(c, { param: "eventId", column: eventInviteesEventIdColumn }),
-      );
-    }, noMiddleware),
-  );
 
   router.route(
     "/invitees",
@@ -158,18 +139,6 @@ export function createInviteesProvider(): Hono {
           },
         },
       ],
-      noMiddleware,
-    ),
-  );
-
-  router.route(
-    "/invitees",
-    detailProvider(
-      (id, c) =>
-        getAdminInviteeDetail(
-          id,
-          mapCtx(c, { param: "eventId", column: eventInviteesEventIdColumn }),
-        ),
       noMiddleware,
     ),
   );

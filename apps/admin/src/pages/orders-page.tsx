@@ -39,8 +39,8 @@ export function OrdersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead>Person</TableHead>
+                <TableHead>Event ID</TableHead>
+                <TableHead>Person ID</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead />
@@ -49,20 +49,29 @@ export function OrdersPage() {
             <TableBody>
               {data.items.map((order) => (
                 <TableRow key={order.id}>
-                  <TableCell>
-                    <Link
-                      className="text-primary hover:underline"
-                      to={`/events/${order.event.id}`}
-                    >
-                      {order.event.title}
-                    </Link>
+                  <TableCell className="font-mono text-xs">
+                    {isUuid(order.eventId) ? (
+                      <Link
+                        className="text-primary hover:underline"
+                        to={`/events/${order.eventId}`}
+                      >
+                        {order.eventId.slice(0, 8)}…
+                      </Link>
+                    ) : (
+                      order.eventId
+                    )}
                   </TableCell>
-                  <TableCell>
-                    {order.person.givenName} {order.person.familyName}
-                    <br />
-                    <span className="text-xs text-muted-foreground">
-                      {order.person.email}
-                    </span>
+                  <TableCell className="font-mono text-xs">
+                    {isUuid(order.personId) ? (
+                      <Link
+                        className="text-primary hover:underline"
+                        to={`/people/${order.personId}`}
+                      >
+                        {order.personId.slice(0, 8)}…
+                      </Link>
+                    ) : (
+                      order.personId
+                    )}
                   </TableCell>
                   <TableCell>
                     CHF {(order.amountCents / 100).toFixed(2)}

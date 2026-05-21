@@ -8,7 +8,6 @@ import { eventsService, eventsTable } from "../../../services/events.service";
 import { orderTiersService } from "../../../services/order-tiers.service";
 import { getAdminEventDetail } from "../providers/events-admin";
 import { defineAdminResource } from "../resource";
-import type { AdminServiceBridge } from "../service-bridge";
 import { adminEventTiersPutSchema } from "../schemas";
 import { jsonReasonFailure } from "../../shared/respond";
 
@@ -61,25 +60,9 @@ function eventTiersExtension(): Hono {
   );
 }
 
-const eventsBridge: AdminServiceBridge = {
-  list: (query, ctx) => eventsService.list(query, ctx),
-  count: (query, ctx) => eventsService.count(query, ctx),
-  get: (id, ctx) => eventsService.get(id, ctx),
-  getDetail: (id) => getAdminEventDetail(id),
-  create: (data, ctx) => eventsService.create(data, ctx),
-  createBulk: (items, ctx) => eventsService.createBulk(items, ctx),
-  update: (id, data, ctx) => eventsService.update(id, data, ctx),
-  updateBulk: (updates, ctx) => eventsService.updateBulk(updates, ctx),
-  delete: (id, ctx) => eventsService.delete(id, ctx),
-  parseListQuery: (raw) =>
-    eventsService.parseListQuery(raw) as import("@neon/admin-crud").ListQuery<
-      Record<string, unknown>
-    >,
-};
-
 export const events = defineAdminResource({
   table: eventsTable,
-  service: eventsBridge,
+  detail: async (id) => getAdminEventDetail(id),
   opts: {
     operations: ["list", "create", "update"],
     schemas: {

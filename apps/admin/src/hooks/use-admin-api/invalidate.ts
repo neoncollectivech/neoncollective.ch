@@ -10,12 +10,12 @@ export function useAdminInvalidate() {
   return {
     events: async (eventId?: string) => {
       await queryClient.invalidateQueries({ queryKey: adminKeys.events.all });
+      await queryClient.invalidateQueries({
+        queryKey: adminKeys.eventInvitees.all,
+      });
       if (eventId) {
         await queryClient.invalidateQueries({
           queryKey: adminKeys.events.detail(eventId),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: adminKeys.events.invitees(eventId),
         });
       }
     },

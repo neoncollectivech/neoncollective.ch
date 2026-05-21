@@ -1,8 +1,4 @@
-import type {
-  InviteeEditForm,
-  InviteeRow,
-  InviteeUpsertForm,
-} from "@/lib/admin-types";
+import type { InviteeEditForm, InviteeUpsertForm } from "@/lib/admin-types";
 
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -151,9 +147,16 @@ export function AddInviteeDialog({
   );
 }
 
+type EditInviteeListRow = {
+  id: string;
+  notes: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
 type EditInviteeDialogProps = {
   eventId: string;
-  invitee: InviteeRow | null;
+  invitee: EditInviteeListRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -182,8 +185,8 @@ export function EditInviteeDialog({
         {invitee && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              {invitee.person.givenName} {invitee.person.familyName}
-              {invitee.person.email ? ` · ${invitee.person.email}` : ""}
+              {invitee.email ?? "—"}
+              {invitee.phone ? ` · +${invitee.phone}` : ""}
             </p>
             <FormField label="Notes">
               <Textarea

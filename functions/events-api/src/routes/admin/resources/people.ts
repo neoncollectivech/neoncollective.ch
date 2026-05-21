@@ -1,28 +1,14 @@
 import { defineAdminResource } from "../resource";
-import type { AdminServiceBridge } from "../service-bridge";
-import { peopleService, peopleTable } from "../../../services/people.service";
+import { peopleTable } from "../../../services/people.service";
 import {
   getAdminPersonDetail,
   verifyAdminPeopleBulk,
 } from "../providers/people-admin";
 import { adminPeopleVerifySchema } from "../schemas";
 
-const peopleBridge: AdminServiceBridge = {
-  list: (query, ctx) =>
-    peopleService.list(query as import("@neon/admin-crud").ListQuery<Record<string, never>>, ctx),
-  count: (query, ctx) =>
-    peopleService.count(query as import("@neon/admin-crud").ListQuery<Record<string, never>>, ctx),
-  get: (id, ctx) => peopleService.get(id, ctx),
-  getDetail: (id) => getAdminPersonDetail(id),
-  update: (id, data, ctx) => peopleService.update(id, data, ctx),
-  updateBulk: (updates, ctx) => peopleService.updateBulk(updates, ctx),
-  parseListQuery: (raw) => peopleService.parseListQuery(raw),
-};
-
 export const people = defineAdminResource({
   table: peopleTable,
-  service: peopleBridge,
-  bulk: { update: true },
+  detail: async (id) => getAdminPersonDetail(id),
   opts: {
     operations: ["list", "update"],
     exclude: {

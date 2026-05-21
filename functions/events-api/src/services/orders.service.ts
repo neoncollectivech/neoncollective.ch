@@ -1,19 +1,15 @@
 import {
-  buildFilterConditions,
   defineFilterable,
   filterable,
   introspectPgTable,
   parseListQuery,
   type InferFilterParams,
-  type ListQuery,
 } from "@neon/admin-crud";
-import { and, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { orders } from "../db/schema";
 import type { EntityTx } from "./transaction";
-import { eventsService } from "./events.service";
-import { peopleService } from "./people.service";
 import { TableService } from "./base";
 
 export const ordersFilterable = defineFilterable([
@@ -295,56 +291,6 @@ export class OrdersService extends TableService<
       .orderBy(desc(orders.createdAt));
   }
 
-  async listAdminRows(params: {
-    where?: SQL;
-    limit: number;
-    skip: number;
-  }): Promise<(typeof orders.$inferSelect)[]> {
-    const db = getDb();
-    const q = db.select().from(orders).orderBy(desc(orders.createdAt)).limit(params.limit).offset(params.skip);
-    if (params.where) {
-      return q.where(params.where);
-    }
-    return q;
-  }
-
-  async buildAdminListWhere(
-    query: ListQuery<OrdersListFilters>,
-  ): Promise<SQL | undefined> {
-    const filterConds = buildFilterConditions(
-      query.filters as Record<string, string | string[] | undefined>,
-      ordersFilterable,
-    );
-    const conditions: (SQL | undefined)[] = [...filterConds];
-
-    if (query.q?.trim()) {
-      const term = query.q.trim();
-      const [personIds, eventIds] = await Promise.all([
-        peopleService.searchIdsByAdminQuery(term),
-        eventsService.searchIdsByTitle(term),
-      ]);
-      const searchParts: SQL[] = [];
-      if (personIds.length > 0) {
-        searchParts.push(inArray(orders.personId, personIds));
-      }
-      if (eventIds.length > 0) {
-        searchParts.push(inArray(orders.eventId, eventIds));
-      }
-      if (searchParts.length === 0) {
-        return eq(orders.id, "00000000-0000-0000-0000-000000000000");
-      }
-      conditions.push(or(...searchParts)!);
-    }
-
-    return conditions.length > 0 ? and(...conditions) : undefined;
-  }
-
-  async countAdminRows(where?: SQL): Promise<number> {
-    const db = getDb();
-    const base = db.select({ total: sql<number>`count(*)::int` }).from(orders);
-    const [row] = where ? await base.where(where) : await base;
-    return row?.total ?? 0;
-  }
 }
 
 export const ordersService = new OrdersService();

@@ -1,6 +1,4 @@
-import type { InviteeRow } from "@/lib/admin-types";
-
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -21,7 +19,8 @@ type InviteeLinkActionsProps = {
   eventId: string;
   eventSlug: string;
   defaultMaxRedemptions: number;
-  invitee: InviteeRow;
+  inviteeId: string;
+  personId: string | null;
   revoked: boolean;
 };
 
@@ -36,13 +35,18 @@ export function InviteeLinkActions({
   eventId,
   eventSlug,
   defaultMaxRedemptions,
-  invitee,
+  inviteeId,
+  personId,
   revoked,
 }: InviteeLinkActionsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [maxRedemptionsInput, setMaxRedemptionsInput] = useState("");
   const [regenerateMaxInput, setRegenerateMaxInput] = useState("");
+
+  const { data: invitee, isLoading } = useQuery(
+    adminApi.event.inviteeDetail(inviteeId),
+  );
 
   const ensureMutation = useMutation(adminApi.event.ensureInviteeLink(eventId));
   const patchMutation = useMutation(adminApi.event.patchInviteLink(eventId));
@@ -52,6 +56,25 @@ export function InviteeLinkActions({
   );
 
   if (revoked) {
+    return <span className="text-muted-foreground text-xs">—</span>;
+  }
+
+  if (!personId) {
+    return (
+      <span
+        className="text-xs text-muted-foreground"
+        title="Person profile must be linked first"
+      >
+        Profile pending
+      </span>
+    );
+  }
+
+  if (isLoading) {
+    return <span className="text-xs text-muted-foreground">Loading…</span>;
+  }
+
+  if (!invitee) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
 
@@ -76,7 +99,7 @@ export function InviteeLinkActions({
         size="sm"
         variant="outline"
         onClick={() =>
-          ensureMutation.mutate(invitee.id, {
+          ensureMutation.mutate(inviteeId, {
             onSuccess: async (token) => {
               toast.success("Invite link created");
               await copyInviteUrl(eventSlug, token);
@@ -232,7 +255,7 @@ export function InviteeLinkActions({
                     : undefined;
 
                 regenerateMutation.mutate(
-                  { inviteeId: invitee.id, maxRedemptions },
+                  { inviteeId, maxRedemptions },
                   {
                     onSuccess: async (token) => {
                       toast.success("Invite link regenerated");

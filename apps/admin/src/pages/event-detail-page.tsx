@@ -1,4 +1,4 @@
-import type { InviteeRow } from "@/lib/admin-types";
+import type { EventInviteeListRow } from "@/lib/admin-api";
 import type { InviteeUpsertPayload } from "@/lib/parse-invitees-csv";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { AdminListPagination } from "@/components/admin-list-pagination";
 import { EventCapacityStats } from "@/components/event-capacity-stats";
 import { EventForm } from "@/components/event-form";
 import {
@@ -32,17 +33,31 @@ import {
   formValuesToUpdatePayload,
 } from "@/lib/event-form-utils";
 import { adminApi } from "@/hooks/use-admin-api";
+import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
 
 export function EventDetailPage() {
   const { id: eventId, isValid } = useUuidRouteParam();
   const [editing, setEditing] = useState(false);
   const [addInviteeOpen, setAddInviteeOpen] = useState(false);
-  const [editInvitee, setEditInvitee] = useState<InviteeRow | null>(null);
+  const [editInvitee, setEditInvitee] = useState<EventInviteeListRow | null>(
+    null,
+  );
   const [bulkImportKey, setBulkImportKey] = useState(0);
+  const {
+    page: inviteePage,
+    pageSize: inviteePageSize,
+    setPage: setInviteePage,
+    setPageSize: setInviteePageSize,
+  } = useAdminListPagination();
 
   const eventQuery = useQuery(adminApi.event.detail(eventId));
-  const inviteesQuery = useQuery(adminApi.event.invitees(eventId));
+  const inviteesQuery = useQuery(
+    adminApi.event.invitees(eventId, {
+      page: inviteePage,
+      pageSize: inviteePageSize,
+    }),
+  );
   const updateMutation = useMutation(adminApi.event.update(eventId));
   const upsertMutation = useMutation(adminApi.event.upsertInvitees(eventId));
   const revokeMutation = useMutation(adminApi.event.revokeInvitee(eventId));
@@ -199,74 +214,94 @@ export function EventDetailPage() {
                     }
                   />
 
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Invite link</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(inviteesQuery.data ?? []).map((inv) => (
-                        <TableRow key={inv.id}>
-                          <TableCell>
-                            {inv.person.givenName} {inv.person.familyName}
-                          </TableCell>
-                          <TableCell>{inv.person.email ?? "—"}</TableCell>
-                          <TableCell className="max-w-[200px] truncate">
-                            {inv.notes ?? "—"}
-                          </TableCell>
-                          <TableCell>
-                            {inv.revokedAt
-                              ? "Revoked"
-                              : inv.profilePending
-                                ? "Profile pending"
-                                : "Active"}
-                          </TableCell>
-                          <TableCell className="min-w-[200px]">
-                            <InviteeLinkActions
-                              defaultMaxRedemptions={
-                                event.defaultInviteLinkMaxRedemptions
-                              }
-                              eventId={eventId}
-                              eventSlug={event.slug}
-                              invitee={inv}
-                              revoked={Boolean(inv.revokedAt)}
-                            />
-                          </TableCell>
-                          <TableCell className="space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditInvitee(inv)}
-                            >
-                              Edit
-                            </Button>
-                            {!inv.revokedAt && (
-                              <>
+                  {inviteesQuery.isLoading && (
+                    <p className="text-muted-foreground text-sm">
+                      Loading invitees…
+                    </p>
+                  )}
+                  {inviteesQuery.data && (
+                    <>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Phone</TableHead>
+                            <TableHead>Person</TableHead>
+                            <TableHead>Notes</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Invite link</TableHead>
+                            <TableHead />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {inviteesQuery.data.items.map((inv) => (
+                            <TableRow key={inv.id}>
+                              <TableCell>{inv.email ?? "—"}</TableCell>
+                              <TableCell>
+                                {inv.phone ? `+${inv.phone}` : "—"}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {inv.personId ?? "—"}
+                              </TableCell>
+                              <TableCell className="max-w-[200px] truncate">
+                                {inv.notes ?? "—"}
+                              </TableCell>
+                              <TableCell>
+                                {inv.revokedAt
+                                  ? "Revoked"
+                                  : !inv.personId
+                                    ? "Profile pending"
+                                    : "Active"}
+                              </TableCell>
+                              <TableCell className="min-w-[200px]">
+                                <InviteeLinkActions
+                                  defaultMaxRedemptions={
+                                    event.defaultInviteLinkMaxRedemptions
+                                  }
+                                  eventId={eventId}
+                                  eventSlug={event.slug}
+                                  inviteeId={inv.id}
+                                  personId={inv.personId}
+                                  revoked={Boolean(inv.revokedAt)}
+                                />
+                              </TableCell>
+                              <TableCell className="space-x-2">
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() =>
-                                    revokeMutation.mutate(inv.id, {
-                                      onSuccess: () =>
-                                        toast.success("Invitee revoked"),
-                                    })
-                                  }
+                                  onClick={() => setEditInvitee(inv)}
                                 >
-                                  Revoke
+                                  Edit
                                 </Button>
-                              </>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                                {!inv.revokedAt && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      revokeMutation.mutate(inv.id, {
+                                        onSuccess: () =>
+                                          toast.success("Invitee revoked"),
+                                      })
+                                    }
+                                  >
+                                    Revoke
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <AdminListPagination
+                        isLoading={inviteesQuery.isLoading}
+                        meta={inviteesQuery.data.meta}
+                        page={inviteePage}
+                        pageSize={inviteePageSize}
+                        onPageChange={setInviteePage}
+                        onPageSizeChange={setInviteePageSize}
+                      />
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
