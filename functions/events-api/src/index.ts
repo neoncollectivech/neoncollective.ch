@@ -299,12 +299,17 @@ app.post(
       inviteToken: body.inviteToken,
       exclusiveTierId: body.exclusiveTierId,
       addonTierIds: body.addonTierIds,
+      returnPath: body.returnPath,
       cookieHeader: c.req.header("Cookie"),
     });
     if (!res.ok) {
       return c.json({ error: res.error }, res.status as ContentfulStatusCode);
     }
-    return c.json({ clientSecret: res.clientSecret, orderId: res.orderId });
+    return c.json({
+      clientSecret: res.clientSecret,
+      orderId: res.orderId,
+      returnUrl: res.returnUrl,
+    });
   },
 );
 

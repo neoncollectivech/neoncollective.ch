@@ -12,6 +12,11 @@ import {
   people,
 } from "../db/schema";
 import { normalizeOptionalPhoneE164, phoneToStoredDigits } from "../contact";
+import {
+  PAYMENT_INTENT_AUTOMATIC_METHODS,
+  paymentIntentAllowsElementsConfirm,
+  resolveCheckoutReturnUrl,
+} from "../stripe-payment-intent";
 import { stripe } from "../stripe";
 import {
   computeTierPlacesRemaining,
@@ -43,6 +48,8 @@ export type CheckoutIntentInput = {
   inviteToken: string | null;
   exclusiveTierId: string;
   addonTierIds: string[];
+  /** Browser path (+ query) for Stripe `return_url` after redirect-capable PMs (we disable those). */
+  returnPath?: string | null;
   cookieHeader: string | undefined;
 };
 
@@ -146,6 +153,10 @@ async function resolveExistingOrderForCheckoutTx(
     pi.client_secret &&
     (await pendingOrderTierIdsMatchTx(tx, existingOrder.id, selectedTiers))
   ) {
+    if (!paymentIntentAllowsElementsConfirm(pi)) {
+      await supersedePendingOrderTx(tx, existingOrder);
+      return { action: "continue" };
+    }
     return {
       action: "resume",
       clientSecret: pi.client_secret,
@@ -172,9 +183,14 @@ function uniqueAddonIds(ids: string[]): string[] {
 }
 
 export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
-  | { ok: true; clientSecret: string; orderId: string }
+  | { ok: true; clientSecret: string; orderId: string; returnUrl: string }
   | { ok: false; status: number; error: string }
 > {
+  const returnUrl = resolveCheckoutReturnUrl({
+    returnPath: input.returnPath,
+    locale: input.locale,
+    slug: input.slug,
+  });
   const db = getDb();
   const exclusiveTierId = input.exclusiveTierId?.trim() ?? "";
   const addonTierIds = uniqueAddonIds(input.addonTierIds ?? []);
@@ -437,6 +453,7 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
             ok: true,
             clientSecret: resolved.clientSecret,
             orderId: resolved.orderId,
+            returnUrl,
           };
         }
       }
@@ -475,10 +492,7 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         amount: amountCents,
         currency,
         metadata: { orderId, eventId: ev.id },
-        automatic_payment_methods: {
-          enabled: true,
-          allow_redirects: "never",
-        },
+        automatic_payment_methods: PAYMENT_INTENT_AUTOMATIC_METHODS,
       });
       await tx
         .update(orders)
@@ -491,6 +505,7 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         ok: true,
         clientSecret: pi.client_secret!,
         orderId,
+        returnUrl,
       };
     });
   } catch (e) {

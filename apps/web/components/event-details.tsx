@@ -339,9 +339,13 @@ function PaymentStep({
     }
     setBusy(true);
     setErr(null);
+    const redirectReturnUrl =
+      returnUrl.trim() ||
+      (typeof window !== "undefined" ? window.location.href : "");
+
     const { error } = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: returnUrl },
+      confirmParams: { return_url: redirectReturnUrl },
       redirect: "if_required",
     });
 
@@ -498,6 +502,9 @@ function EventDetailsInner({ slug }: { slug: string }) {
   );
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
+  const [checkoutReturnUrl, setCheckoutReturnUrl] = useState<string | null>(
+    null,
+  );
   const checkoutConfirmation = useCheckoutConfirmation({
     slug,
     inviteToken: effectiveInviteToken,
@@ -584,6 +591,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
   function startCheckoutAfterPayment(orderId: string): void {
     setClientSecret(null);
     setCheckoutOrderId(null);
+    setCheckoutReturnUrl(null);
     checkoutConfirmation.startConfirmation(orderId);
   }
 
@@ -1005,11 +1013,13 @@ function EventDetailsInner({ slug }: { slug: string }) {
                           inviteToken: effectiveInviteToken ?? null,
                           exclusiveTierId: selectedExclusiveId ?? "",
                           addonTierIds: Array.from(selectedAddonIds),
+                          returnPath: detailReturnPath,
                         },
                         {
                           onSuccess: (data) => {
                             setClientSecret(data.clientSecret);
                             setCheckoutOrderId(data.orderId);
+                            setCheckoutReturnUrl(data.returnUrl);
                             eventsApi.storage.stashCheckoutOrderId(
                               slug,
                               data.orderId,
@@ -1077,7 +1087,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   <PaymentStep
                     onePersonHint={t.checkoutOnePersonHint}
                     payLabel={t.pay}
-                    returnUrl={returnUrl}
+                    returnUrl={checkoutReturnUrl ?? returnUrl}
                     onPaymentSucceeded={() => {
                       if (checkoutOrderId) {
                         startCheckoutAfterPayment(checkoutOrderId);

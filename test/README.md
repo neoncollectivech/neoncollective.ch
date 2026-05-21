@@ -89,6 +89,22 @@ Every test run reseeds the DB first (`global-setup.mjs` → `pnpm db:events-api:
 
 Checkout E2E fills the Payment Element with Stripe’s **Switzerland Visa** test PAN `4000007560000009` (exp `12/34`, CVC `123`). It succeeds for CHF amounts on your test account — same as a real CHF event checkout.
 
+## Payment flow (matches production)
+
+The fixtures mirror what the site does in `event-details.tsx` + `useCheckoutConfirmation`:
+
+1. **Continue to payment** — `POST /checkout/intent` with `returnPath` (current dossier URL), tier ids, and `returnUrl` in the response.
+2. **Stripe Payment Element** — wait for the iframe, fill card fields, ensure **Pay now** is enabled (Stripe.js loaded).
+3. **Pay now** — browser `stripe.confirmPayment` with `redirect: "if_required"` and server `returnUrl` (no server-side `paymentIntents.confirm` shortcut).
+4. **Confirming your payment…** — UI shows while the client polls.
+5. **`POST /checkout/confirm`** — Playwright waits for HTTP 200 `{ ok: true }` (same as `eventsApi.checkout.confirmPoll`).
+6. **`GET /events/:slug`** — wait until `registrationConfirmed: true` (registration poll).
+7. **You're registered** — heading visible.
+
+Run **`pnpm stripe:listen`** in a separate terminal so webhook fulfillment also runs (idempotent with client confirm; closer to production).
+
+Fixtures: `startCheckoutPaymentStep`, `submitStripePaymentAndConfirmRegistration`, `completeEventCheckout` in `test/fixtures/checkout.mjs`.
+
 ## What the invite checkout spec covers
 
 **Serial** tests in `test/web/checkout-invite-flow.spec.mjs` (two nested describes):

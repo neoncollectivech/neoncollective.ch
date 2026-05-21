@@ -205,10 +205,12 @@ export async function createEventCheckoutIntent(body: {
   inviteToken: string | null;
   exclusiveTierId: string;
   addonTierIds: string[];
-}): Promise<{ clientSecret: string; orderId: string }> {
+  returnPath: string | null;
+}): Promise<{ clientSecret: string; orderId: string; returnUrl: string }> {
   const { data } = await eventsClient.post<{
     clientSecret: string;
     orderId: string;
+    returnUrl: string;
   }>("/checkout/intent", body);
 
   return data;

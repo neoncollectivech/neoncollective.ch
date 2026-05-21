@@ -58,14 +58,8 @@ test.describe("invite-only checkout", () => {
       await selectExclusiveAndAddon(state.pageA, state.seed);
     });
 
-    test("completes payment", async () => {
+    test("pays with Stripe Payment Element and confirms registration", async () => {
       await completeEventCheckout(state.pageA, state.seed);
-    });
-
-    test("sees registration confirmed", async () => {
-      await expect(
-        state.pageA.getByRole("heading", { name: "You're registered" }),
-      ).toBeVisible();
     });
 
     test("sees host invite link", async () => {
@@ -121,14 +115,8 @@ test.describe("invite-only checkout", () => {
       await selectExclusiveAndAddon(state.pageB, state.seed);
     });
 
-    test("completes payment", async () => {
+    test("pays with Stripe Payment Element and confirms registration", async () => {
       await completeEventCheckout(state.pageB, state.seed);
-    });
-
-    test("sees registration confirmed without host invite UI", async () => {
-      await expect(
-        state.pageB.getByRole("heading", { name: "You're registered" }),
-      ).toBeVisible();
       await expect(state.pageB.getByText("Invite guests")).not.toBeVisible();
     });
 

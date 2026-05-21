@@ -1,6 +1,16 @@
 import { expect } from "@playwright/test";
 
-import { fillStripePaymentElement } from "./stripe-confirm.mjs";
+import {
+  fillStripePaymentElement,
+  waitForStripePaymentElement,
+} from "./stripe-payment-element.mjs";
+
+/** Current dossier path + query — matches `detailReturnPath` sent to checkout intent. */
+export function checkoutReturnPathFromPage(page) {
+  const url = new URL(page.url());
+
+  return url.pathname + url.search;
+}
 
 /** Tier picker only — no inline email/phone and no sign-in panel under checkout. */
 export async function expectMinimalCheckout(page, seed) {
@@ -59,35 +69,137 @@ export async function openInviteOnlyDossierFromIndex(page, seed, inviteUrl) {
   await openInviteOnlyDossier(page, seed, inviteToken ?? undefined);
 }
 
-export async function completeEventCheckout(page, seed) {
-  const intentResponse = page.waitForResponse(
-    (res) =>
-      res.url().includes("/checkout/intent") &&
-      res.request().method() === "POST" &&
-      res.status() === 200,
+function isCheckoutIntentResponse(res) {
+  return (
+    res.url().includes("/checkout/intent") &&
+    res.request().method() === "POST" &&
+    res.status() === 200
   );
+}
 
-  await page.getByRole("button", { name: "Continue to payment" }).click();
+function isCheckoutConfirmResponse(res) {
+  return (
+    res.url().includes("/checkout/confirm") &&
+    res.request().method() === "POST" &&
+    res.status() === 200
+  );
+}
 
-  const response = await intentResponse;
-  const body = await response.json();
-  if (!body.clientSecret || !body.orderId) {
-    throw new Error("Checkout intent response missing clientSecret or orderId.");
+function assertCheckoutIntentRequest(posted, returnPath, seed) {
+  if (posted.returnPath !== returnPath) {
+    throw new Error(
+      `Checkout intent returnPath mismatch: expected ${returnPath}, got ${posted.returnPath ?? "(missing)"}`,
+    );
   }
-
+  if (!posted.exclusiveTierId) {
+    throw new Error("Checkout intent did not include exclusiveTierId.");
+  }
   if (seed?.addonTierName) {
-    const posted = response.request().postDataJSON();
     const addonIds = posted?.addonTierIds ?? [];
     if (!Array.isArray(addonIds) || addonIds.length === 0) {
       throw new Error("Checkout intent did not include addon tier ids.");
     }
   }
+}
 
-  await fillStripePaymentElement(page);
-  await page.getByTestId("event-checkout-pay").click();
-  await page.getByRole("heading", { name: "You're registered" }).waitFor({
+function assertCheckoutIntentResponse(body, returnPath) {
+  if (!body.clientSecret || !body.orderId || !body.returnUrl) {
+    throw new Error(
+      "Checkout intent response missing clientSecret, orderId, or returnUrl.",
+    );
+  }
+  const returnUrl = String(body.returnUrl);
+  if (!returnUrl.includes(returnPath.split("?")[0])) {
+    throw new Error(
+      `Checkout intent returnUrl does not include dossier path: ${returnUrl}`,
+    );
+  }
+}
+
+/**
+ * Click “Continue to payment”, wait for intent + Stripe Payment Element — same as production before Pay.
+ */
+export async function startCheckoutPaymentStep(page, seed) {
+  const returnPath = checkoutReturnPathFromPage(page);
+  const intentResponse = page.waitForResponse(isCheckoutIntentResponse, {
     timeout: 60_000,
   });
+
+  await page.getByRole("button", { name: "Continue to payment" }).click();
+
+  const response = await intentResponse;
+  const body = await response.json();
+  const posted = response.request().postDataJSON();
+
+  assertCheckoutIntentRequest(posted, returnPath, seed);
+  assertCheckoutIntentResponse(body, returnPath);
+
+  await waitForStripePaymentElement(page);
+
+  return {
+    orderId: body.orderId,
+    clientSecret: body.clientSecret,
+    returnUrl: body.returnUrl,
+    returnPath,
+  };
+}
+
+/**
+ * Fill the Payment Element, click Pay (browser `stripe.confirmPayment`), then wait for
+ * POST /checkout/confirm and event registration poll — mirrors `useCheckoutConfirmation`.
+ */
+export async function submitStripePaymentAndConfirmRegistration(page, seed) {
+  await fillStripePaymentElement(page);
+
+  const payButton = page.getByRole("button", { name: "Pay now" });
+  await expect(payButton).toBeEnabled({ timeout: 30_000 });
+
+  const confirmResponse = page.waitForResponse(isCheckoutConfirmResponse, {
+    timeout: 90_000,
+  });
+
+  const registrationResponse = page.waitForResponse(
+    async (res) => {
+      if (!res.url().includes(`/events/${seed.slug}`)) {
+        return false;
+      }
+      if (res.request().method() !== "GET" || !res.ok()) {
+        return false;
+      }
+      try {
+        const json = await res.json();
+
+        return json.registrationConfirmed === true;
+      } catch {
+        return false;
+      }
+    },
+    { timeout: 90_000 },
+  );
+
+  await payButton.click();
+
+  await expect(
+    page.getByText("Confirming your payment…"),
+  ).toBeVisible({ timeout: 20_000 });
+
+  const confirmRes = await confirmResponse;
+  const confirmBody = await confirmRes.json();
+  if (!confirmBody.ok) {
+    throw new Error("Checkout confirm response missing ok: true.");
+  }
+
+  await registrationResponse;
+
+  await expect(
+    page.getByRole("heading", { name: "You're registered" }),
+  ).toBeVisible({ timeout: 30_000 });
+}
+
+/** Full production-like checkout: intent → Elements → Pay → confirm API → registration poll. */
+export async function completeEventCheckout(page, seed) {
+  await startCheckoutPaymentStep(page, seed);
+  await submitStripePaymentAndConfirmRegistration(page, seed);
 }
 
 export async function extractInviteUrlFromPage(page) {
