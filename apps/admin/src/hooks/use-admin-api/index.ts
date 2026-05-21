@@ -1,6 +1,6 @@
-export { adminApi } from "./api.js";
-export { adminKeys } from "./keys.js";
-export { useAdminInvalidate, useAdminApiInvalidate } from "./invalidate.js";
+export { adminApi } from "./api";
+export { adminKeys } from "./keys";
+export { useAdminInvalidate, useAdminApiInvalidate } from "./invalidate";
 
 export type {
   EventRow,

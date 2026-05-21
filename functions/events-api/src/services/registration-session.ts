@@ -2,34 +2,35 @@ import { randomBytes } from "node:crypto";
 
 import { and, eq, gt, isNull } from "drizzle-orm";
 
-import { parseContactInput } from "../contact.js";
-import { getDb } from "../db/index.js";
+import { parseContactInput } from "../contact";
+import {
+  e2eClearStaleOtpForCode,
+  e2eTestOtp,
+  isE2eTestMode,
+} from "../e2e-test-mode";
+import { getDb } from "../db/index";
 import {
   participantSessions,
   people,
   profileVerificationCodes,
   registrationExchangeCodes,
-} from "../db/schema.js";
-import { findInviteLinkByRawToken } from "./event-read.js";
+} from "../db/schema";
+import { findInviteLinkByRawToken } from "./event-read";
 import {
   isEmailEnabled,
   sendContributionConfirmationEmail,
   sendRegistrationAccessEmail,
-} from "../email.js";
+} from "../email";
 import { createLogger } from "@neon/server-kit";
-import { isSmsEnabled, sendRegistrationSmsCode } from "../sms.js";
-import { sha256Hex } from "../token.js";
+import { isSmsEnabled, sendRegistrationSmsCode } from "../sms";
+import { sha256Hex } from "../token";
 import {
   REGISTRATION_CODE_ALPHABET,
   REGISTRATION_CODE_LENGTH,
   REGISTRATION_EXCHANGE_TTL_MS,
-} from "../registration-exchange-constants.js";
-import { findPublishedOrphanInviteeId, loadPublishedOrphanInviteeContact } from "./materialize-invitee-person.js";
-import {
-  personHasRegistrationEligibility,
-  resolvePersonIdForRegistrationContact,
-  syncEventInviteesToPerson,
-} from "./people.js";
+} from "../registration-exchange-constants";
+import { findPublishedOrphanInviteeId, loadPublishedOrphanInviteeContact } from "./materialize-invitee-person";
+import { peopleService, type PeopleService } from "./people.service";
 
 const log = createLogger("registration-session");
 
@@ -46,12 +47,12 @@ type RegistrationTarget =
   | { kind: "event_invitee"; inviteeId: string };
 
 async function resolveRegistrationTarget(
-  contact: Parameters<typeof resolvePersonIdForRegistrationContact>[0],
+  contact: Parameters<PeopleService["resolvePersonIdForRegistrationContact"]>[0],
 ): Promise<RegistrationTarget | undefined> {
-  const personId = await resolvePersonIdForRegistrationContact(contact);
+  const personId = await peopleService.resolvePersonIdForRegistrationContact(contact);
   if (personId) {
-    await syncEventInviteesToPerson(personId);
-    if (await personHasRegistrationEligibility(personId)) {
+    await peopleService.syncEventInviteesToPerson(personId);
+    if (await peopleService.personHasRegistrationEligibility(personId)) {
       return { kind: "person", personId };
     }
   }
@@ -70,7 +71,7 @@ export {
   REGISTRATION_CODE_ALPHABET,
   REGISTRATION_CODE_LENGTH,
   REGISTRATION_EXCHANGE_TTL_MS,
-} from "../registration-exchange-constants.js";
+} from "../registration-exchange-constants";
 
 function publicSiteOrigin(): string {
   const raw = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -141,6 +142,7 @@ export async function insertRegistrationExchangeCode(params: {
   rawCode: string;
   channel: "email" | "phone";
 }): Promise<{ codeHash: string }> {
+  await e2eClearStaleOtpForCode(params.rawCode);
   const codeHash = sha256Hex(params.rawCode);
   const expiresAt = new Date(Date.now() + REGISTRATION_EXCHANGE_TTL_MS);
   const db = getDb();
@@ -196,6 +198,7 @@ async function insertEventInvitePendingSignInCode(params: {
   rawCode: string;
   channel: "email" | "phone";
 }): Promise<{ codeHash: string; sessionId: string }> {
+  await e2eClearStaleOtpForCode(params.rawCode);
   const sessionToken = buildEventInvitePendingSessionToken(params.inviteeId);
   const tokenHash = sha256Hex(sessionToken);
   const sessionExpiresAt = new Date(Date.now() + sessionMaxAgeSec() * 1000);
@@ -225,7 +228,7 @@ async function markRegistrationChannelVerified(
   personId: string,
   channel: "email" | "phone",
 ): Promise<void> {
-  const [person] = await tx.select().from(people).where(eq(people.id, personId)).limit(1);
+  const person = await peopleService.getInTx(tx, personId);
   if (!person) {
     return;
   }
@@ -426,7 +429,7 @@ export async function requestRegistrationSession(params: {
   }
 
   if (parsed.kind === "email") {
-    if (!isEmailEnabled) {
+    if (!isE2eTestMode() && !isEmailEnabled) {
       return {
         ok: false,
         status: 503,
@@ -439,7 +442,7 @@ export async function requestRegistrationSession(params: {
     if (!target) {
       return registrationNotFound();
     }
-    const rawCode = randomRegistrationExchangeCode();
+    const rawCode = isE2eTestMode() ? e2eTestOtp() : randomRegistrationExchangeCode();
     let codeHash: string;
     let pendingSessionId: string | undefined;
     if (target.kind === "person") {
@@ -458,38 +461,42 @@ export async function requestRegistrationSession(params: {
       pendingSessionId = pending.sessionId;
     }
     const accessUrl = appendCodeToReturnUrl(safeReturn, rawCode);
-    try {
-      await sendRegistrationAccessEmail({
-        to: email,
-        accessUrl,
-        code: rawCode,
-        locale: params.locale,
-      });
-    } catch (e) {
-      const db = getDb();
-      if (target.kind === "person") {
-        await db
-          .delete(registrationExchangeCodes)
-          .where(eq(registrationExchangeCodes.codeHash, codeHash));
-      } else {
-        await db
-          .delete(profileVerificationCodes)
-          .where(eq(profileVerificationCodes.codeHash, codeHash));
-        if (pendingSessionId) {
+    if (!isE2eTestMode()) {
+      try {
+        await sendRegistrationAccessEmail({
+          to: email,
+          accessUrl,
+          code: rawCode,
+          locale: params.locale,
+        });
+      } catch (e) {
+        const db = getDb();
+        if (target.kind === "person") {
           await db
-            .delete(participantSessions)
-            .where(eq(participantSessions.id, pendingSessionId));
+            .delete(registrationExchangeCodes)
+            .where(eq(registrationExchangeCodes.codeHash, codeHash));
+        } else {
+          await db
+            .delete(profileVerificationCodes)
+            .where(eq(profileVerificationCodes.codeHash, codeHash));
+          if (pendingSessionId) {
+            await db
+              .delete(participantSessions)
+              .where(eq(participantSessions.id, pendingSessionId));
+          }
         }
+        const msg = e instanceof Error ? e.message : "Email send failed.";
+        log.error({ err: e, email }, msg);
+        return { ok: false, status: 503, error: msg };
       }
-      const msg = e instanceof Error ? e.message : "Email send failed.";
-      log.error({ err: e, email }, msg);
-      return { ok: false, status: 503, error: msg };
+      log.info({ email }, "Registration access email sent");
+    } else {
+      log.info({ email }, "Registration access code issued (E2E test mode, email not sent)");
     }
-    log.info({ email }, "Registration access email sent");
     return { ok: true, channel: "email" };
   }
 
-  if (!isSmsEnabled()) {
+  if (!isE2eTestMode() && !isSmsEnabled()) {
     return {
       ok: false,
       status: 503,
@@ -507,7 +514,7 @@ export async function requestRegistrationSession(params: {
     return registrationNotFound();
   }
 
-  const rawCode = randomRegistrationExchangeCode();
+  const rawCode = isE2eTestMode() ? e2eTestOtp() : randomRegistrationExchangeCode();
   let codeHash: string;
   let pendingSessionId: string | undefined;
   if (target.kind === "person") {
@@ -526,30 +533,34 @@ export async function requestRegistrationSession(params: {
     pendingSessionId = pending.sessionId;
   }
   const accessUrl = appendCodeToReturnUrl(safeReturn, rawCode);
-  const sms = await sendRegistrationSmsCode({
-    toE164: phoneE164,
-    code: rawCode,
-    accessUrl,
-  });
-  if (!sms.ok) {
-    const db = getDb();
-    if (target.kind === "person") {
-      await db
-        .delete(registrationExchangeCodes)
-        .where(eq(registrationExchangeCodes.codeHash, codeHash));
-    } else {
-      await db
-        .delete(profileVerificationCodes)
-        .where(eq(profileVerificationCodes.codeHash, codeHash));
-      if (pendingSessionId) {
+  if (!isE2eTestMode()) {
+    const sms = await sendRegistrationSmsCode({
+      toE164: phoneE164,
+      code: rawCode,
+      accessUrl,
+    });
+    if (!sms.ok) {
+      const db = getDb();
+      if (target.kind === "person") {
         await db
-          .delete(participantSessions)
-          .where(eq(participantSessions.id, pendingSessionId));
+          .delete(registrationExchangeCodes)
+          .where(eq(registrationExchangeCodes.codeHash, codeHash));
+      } else {
+        await db
+          .delete(profileVerificationCodes)
+          .where(eq(profileVerificationCodes.codeHash, codeHash));
+        if (pendingSessionId) {
+          await db
+            .delete(participantSessions)
+            .where(eq(participantSessions.id, pendingSessionId));
+        }
       }
+      return { ok: false, status: 503, error: sms.error };
     }
-    return { ok: false, status: 503, error: sms.error };
+    log.info({ phoneE164 }, "Registration SMS code sent");
+  } else {
+    log.info({ phoneE164 }, "Registration SMS code issued (E2E test mode, SMS not sent)");
   }
-  log.info({ phoneE164 }, "Registration SMS code sent");
   return { ok: true, channel: "sms" };
 }
 

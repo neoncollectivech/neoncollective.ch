@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
-import { getDb } from "../../db/index.js";
-import { admissions, eventTiers, events, orderTiers } from "../../db/schema.js";
+import { getDb } from "../../db/index";
+import { admissions, eventTiers, events, orderTiers } from "../../db/schema";
 
 export type TierInput = {
   id: string | null;

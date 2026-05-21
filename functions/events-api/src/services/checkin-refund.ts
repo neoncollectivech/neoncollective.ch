@@ -1,8 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
 
-import { getDb } from "../db/index.js";
-import { admissions, inviteRedemptions, orders } from "../db/schema.js";
-import { stripe } from "../stripe.js";
+import { getDb } from "../db/index";
+import { admissions, inviteRedemptions, orders } from "../db/schema";
+import { stripe } from "../stripe";
+import { ordersService } from "./orders.service";
 
 export function verifyStaffBearer(
   header: string | undefined,
@@ -47,12 +48,7 @@ export async function checkInAdmission(params: {
 export async function refundOrder(params: {
   orderId: string;
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const db = getDb();
-  const [order] = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.id, params.orderId))
-    .limit(1);
+  const order = await ordersService.get(params.orderId);
   if (!order) {
     return { ok: false, status: 404, error: "Order not found." };
   }
@@ -67,6 +63,7 @@ export async function refundOrder(params: {
     const msg = e instanceof Error ? e.message : "Stripe refund failed";
     return { ok: false, status: 502, error: msg };
   }
+  const db = getDb();
   await db.transaction(async (tx) => {
     await tx
       .update(orders)

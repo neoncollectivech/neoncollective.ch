@@ -31,7 +31,7 @@ import {
 import { getApiErrorMessage } from "@/lib/api-error";
 import { queryClient } from "@/lib/query-client";
 
-import { adminKeys } from "./keys.js";
+import { adminKeys } from "./keys";
 
 async function invalidateEvents(eventId?: string) {
   await queryClient.invalidateQueries({ queryKey: adminKeys.events.all });

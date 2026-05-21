@@ -1,21 +1,21 @@
 import { randomBytes } from "node:crypto";
 
 import { createLogger } from "@neon/server-kit";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
-import { getDb } from "../db/index.js";
+import { getDb } from "../db/index";
 import {
   admissions,
-  eventInvitees,
   events,
   inviteLinks,
   inviteRedemptions,
   orders,
   people,
-} from "../db/schema.js";
-import { getExclusiveTierIdForOrderTx } from "./event-read.js";
-import { claimStripeWebhookEventTx } from "./order-failure.js";
-import { ensureHostInviteLinkForPersonInTx } from "./host-invite-link.js";
+} from "../db/schema";
+import { getExclusiveTierIdForOrderTx } from "./event-read";
+import { eventInviteesService } from "./event-invitees.service";
+import { ordersService } from "./orders.service";
+import { ensureHostInviteLinkForPersonInTx } from "./host-invite-link";
 
 const log = createLogger("fulfill-paid-order");
 
@@ -55,22 +55,16 @@ async function ensureEventInviteeFromGuestCheckoutInTx(
     return;
   }
 
-  const [existing] = await tx
-    .select({ id: eventInvitees.id })
-    .from(eventInvitees)
-    .where(
-      and(
-        eq(eventInvitees.eventId, order.eventId),
-        eq(eventInvitees.personId, order.personId),
-        isNull(eventInvitees.revokedAt),
-      ),
-    )
-    .limit(1);
-  if (existing) {
+  const exists = await eventInviteesService.hasActiveInviteeForPersonOnEventInTx(
+    tx,
+    order.eventId,
+    order.personId,
+  );
+  if (exists) {
     return;
   }
 
-  await tx.insert(eventInvitees).values({
+  await eventInviteesService.createGuestFromCheckoutInTx(tx, {
     eventId: order.eventId,
     personId: order.personId,
     inviterId: link.inviterId,
@@ -111,7 +105,7 @@ export async function fulfillPaidOrderInTx(
   },
 ): Promise<PostCheckoutEmailJob | null> {
   if (params.source === "webhook" && params.stripeEventId) {
-    const claimed = await claimStripeWebhookEventTx(tx, params.stripeEventId);
+    const claimed = await ordersService.claimStripeWebhookEventTx(tx, params.stripeEventId);
     if (!claimed) {
       log.info({ eventId: params.stripeEventId }, "Duplicate webhook — skipping fulfillment");
       return null;

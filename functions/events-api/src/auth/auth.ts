@@ -3,9 +3,9 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 
-import { getDb } from "../db/index.js";
-import * as authSchema from "../db/auth-schema.js";
-import { resolveBetterAuthPublicUrl } from "./public-url.js";
+import { getDb } from "../db/index";
+import * as authSchema from "../db/auth-schema";
+import { resolveBetterAuthPublicUrl } from "./public-url";
 
 const NEONCLUB_EMAIL_SUFFIX = "@neonclub.ch";
 

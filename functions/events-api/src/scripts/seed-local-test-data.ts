@@ -12,10 +12,10 @@
 
 import { and, eq, sql } from "drizzle-orm";
 
-import { phoneToStoredDigits } from "../contact.js";
-import { closeDb, getDb } from "../db/index.js";
-import { eventTiers, events, people } from "../db/schema.js";
-import { regenerateInviteLink, upsertInviteesForEvent } from "../services/admin-invitees.js";
+import { phoneToStoredDigits } from "../contact";
+import { closeDb, getDb } from "../db/index";
+import { eventTiers, events, people } from "../db/schema";
+import { regenerateInviteLink, upsertInviteesForEvent } from "../services/admin-invitees";
 
 /** Override in `.env.local`: `SEED_EMAIL`, `SEED_PHONE_E164` (+41…). */
 const SEED_EMAIL = process.env.SEED_EMAIL?.trim() || "filo87@gmail.com";

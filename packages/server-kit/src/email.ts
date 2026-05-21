@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import type { Logger } from "pino";
 
-import { createLogger } from "./logger.js";
+import { createLogger } from "./logger";
 
 export type NeonEmailLocale = "de" | "en" | "it";
 

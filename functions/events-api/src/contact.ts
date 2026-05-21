@@ -85,3 +85,20 @@ export function phoneToStoredDigits(raw: string | null | undefined): string | nu
   }
   return phoneDigitsFromE164(e164);
 }
+
+/** DB digit variants (e.g. 41796829564 vs legacy 0796829564). */
+export function phoneDigitsLookupVariants(phoneE164: string): string[] {
+  const digits = phoneToStoredDigits(phoneE164);
+  if (!digits) {
+    return [];
+  }
+
+  const variants = new Set<string>([digits]);
+  if (digits.startsWith("41") && digits.length >= 11) {
+    variants.add(`0${digits.slice(2)}`);
+  }
+  if (digits.startsWith("0") && digits.length >= 10 && !digits.startsWith("00")) {
+    variants.add(`41${digits.slice(1)}`);
+  }
+  return [...variants];
+}

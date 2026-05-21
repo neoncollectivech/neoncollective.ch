@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
-import { parseAdminListQuery, type AdminListMeta, type AdminListQuery } from "./schemas.js";
+import { parseAdminListQuery, type AdminListMeta, type AdminListQuery } from "./schemas";
 
 export type ListHandlerParams<TTable extends PgTable> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,12 +86,16 @@ export async function runAdminList<TTable extends PgTable>(
     .from(params.table)
     .where(whereClause)) as { total: number }[];
 
+  const skip = offset;
+  const limit = pageSize;
   return {
     rows,
     meta: {
+      total: Number(countRow?.total ?? 0),
+      limit,
+      skip,
       page,
       pageSize,
-      total: Number(countRow?.total ?? 0),
     },
   };
 }

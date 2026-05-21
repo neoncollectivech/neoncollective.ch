@@ -156,10 +156,10 @@ export function ParticipantProfileModal({
 
         return;
       }
+      await requestProfileVerification({ channel: ch, locale });
       setVerifyChannel(ch);
       setStep("verify");
       setCode("");
-      await requestProfileVerification({ channel: ch, locale });
     },
   });
 
@@ -236,12 +236,14 @@ export function ParticipantProfileModal({
             >
               <NeonInput
                 isRequired
+                data-testid="participant-profile-given-name"
                 label={labels.givenName}
                 value={givenName}
                 onValueChange={setGivenName}
               />
               <NeonInput
                 isRequired
+                data-testid="participant-profile-family-name"
                 label={labels.familyName}
                 value={familyName}
                 onValueChange={setFamilyName}
@@ -253,6 +255,7 @@ export function ParticipantProfileModal({
                 onValueChange={setEmail}
               />
               <NeonInput
+                data-testid="participant-profile-phone"
                 label={labels.phone}
                 placeholder={labels.phoneOptional}
                 type="tel"
@@ -263,6 +266,7 @@ export function ParticipantProfileModal({
                 {labels.contactHint}
               </p>
               <NeonButton
+                data-testid="participant-profile-save"
                 isDisabled={saveMutation.isPending}
                 type="submit"
                 variant="bordered"
@@ -292,6 +296,7 @@ export function ParticipantProfileModal({
                   input:
                     "text-sm text-foreground/80 font-mono uppercase tracking-wider",
                 }}
+                data-testid="participant-profile-verify-code"
                 label={labels.verifyCodeLabel}
                 maxLength={6}
                 placeholder={labels.verifyCodePlaceholder}
@@ -300,6 +305,7 @@ export function ParticipantProfileModal({
               />
               <div className="flex flex-wrap gap-3">
                 <NeonButton
+                  data-testid="participant-profile-verify-submit"
                   isDisabled={verifyMutation.isPending || !code.trim()}
                   type="submit"
                   variant="bordered"

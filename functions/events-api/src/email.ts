@@ -3,7 +3,7 @@ import {
   renderNeonEmailHtml,
 } from "@neon/server-kit";
 
-import { REGISTRATION_EXCHANGE_TTL_MS } from "./registration-exchange-constants.js";
+import { REGISTRATION_EXCHANGE_TTL_MS } from "./registration-exchange-constants";
 
 const mailer = createResendMailer({
   missingApiKeyMessage: "RESEND_API_KEY not set — event emails are disabled",

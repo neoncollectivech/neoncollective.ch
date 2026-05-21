@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
-import { getDb } from "../db/index.js";
+import { getDb } from "../db/index";
 import {
   eventInvitees,
   events,
@@ -10,10 +10,13 @@ import {
   orders,
   orderTiers,
   people,
-} from "../db/schema.js";
-import { phoneToStoredDigits } from "../contact.js";
-import { sha256Hex } from "../token.js";
-import { isFirstDegreeHostForEvent } from "./host-invite-link.js";
+} from "../db/schema";
+import { eventInviteesService } from "./event-invitees.service";
+import { findInviteLinkByRawToken as findInviteLinkByRawTokenImpl } from "./invite-links";
+import { ordersService } from "./orders.service";
+import { isFirstDegreeHostForEvent } from "./host-invite-link";
+
+export { findInviteLinkByRawToken } from "./invite-links";
 
 export type EventAccess = "full" | "minimal";
 
@@ -108,7 +111,7 @@ export async function resolveInviteEventId(params: {
   }
   const token = params.inviteToken?.trim();
   if (token) {
-    const guest = await findInviteLinkByRawToken(token);
+    const guest = await findInviteLinkByRawTokenImpl(token);
     if (guest && guest.event.accessMode === "invite_only") {
       return guest.event.id;
     }
@@ -116,39 +119,8 @@ export async function resolveInviteEventId(params: {
   return null;
 }
 
-export async function findInviteLinkByRawToken(rawToken: string) {
-  const db = getDb();
-  const hash = sha256Hex(rawToken);
-  const [row] = await db
-    .select({
-      link: inviteLinks,
-      inviter: people,
-      event: events,
-    })
-    .from(inviteLinks)
-    .leftJoin(people, eq(people.id, inviteLinks.inviterId))
-    .innerJoin(events, eq(events.id, inviteLinks.eventId))
-    .where(eq(inviteLinks.tokenHash, hash))
-    .limit(1);
-  return row ?? null;
-}
-
-export async function getInviteRedemptionQty(
-  inviteLinkId: string,
-): Promise<number> {
-  const db = getDb();
-  const [row] = await db
-    .select({
-      qty: sql<number>`count(*)::int`,
-    })
-    .from(orders)
-    .where(
-      and(
-        eq(orders.inviteLinkId, inviteLinkId),
-        inArray(orders.status, ["pending", "paid"]),
-      ),
-    );
-  return Number(row?.qty ?? 0);
+export async function getInviteRedemptionQty(inviteLinkId: string): Promise<number> {
+  return ordersService.countPendingOrPaidForInviteLink(inviteLinkId);
 }
 
 /**
@@ -174,66 +146,32 @@ export function computeTierPlacesRemaining(params: {
   return tierCap;
 }
 
-async function findEventInviteesMatchingContact(
-  eventId: string,
-  email: string | null,
-  phoneDigits: string | null,
-): Promise<(typeof eventInvitees.$inferSelect)[]> {
-  const db = getDb();
-  const base = and(eq(eventInvitees.eventId, eventId), isNull(eventInvitees.revokedAt));
-  const contactParts = [];
-  if (email) {
-    contactParts.push(eq(eventInvitees.email, email));
-    contactParts.push(eq(people.email, email));
+function inviteeLookupResult(
+  rows: (typeof eventInvitees.$inferSelect)[],
+): (typeof eventInvitees.$inferSelect) | null | "ambiguous" {
+  if (rows.length === 0) {
+    return null;
   }
-  if (phoneDigits) {
-    contactParts.push(eq(eventInvitees.phone, phoneDigits));
-    contactParts.push(eq(people.phone, phoneDigits));
+  if (rows.length > 1) {
+    return "ambiguous";
   }
-  if (contactParts.length === 0) {
-    return [];
-  }
-  const rows = await db
-    .select({ inv: eventInvitees })
-    .from(eventInvitees)
-    .leftJoin(people, eq(people.id, eventInvitees.personId))
-    .where(and(base, or(...contactParts)));
-  const seen = new Set<string>();
-  const out: (typeof eventInvitees.$inferSelect)[] = [];
-  for (const row of rows) {
-    if (!seen.has(row.inv.id)) {
-      seen.add(row.inv.id);
-      out.push(row.inv);
-    }
-  }
-  return out;
+  return rows[0]!;
 }
 
 export async function findEventInvitee(eventId: string, email: string) {
   const em = normalizeEmail(email);
-  const rows = await findEventInviteesMatchingContact(eventId, em, null);
-  if (rows.length === 0) {
-    return null;
-  }
-  if (rows.length > 1) {
-    return "ambiguous" as const;
-  }
-  return rows[0]!;
+  const rows = await eventInviteesService.findActiveInviteesByContactOnEvent(eventId, {
+    email: em,
+  });
+  return inviteeLookupResult(rows);
 }
 
 export async function findEventInviteeByPhone(eventId: string, phoneE164: string) {
-  const digits = phoneToStoredDigits(phoneE164);
-  if (!digits) {
-    return null;
-  }
-  const rows = await findEventInviteesMatchingContact(eventId, null, digits);
-  if (rows.length === 0) {
-    return null;
-  }
-  if (rows.length > 1) {
-    return "ambiguous" as const;
-  }
-  return rows[0]!;
+  const rows = await eventInviteesService.findActiveInviteesByContactOnEvent(eventId, {
+    email: null,
+    phoneE164,
+  });
+  return inviteeLookupResult(rows);
 }
 
 export async function findEventInviteeByContact(
@@ -242,14 +180,12 @@ export async function findEventInviteeByContact(
   phoneDigits: string | null,
 ) {
   const em = email.trim() ? normalizeEmail(email) : null;
-  const rows = await findEventInviteesMatchingContact(eventId, em, phoneDigits);
-  if (rows.length === 0) {
-    return null;
-  }
-  if (rows.length > 1) {
-    return "ambiguous" as const;
-  }
-  return rows[0]!;
+  const rows = await eventInviteesService.findActiveInviteesByContactOnEvent(eventId, {
+    email: em,
+    phoneDigits,
+    phoneE164: phoneDigits ? `+${phoneDigits}` : null,
+  });
+  return inviteeLookupResult(rows);
 }
 
 /** Guest who completed a paid registration via a host’s invite link. */
@@ -470,16 +406,7 @@ export async function getExclusiveTierIdForOrderTx(
 }
 
 export async function getEventHeadcountUsed(eventId: string): Promise<number> {
-  const db = getDb();
-  const [row] = await db
-    .select({
-      qty: sql<number>`count(*)::int`,
-    })
-    .from(orders)
-    .where(
-      and(eq(orders.eventId, eventId), inArray(orders.status, ["pending", "paid"])),
-    );
-  return Number(row?.qty ?? 0);
+  return ordersService.countPendingOrPaidForEvent(eventId);
 }
 
 export type EventCapacitySnapshot = {

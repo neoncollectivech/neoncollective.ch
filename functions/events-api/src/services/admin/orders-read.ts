@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
-import { getDb } from "../../db/index.js";
+import { getDb } from "../../db/index";
 import {
   admissions,
   eventTiers,
@@ -9,7 +9,7 @@ import {
   orders,
   orderTiers,
   people,
-} from "../../db/schema.js";
+} from "../../db/schema";
 
 export type AdminOrderTierLine = {
   id: string;
@@ -18,7 +18,7 @@ export type AdminOrderTierLine = {
   unitPriceCents: number;
 };
 
-async function listOrderTierLines(orderId: string): Promise<AdminOrderTierLine[]> {
+export async function listOrderTierLines(orderId: string): Promise<AdminOrderTierLine[]> {
   const db = getDb();
   return db
     .select({
@@ -95,83 +95,5 @@ export function serializeAdminOrderListRow(row: {
     },
     tierLabel: row.tierLabel,
     event: row.event,
-  };
-}
-
-export async function listAdminOrdersQuery(params: {
-  eventId?: string;
-  status?: string;
-  q?: string;
-  page: number;
-  pageSize: number;
-}) {
-  const db = getDb();
-  const conditions = [];
-  if (params.eventId) {
-    conditions.push(eq(orders.eventId, params.eventId));
-  }
-  if (params.status) {
-    conditions.push(eq(orders.status, params.status as typeof orders.$inferSelect.status));
-  }
-  if (params.q?.trim()) {
-    const term = `%${params.q.trim()}%`;
-    conditions.push(
-      or(
-        ilike(people.email, term),
-        ilike(people.givenName, term),
-        ilike(people.familyName, term),
-        ilike(events.title, term),
-      ),
-    );
-  }
-
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-  const offset = (params.page - 1) * params.pageSize;
-
-  const rows = await db
-    .select({
-      order: orders,
-      person: people,
-      event: { id: events.id, slug: events.slug, title: events.title },
-    })
-    .from(orders)
-    .innerJoin(people, eq(people.id, orders.personId))
-    .innerJoin(events, eq(events.id, orders.eventId))
-    .where(whereClause)
-    .orderBy(desc(orders.createdAt))
-    .limit(params.pageSize)
-    .offset(offset);
-
-  const items = [];
-  for (const row of rows) {
-    const tierLines = await listOrderTierLines(row.order.id);
-    const tierLabel =
-      tierLines.length > 0
-        ? tierLines.map((t) => t.name).join(" + ")
-        : "—";
-    items.push(
-      serializeAdminOrderListRow({
-        order: row.order,
-        person: row.person,
-        tierLabel,
-        event: row.event,
-      }),
-    );
-  }
-
-  const [countRow] = await db
-    .select({ total: sql<number>`count(*)::int` })
-    .from(orders)
-    .innerJoin(people, eq(people.id, orders.personId))
-    .innerJoin(events, eq(events.id, orders.eventId))
-    .where(whereClause);
-
-  return {
-    items,
-    meta: {
-      page: params.page,
-      pageSize: params.pageSize,
-      total: countRow?.total ?? 0,
-    },
   };
 }

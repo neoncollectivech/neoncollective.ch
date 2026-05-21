@@ -1,7 +1,7 @@
 import type { InferSelectModel } from "drizzle-orm";
 
-import { phoneToStoredDigits } from "./contact.js";
-import type { people } from "./db/schema.js";
+import { phoneToStoredDigits } from "./contact";
+import type { people } from "./db/schema";
 
 export type PersonRow = Pick<
   InferSelectModel<typeof people>,

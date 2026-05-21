@@ -1,9 +1,9 @@
 import { and, asc, eq } from "drizzle-orm";
 
-import { getDb } from "../../db/index.js";
-import { eventInvitees, inviteLinks, people } from "../../db/schema.js";
-import { e164FromStoredDigits } from "../../profile.js";
-import { getInviteRedemptionQtyByLinkIds } from "../admin-invite-links.js";
+import { getDb } from "../../db/index";
+import { eventInvitees, inviteLinks, people } from "../../db/schema";
+import { e164FromStoredDigits } from "../../profile";
+import { getInviteRedemptionQtyByLinkIds } from "../admin-invite-links";
 
 export async function listAdminInviteesForEvent(eventId: string) {
   const db = getDb();

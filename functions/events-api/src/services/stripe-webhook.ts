@@ -1,11 +1,11 @@
 import { createLogger } from "@neon/server-kit";
 import type Stripe from "stripe";
 
-import { getDb } from "../db/index.js";
-import { fulfillPaidOrderInTx } from "./fulfill-paid-order.js";
-import { failOrderFromWebhook } from "./order-failure.js";
-import { sendPostCheckoutParticipantAccessEmail } from "./registration-session.js";
-import { stripe } from "../stripe.js";
+import { getDb } from "../db/index";
+import { fulfillPaidOrderInTx } from "./fulfill-paid-order";
+import { ordersService } from "./orders.service";
+import { sendPostCheckoutParticipantAccessEmail } from "./registration-session";
+import { stripe } from "../stripe";
 
 const log = createLogger("stripe-webhook");
 
@@ -62,7 +62,7 @@ async function handlePaymentIntentFailedOrCanceled(
   }
 
   try {
-    await failOrderFromWebhook({ orderId, stripeEventId: event.id });
+    await ordersService.failOrderFromWebhook({ orderId, stripeEventId: event.id });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Webhook processing failed";
     log.error({ err: e, orderId, type: event.type }, msg);

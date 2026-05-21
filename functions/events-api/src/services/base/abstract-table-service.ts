@@ -1,0 +1,30 @@
+import type { BulkUpdateItem, ListQuery, ListResult } from "@neon/admin-crud";
+import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import type { PgTable } from "drizzle-orm/pg-core";
+
+import type { ServiceContext } from "./types";
+
+export abstract class AbstractTableService<
+  TTable extends PgTable,
+  TRow = InferSelectModel<TTable>,
+  TCreate = InferInsertModel<TTable>,
+  TUpdate = Partial<InferInsertModel<TTable>>,
+  TFilters extends Record<string, unknown> = Record<string, never>,
+  TListItem = TRow,
+> {
+  protected constructor(protected readonly table: TTable) {
+    if (new.target === AbstractTableService) {
+      throw new Error("AbstractTableService cannot be instantiated directly.");
+    }
+  }
+
+  abstract get(id: string, ctx?: ServiceContext): Promise<TRow | null>;
+  abstract list(query: ListQuery<TFilters>, ctx?: ServiceContext): Promise<ListResult<TListItem>>;
+  abstract count(query: ListQuery<TFilters>, ctx?: ServiceContext): Promise<number>;
+  abstract create(data: TCreate, ctx?: ServiceContext): Promise<TRow>;
+  abstract createBulk(items: TCreate[], ctx?: ServiceContext): Promise<TRow[]>;
+  abstract update(id: string, data: TUpdate, ctx?: ServiceContext): Promise<TRow>;
+  abstract updateBulk(updates: BulkUpdateItem<TUpdate>[], ctx?: ServiceContext): Promise<TRow[]>;
+  abstract delete(id: string, ctx?: ServiceContext): Promise<void>;
+}
+

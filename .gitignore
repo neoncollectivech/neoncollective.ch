@@ -44,6 +44,10 @@ next-env.d.ts
 
 # test
 coverage
+test/.cache/
+test-results/
+playwright-report/
+blob-report/
 
 # local TLS (mkcert, etc.)
 certificates

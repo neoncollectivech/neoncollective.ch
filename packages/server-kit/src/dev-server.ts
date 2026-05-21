@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import type { Hono } from "hono";
 
-import { createLogger } from "./logger.js";
+import { createLogger } from "./logger";
 
 export function serveDevApp(options: {
   app: Hono;

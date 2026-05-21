@@ -1,8 +1,8 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import * as authSchema from "./auth-schema.js";
-import * as schema from "./schema.js";
+import * as authSchema from "./auth-schema";
+import * as schema from "./schema";
 
 const fullSchema = { ...schema, ...authSchema };
 

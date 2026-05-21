@@ -7,13 +7,11 @@ import {
   createHttpRequestLogger,
   createLogger,
 } from "@neon/server-kit";
-import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import { phoneToStoredDigits } from "./contact.js";
-import { isDatabaseConfigured, getDb } from "./db/index.js";
-import { events } from "./db/schema.js";
+import { phoneToStoredDigits } from "./contact";
+import { isDatabaseConfigured } from "./db/index";
 import {
   anonymousSessionSchema,
   checkInSchema,
@@ -25,9 +23,9 @@ import {
   sessionExchangeSchema,
   sessionPhoneSchema,
   sessionRequestSchema,
-} from "./schemas.js";
-import { createAdminRouter } from "./admin/router.js";
-import { mountBetterAuth } from "./auth/mount.js";
+} from "./schemas";
+import { createAdminRouter } from "./admin/router";
+import { mountBetterAuth } from "./auth/mount";
 import {
   buildEventPayload,
   findInviteLinkByRawToken,
@@ -36,22 +34,22 @@ import {
   findEventInviteeByPersonId,
   getInviteRedemptionQty,
   getHostInviteShareForViewer,
-  listPublishedEventsCatalog,
   eventIdForInviteLinkId,
   inviteRemainingForLink,
   resolveInviteEventId,
-} from "./services/event-read.js";
-import { loadPublishedOrphanInviteeContact } from "./services/materialize-invitee-person.js";
-import { confirmEventCheckout } from "./services/checkout-confirm.js";
-import { createCheckoutIntent } from "./services/checkout-intent.js";
+} from "./services/event-read";
+import { loadPublishedOrphanInviteeContact } from "./services/materialize-invitee-person";
+import { confirmEventCheckout } from "./services/checkout-confirm";
+import { createCheckoutIntent } from "./services/checkout-intent";
 import {
   confirmProfileVerification,
   getParticipantProfile,
   requestProfileVerification,
   updateParticipantProfile,
-} from "./services/participant-profile.js";
-import { checkInAdmission, verifyStaffBearer } from "./services/checkin-refund.js";
-import { attachPhoneToPerson } from "./services/people.js";
+} from "./services/participant-profile";
+import { checkInAdmission, verifyStaffBearer } from "./services/checkin-refund";
+import { peopleService } from "./services/people.service";
+import { eventsService } from "./services/events.service";
 import {
   createAnonymousParticipantSession,
   exchangeRegistrationCode,
@@ -59,9 +57,9 @@ import {
   resolveParticipantIdentityFromCookie,
   resolveParticipantSessionFromCookie,
   resolveParticipantSessionCookieCrossSite,
-} from "./services/registration-session.js";
-import { normalizeOptionalPhoneE164 } from "./contact.js";
-import { handleStripeWebhook } from "./services/stripe-webhook.js";
+} from "./services/registration-session";
+import { normalizeOptionalPhoneE164 } from "./contact";
+import { handleStripeWebhook } from "./services/stripe-webhook";
 
 const log = createLogger("http");
 
@@ -121,7 +119,7 @@ app.get("/events", async (c) => {
     inviteToken: inviteQ,
     sessionInviteLinkId: session?.inviteLinkId,
   });
-  const rows = await listPublishedEventsCatalog({
+  const rows = await eventsService.listPublishedCatalog({
     viewerPersonId: session?.personId ?? null,
     inviteEventId,
   });
@@ -144,12 +142,7 @@ app.get("/events/:slug", async (c) => {
   }
   const slug = c.req.param("slug");
   const inviteQ = c.req.query("invite");
-  const db = getDb();
-  const [evRow] = await db
-    .select()
-    .from(events)
-    .where(and(eq(events.slug, slug), eq(events.status, "published")))
-    .limit(1);
+  const evRow = await eventsService.getPublishedBySlug(slug);
   if (!evRow) {
     return c.json({ error: "Event not found." }, 404);
   }
@@ -540,7 +533,7 @@ app.post(
     if (!e164) {
       return c.json({ error: "Invalid phone number." }, 400);
     }
-    const res = await attachPhoneToPerson({
+    const res = await peopleService.attachPhoneToPerson({
       personId: identity.personId,
       phoneE164: e164,
     });

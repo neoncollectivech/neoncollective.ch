@@ -14,6 +14,7 @@ function getStripePromise(): Promise<Stripe | null> | null {
   if (!stripePromiseSingleton) {
     stripePromiseSingleton = loadStripe(publishableKey);
   }
+
   return stripePromiseSingleton;
 }
 

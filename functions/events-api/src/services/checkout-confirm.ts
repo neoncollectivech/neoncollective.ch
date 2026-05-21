@@ -1,13 +1,10 @@
-import { eq } from "drizzle-orm";
-
-import { getDb } from "../db/index.js";
-import { orders } from "../db/schema.js";
-import { stripe } from "../stripe.js";
-import { fulfillPaidOrder } from "./fulfill-paid-order.js";
+import { stripe } from "../stripe";
+import { ordersService } from "./orders.service";
+import { fulfillPaidOrder } from "./fulfill-paid-order";
 import {
   resolveParticipantSessionFromCookie,
   sendPostCheckoutParticipantAccessEmail,
-} from "./registration-session.js";
+} from "./registration-session";
 
 export async function confirmEventCheckout(params: {
   orderId: string;
@@ -18,12 +15,7 @@ export async function confirmEventCheckout(params: {
     return { ok: false, status: 401, error: "Sign in to confirm your registration." };
   }
 
-  const db = getDb();
-  const [order] = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.id, params.orderId))
-    .limit(1);
+  const order = await ordersService.get(params.orderId);
   if (!order) {
     return { ok: false, status: 404, error: "Order not found." };
   }

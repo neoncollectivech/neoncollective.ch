@@ -192,6 +192,7 @@ export function ParticipantSessionPanel({
               input:
                 "text-sm text-foreground/80 font-mono uppercase tracking-wider",
             }}
+            data-testid="participant-session-code"
             label={t.sessionCodeLabel}
             maxLength={6}
             placeholder={t.sessionCodePlaceholder}
@@ -200,6 +201,7 @@ export function ParticipantSessionPanel({
             onValueChange={setAccessCode}
           />
           <NeonButton
+            data-testid="participant-session-submit"
             isDisabled={exchangeMutation.isPending || !accessCode.trim()}
             type="submit"
             variant="bordered"
@@ -236,6 +238,7 @@ export function ParticipantSessionPanel({
           <NeonInput
             isRequired
             autoComplete="email tel"
+            data-testid="participant-session-contact"
             label={t.sessionContactLabel}
             name="contact"
             placeholder={t.sessionContactPlaceholder}

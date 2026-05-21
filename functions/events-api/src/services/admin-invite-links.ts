@@ -1,8 +1,8 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 
-import { getDb } from "../db/index.js";
-import { inviteLinks, orders } from "../db/schema.js";
-import { getInviteRedemptionQty, requireInviteOnlyEvent } from "./event-read.js";
+import { getDb } from "../db/index";
+import { inviteLinks, orders } from "../db/schema";
+import { getInviteRedemptionQty, requireInviteOnlyEvent } from "./event-read";
 
 export class InviteLinkUpdateError extends Error {
   constructor(

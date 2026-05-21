@@ -1,26 +1,13 @@
-import { and, eq, isNull, or, type SQL } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
-import { normalizeEmailTypo } from "../contact.js";
-import { getDb } from "../db/index.js";
-import { eventInvitees, events } from "../db/schema.js";
-import { e164FromStoredDigits, hasMinimumPersonIdentity } from "../profile.js";
-import {
-  ensurePersonInTx,
-  phoneDigitsLookupVariants,
-  syncEventInviteesToPerson,
-} from "./people.js";
+import { normalizeEmailTypo, phoneDigitsLookupVariants } from "../contact";
+import { getDb } from "../db/index";
+import { eventInvitees, events } from "../db/schema";
+import { e164FromStoredDigits, hasMinimumPersonIdentity } from "../profile";
+import { orClauses } from "./base/sql-utils";
+import { IdentityConflictError, peopleService } from "./people.service";
 
 type DbTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
-
-function orClauses(clauses: SQL[]): SQL | null {
-  if (clauses.length === 0) {
-    return null;
-  }
-  if (clauses.length === 1) {
-    return clauses[0]!;
-  }
-  return or(...clauses)!;
-}
 
 const publishedOrphanInvitee = and(
   isNull(eventInvitees.personId),
@@ -86,7 +73,7 @@ export async function materializePersonFromInvitee(
     }
 
     try {
-      const personId = await ensurePersonInTx(innerTx, {
+      const personId = await peopleService.ensurePersonInTx(innerTx, {
         givenName,
         familyName,
         email,
@@ -98,7 +85,7 @@ export async function materializePersonFromInvitee(
         .where(eq(eventInvitees.id, inviteeId));
       return personId;
     } catch (e) {
-      if (e instanceof Error && e.message === "identity_conflict") {
+      if (e instanceof IdentityConflictError) {
         throw new MaterializeInviteeError(
           "Email and phone belong to different people.",
           "identity_conflict",

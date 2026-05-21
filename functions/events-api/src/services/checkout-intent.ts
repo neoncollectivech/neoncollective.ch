@@ -1,8 +1,8 @@
 import type Stripe from "stripe";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
-import { getDb } from "../db/index.js";
+import { getDb } from "../db/index";
 import {
   events,
   eventTiers,
@@ -10,21 +10,21 @@ import {
   orders,
   orderTiers,
   people,
-} from "../db/schema.js";
-import { sha256Hex } from "../token.js";
-import { normalizeOptionalPhoneE164, phoneToStoredDigits } from "../contact.js";
-import { stripe } from "../stripe.js";
+} from "../db/schema";
+import { normalizeOptionalPhoneE164, phoneToStoredDigits } from "../contact";
+import { stripe } from "../stripe";
 import {
   computeTierPlacesRemaining,
   eventIdForInviteLinkId,
   findEventInviteeByContact,
   getTierSoldQtyTx,
-} from "./event-read.js";
-import { isSessionProfileComplete } from "./participant-profile.js";
-import { ensurePersonInTx } from "./people.js";
-import { fulfillPaidOrderInTx } from "./fulfill-paid-order.js";
-import { failOrderInTx } from "./order-failure.js";
-import { resolveParticipantSessionFromCookie } from "./registration-session.js";
+} from "./event-read";
+import { isSessionProfileComplete } from "./participant-profile";
+import { findInviteLinkByRawToken } from "./invite-links";
+import { IdentityConflictError, peopleService } from "./people.service";
+import { fulfillPaidOrderInTx } from "./fulfill-paid-order";
+import { ordersService } from "./orders.service";
+import { resolveParticipantSessionFromCookie } from "./registration-session";
 
 type CheckoutTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type SelectedTier = typeof eventTiers.$inferSelect;
@@ -34,23 +34,6 @@ const RESUMABLE_PI_STATUSES = new Set<Stripe.PaymentIntent.Status>([
   "requires_confirmation",
   "requires_action",
 ]);
-
-async function findInviteLinkByRawTokenTx(
-  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
-  rawToken: string,
-) {
-  const hash = sha256Hex(rawToken);
-  const [row] = await tx
-    .select({
-      link: inviteLinks,
-      event: events,
-    })
-    .from(inviteLinks)
-    .innerJoin(events, eq(events.id, inviteLinks.eventId))
-    .where(eq(inviteLinks.tokenHash, hash))
-    .limit(1);
-  return row ?? null;
-}
 
 export type CheckoutIntentInput = {
   slug: string;
@@ -103,7 +86,7 @@ async function supersedePendingOrderTx(
       /* already canceled or captured */
     }
   }
-  await failOrderInTx(tx, order.id);
+  await ordersService.failOrderInTx(tx, order.id);
 }
 
 type ExistingOrderResolution =
@@ -241,7 +224,10 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         let guestLinkId: string | null = null;
         let guestLinkMax: number | null = null;
         if (input.inviteToken) {
-          const guest = await findInviteLinkByRawTokenTx(tx, input.inviteToken);
+          const guest = await findInviteLinkByRawToken(input.inviteToken, {
+            tx,
+            includeInviter: false,
+          });
           if (!guest || guest.event.id !== ev.id) {
             return { ok: false, status: 403, error: "Invalid or expired invite." };
           }
@@ -298,7 +284,7 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         }
         if (isGuest && guestLinkId && guestLinkMax != null) {
           inviteLinkId = guestLinkId;
-          const used = await getInviteRedemptionQtyTx(tx, inviteLinkId);
+          const used = await ordersService.countPendingOrPaidForInviteLink(inviteLinkId, tx);
           if (used + 1 > guestLinkMax) {
             return {
               ok: false,
@@ -351,7 +337,7 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         }
       }
 
-      const headUsed = await getEventHeadcountUsedTx(tx, ev.id);
+      const headUsed = await ordersService.countPendingOrPaidForEvent(ev.id, tx);
       const eventRemainingInit =
         ev.eventQuota != null ? Math.max(0, ev.eventQuota - headUsed) : null;
       const eventSlotsLeft =
@@ -400,14 +386,14 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
 
       let personId: string;
       try {
-        personId = await ensurePersonInTx(tx, {
+        personId = await peopleService.ensurePersonInTx(tx, {
           givenName: profilePerson.givenName,
           familyName: profilePerson.familyName,
           email: checkoutEmail,
           phoneE164: checkoutPhone,
         });
       } catch (e) {
-        if (e instanceof Error && e.message === "identity_conflict") {
+        if (e instanceof IdentityConflictError) {
           return {
             ok: false,
             status: 409,
@@ -489,7 +475,10 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         amount: amountCents,
         currency,
         metadata: { orderId, eventId: ev.id },
-        automatic_payment_methods: { enabled: true },
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: "never",
+        },
       });
       await tx
         .update(orders)
@@ -510,35 +499,3 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
   }
 }
 
-async function getEventHeadcountUsedTx(
-  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
-  eventId: string,
-): Promise<number> {
-  const [row] = await tx
-    .select({
-      qty: sql<number>`count(*)::int`,
-    })
-    .from(orders)
-    .where(
-      and(eq(orders.eventId, eventId), inArray(orders.status, ["pending", "paid"])),
-    );
-  return Number(row?.qty ?? 0);
-}
-
-async function getInviteRedemptionQtyTx(
-  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
-  inviteLinkId: string,
-): Promise<number> {
-  const [row] = await tx
-    .select({
-      qty: sql<number>`count(*)::int`,
-    })
-    .from(orders)
-    .where(
-      and(
-        eq(orders.inviteLinkId, inviteLinkId),
-        inArray(orders.status, ["pending", "paid"]),
-      ),
-    );
-  return Number(row?.qty ?? 0);
-}

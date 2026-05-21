@@ -1,50 +1,18 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
-import { getDb } from "../db/index.js";
-import { eventInvitees, events, inviteLinks } from "../db/schema.js";
-import { randomTokenHex, sha256Hex } from "../token.js";
+import { getDb } from "../db/index";
+import { events, inviteLinks } from "../db/schema";
+import { eventInviteesService } from "./event-invitees.service";
+import { randomTokenHex, sha256Hex } from "../token";
 
 type DbTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
-
-/** Admin / first-degree event invite — may issue guest invite links (`inviter_id` null). */
-async function findFirstDegreeEventInviteeInTx(
-  tx: DbTx,
-  eventId: string,
-  personId: string,
-): Promise<{ id: string } | null> {
-  const [eventInvitee] = await tx
-    .select({ id: eventInvitees.id })
-    .from(eventInvitees)
-    .where(
-      and(
-        eq(eventInvitees.eventId, eventId),
-        eq(eventInvitees.personId, personId),
-        isNull(eventInvitees.inviterId),
-        isNull(eventInvitees.revokedAt),
-      ),
-    )
-    .limit(1);
-  return eventInvitee ?? null;
-}
 
 export async function isFirstDegreeHostForEvent(
   eventId: string,
   personId: string,
 ): Promise<boolean> {
-  const db = getDb();
-  const [eventInvitee] = await db
-    .select({ id: eventInvitees.id })
-    .from(eventInvitees)
-    .where(
-      and(
-        eq(eventInvitees.eventId, eventId),
-        eq(eventInvitees.personId, personId),
-        isNull(eventInvitees.inviterId),
-        isNull(eventInvitees.revokedAt),
-      ),
-    )
-    .limit(1);
-  return eventInvitee != null;
+  const row = await eventInviteesService.findFirstDegreeHostOnEvent(eventId, personId);
+  return row != null;
 }
 
 /**
@@ -68,7 +36,11 @@ export async function ensureHostInviteLinkForPersonInTx(
     return null;
   }
 
-  const eventInvitee = await findFirstDegreeEventInviteeInTx(tx, eventId, personId);
+  const eventInvitee = await eventInviteesService.findFirstDegreeHostOnEventInTx(
+    tx,
+    eventId,
+    personId,
+  );
   if (!eventInvitee) {
     return null;
   }
@@ -112,7 +84,11 @@ export async function mintOrRotateHostInviteLinkForPersonInTx(
     return null;
   }
 
-  const eventInvitee = await findFirstDegreeEventInviteeInTx(tx, eventId, personId);
+  const eventInvitee = await eventInviteesService.findFirstDegreeHostOnEventInTx(
+    tx,
+    eventId,
+    personId,
+  );
   if (!eventInvitee) {
     return null;
   }

@@ -1,5 +1,4 @@
 import type { QueryClient } from "@tanstack/react-query";
-
 import type { ParticipantProfile } from "@/helpers/eventsApi";
 
 import { eventsKeys } from "./keys";
@@ -13,21 +12,12 @@ export function writeParticipantProfileCache(
   profile: ParticipantProfile,
   inviteToken?: string,
 ) {
-  const keys = [
+  for (const prefix of [
     eventsKeys.participant.profile(),
     eventsKeys.participant.profile(inviteToken),
-  ];
-  const seen = new Set<string>();
-
-  for (const queryKey of keys) {
-    const id = JSON.stringify(queryKey);
-
-    if (seen.has(id)) {
-      continue;
-    }
-    seen.add(id);
+  ]) {
     queryClient.setQueriesData<ParticipantProfile | null>(
-      { queryKey },
+      { queryKey: prefix },
       profile,
     );
   }

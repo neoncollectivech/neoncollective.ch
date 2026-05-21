@@ -2,6 +2,8 @@ import { type } from "arktype";
 
 /** Shared list query params for admin CRUD list endpoints (HTTP query strings). */
 export const adminListQuerySchema = type({
+  "limit?": "string",
+  "skip?": "string",
   "page?": "string",
   "pageSize?": "string",
   "sort?": "string",
@@ -32,7 +34,9 @@ export function parseAdminListQuery(query: AdminListQuery & Record<string, strin
 }
 
 export type AdminListMeta = {
+  total: number;
+  limit: number;
+  skip: number;
   page: number;
   pageSize: number;
-  total: number;
 };

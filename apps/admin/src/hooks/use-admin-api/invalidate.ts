@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 
-import { adminKeys } from "./keys.js";
+import { adminKeys } from "./keys";
 
 export function useAdminInvalidate() {
   const queryClient = useQueryClient();

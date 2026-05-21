@@ -3,7 +3,10 @@
   "private": true,
   "packageManager": "pnpm@10.29.3",
   "scripts": {
-    "dev": "turbo dev --filter=@neon/web --filter=@neon/events-api --filter=@neon/stripe-api --filter=@neon/admin",
+    "dev": "pnpm -w run dev:apps & pnpm -w run stripe:listen & wait",
+    "dev:apps": "turbo dev --filter=@neon/web --filter=@neon/events-api --filter=@neon/stripe-api --filter=@neon/admin",
+    "dev:e2e": "E2E_TEST_MODE=1 turbo dev --filter=@neon/web --filter=@neon/events-api",
+    "e2e:free-ports": "node scripts/free-e2e-ports.mjs",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
@@ -15,6 +18,11 @@
     "db:events-api:push:local": "pnpm --filter @neon/events-api db:push:local",
     "db:events-api:studio": "pnpm --filter @neon/events-api db:studio",
     "db:events-api:seed:local": "pnpm --filter @neon/events-api db:seed:local",
+    "db:events-api:seed:e2e": "pnpm --filter @neon/events-api db:seed:e2e",
+    "test:e2e": "playwright test -c test/playwright.config.mjs",
+    "test:e2e:ui": "PLAYWRIGHT_SKIP_WEBSERVER=1 playwright test -c test/playwright.config.mjs --ui",
+    "test:e2e:headed": "playwright test -c test/playwright.config.mjs --headed",
+    "test:e2e:install": "playwright install chromium",
     "stripe:listen": "stripe listen --forward-to http://localhost:8082/webhooks/stripe",
     "deploy:gcp": "node scripts/gcp.mjs deploy"
   },
@@ -28,6 +36,9 @@
     }
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "dotenv": "^16.4.7",
+    "stripe": "^17.0.0",
     "tsup": "^8.5.0",
     "turbo": "^2.5.0"
   }

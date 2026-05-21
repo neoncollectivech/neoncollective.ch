@@ -1,9 +1,9 @@
 import { and, eq, ne } from "drizzle-orm";
 import { BadRequestError, ConflictError, NotFoundError } from "@neon/admin-crud";
 
-import { normalizeEmailTypo, phoneToStoredDigits } from "../../contact.js";
-import { getDb } from "../../db/index.js";
-import { people } from "../../db/schema.js";
+import { normalizeEmailTypo, phoneToStoredDigits } from "../../contact";
+import { getDb } from "../../db/index";
+import { people } from "../../db/schema";
 export type AdminPersonUpdateInput = {
   givenName?: string;
   familyName?: string;

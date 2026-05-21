@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 
-import { auth, isNeonclubAdminEmail, type AuthSession } from "./auth.js";
+import { auth, isNeonclubAdminEmail, type AuthSession } from "./auth";
 
 export type AdminEnv = {
   Variables: {

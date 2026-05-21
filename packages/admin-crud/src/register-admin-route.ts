@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 
-import type { AdminCrudContext, RegisterAdminRouteConfig } from "./types.js";
+import type { AdminCrudContext, RegisterAdminRouteConfig } from "./types";
 
 export function registerAdminRoute(app: Hono, config: RegisterAdminRouteConfig): void {
   const middleware = config.middleware ?? [];

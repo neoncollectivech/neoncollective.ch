@@ -207,11 +207,12 @@ function EventAboutSection({
 
 function buildHostInviteUrl(
   locale: string,
-  _slug: string,
+  slug: string,
   token: string,
 ): string {
-  const url = new URL(`/${locale}/events`, getSiteOrigin());
+  const url = new URL(`/${locale}/events/private`, getSiteOrigin());
 
+  url.searchParams.set("slug", slug);
   url.searchParams.set("invite", token);
 
   return url.toString();
@@ -288,7 +289,7 @@ function HostInviteShareBlock({
             {labels.conversionsEmpty}
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-2" data-testid="host-invite-conversions">
             {conversions.map((guest) => {
               const name = [guest.givenName, guest.familyName]
                 .filter(Boolean)
@@ -296,7 +297,10 @@ function HostInviteShareBlock({
               const dateLabel = formatLocaleDate(guest.registeredAt, locale);
 
               return (
-                <li key={guest.orderId}>
+                <li
+                  key={guest.orderId}
+                  data-testid={`host-invite-conversion-${guest.orderId}`}
+                >
                   <p className="text-sm text-foreground/75">{name}</p>
                   <p className="text-xs font-mono text-foreground/40 mt-0.5">
                     {guest.tierName}
@@ -359,6 +363,7 @@ function PaymentStep({
       {err ? <FormError>{err}</FormError> : null}
       <NeonButton
         className="w-full sm:w-auto"
+        data-testid="event-checkout-pay"
         isDisabled={!stripe || busy}
         type="submit"
       >
@@ -709,11 +714,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
           initialProfile={profile ?? undefined}
           labels={profileLabels}
           onComplete={async (p) => {
-            writeParticipantProfileCache(
-              queryClient,
-              p,
-              effectiveInviteToken,
-            );
+            writeParticipantProfileCache(queryClient, p, effectiveInviteToken);
             await invalidateAfterProfileComplete();
             setProfileGateOpen(false);
           }}
@@ -810,6 +811,11 @@ function EventDetailsInner({ slug }: { slug: string }) {
         ev.tiers.length > 0 ? (
           <Card
             className="mb-10 md:mb-12 border border-foreground/10 bg-foreground/[0.02] max-w-xl"
+            data-testid={
+              hasCheckoutProfile
+                ? "event-checkout-minimal"
+                : "event-checkout-with-contact"
+            }
             radius="sm"
           >
             <CardBody className="px-6 py-8">
@@ -854,6 +860,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                           description:
                             "text-xs text-foreground/45 leading-relaxed mt-1.5",
                         }}
+                        data-testid={`event-checkout-exclusive-${tier.id}`}
                         description={tierDescription || undefined}
                         value={tier.id}
                       >
@@ -898,6 +905,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                               base: "max-w-full m-0 items-start",
                               label: "w-full max-w-full",
                             }}
+                            data-testid={`event-checkout-addon-${tier.id}`}
                             isDisabled={Boolean(clientSecret)}
                             isSelected={isSelected}
                             onValueChange={(checked) => {
@@ -942,7 +950,10 @@ function EventDetailsInner({ slug }: { slug: string }) {
               ) : null}
 
               {showContactForm ? (
-                <div className="mt-6 space-y-3">
+                <div
+                  className="mt-6 space-y-3"
+                  data-testid="event-checkout-contact-form"
+                >
                   <NeonInput
                     isRequired
                     label={t.email}
@@ -1076,16 +1087,18 @@ function EventDetailsInner({ slug }: { slug: string }) {
                 </Elements>
               ) : null}
 
-              <div className="mt-8 pt-6 border-t border-foreground/10">
-                <ParticipantSessionPanel
-                  embedded
-                  codeExchangePending={!codeHandled}
-                  returnPath={detailReturnPath}
-                  sessionEstablishedQueryKeys={[
-                    eventsKeys.detail(slug, effectiveInviteToken),
-                  ]}
-                />
-              </div>
+              {!hasCheckoutProfile ? (
+                <div className="mt-8 pt-6 border-t border-foreground/10">
+                  <ParticipantSessionPanel
+                    embedded
+                    codeExchangePending={!codeHandled}
+                    returnPath={detailReturnPath}
+                    sessionEstablishedQueryKeys={[
+                      eventsKeys.detail(slug, effectiveInviteToken),
+                    ]}
+                  />
+                </div>
+              ) : null}
             </CardBody>
           </Card>
         ) : null}

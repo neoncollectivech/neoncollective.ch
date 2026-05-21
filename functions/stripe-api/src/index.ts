@@ -9,11 +9,11 @@ import {
 } from "@neon/server-kit";
 import { Hono } from "hono";
 
-import { checkoutSchema, portalRequestSchema } from "./schemas.js";
+import { checkoutSchema, portalRequestSchema } from "./schemas";
 import type Stripe from "stripe";
-import { stripe } from "./stripe.js";
-import { createToken, verifyToken } from "./token.js";
-import { sendMagicLinkEmail, isEmailEnabled } from "./email.js";
+import { stripe } from "./stripe";
+import { createToken, verifyToken } from "./token";
+import { sendMagicLinkEmail, isEmailEnabled } from "./email";
 
 const log = createLogger("http");
 

@@ -24,7 +24,7 @@ neo-neoncollective.ch/
 ├── .nvmrc                        # Node 22
 ├── packages/
 │   ├── server-kit/               # @neon/server-kit — logger, Hono CORS/middleware, Resend email shell, dev serve
-│   └── admin-crud/               # @neon/admin-crud — registerAdminCrud() for standard /admin REST
+│   └── admin-crud/               # @neon/admin-crud — crudProvider() table CRUD + list/detail/action providers
 ├── apps/
 │   ├── admin/                    # @neon/admin — Vite SPA, Shadcn UI, Better Auth (Google @neonclub.ch)
 │   └── web/                      # @neon/web — Next.js static site
@@ -300,6 +300,7 @@ functions/stripe-api/
 
 ### Patterns
 
+- **TypeScript imports:** use **extensionless** relative paths only — `from "./checkout-intent"`, never `from "./checkout-intent.js"`. Workspace TS uses `moduleResolution: "bundler"`; production bundles via **tsup**. Package imports stay bare (`@neon/server-kit`, not file extensions).
 - Define ArkType schemas in `schemas.ts`, use `arktypeValidator('json', schema)` middleware on routes.
 - Validated request data is accessed via `c.req.valid('json')` with full type inference.
 - Environment secrets (`STRIPE_SECRET_KEY`) come from GCP Secret Manager in production, `.env.local` in development.
@@ -311,7 +312,8 @@ functions/stripe-api/
 - **Frontend:** `@neon/admin` — Vite + React Router + TanStack Query + Shadcn-style UI (dark). No SSR. Local dev proxies `/api` and `/admin` to `events-api` (8082). Client data: `lib/admin-api.ts` (HTTP) + `hooks/use-admin-api/` (React Query). Route UUIDs: `hooks/use-uuid-route-param.ts`.
 - **Auth:** Better Auth on `events-api` at `/admin/auth/*` (not `/api/auth` — CDN must route `/neo-events-api/admin/*` to the function). **Google OAuth only** (no email/password). `databaseHooks` + session guard enforce `@neonclub.ch` emails. Env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
 - **Admin routes:** `functions/events-api/src/admin/router.ts` mounted at `/admin`. All routes use `requireAdminSession` (not `ADMIN_API_KEY` in the browser).
-- **`@neon/admin-crud`:** Call `registerAdminCrud(app, config)` once per entity to get list/read/create/update/delete with envelope `{ items, meta }` / `{ item }`. Use `operations: [...]` to omit endpoints (e.g. no delete on events). Use `registerAdminRoute` for non-CRUD actions (invitee upsert, revoke, refund, tier PUT). Do **not** use the registrar for nested business flows that need custom joins unless `serialize` / custom routes cover it.
+- **`@neon/admin-crud`:** `parseListQuery`, `buildFilterConditions` (suffix filters: `_in`, `_not`, `_gte`, …), `bulkProvider` (`POST/PATCH /bulk`), column-derived ArkType list schemas. Legacy `crudProvider` still works for table-only resources.
+- **Entity services (`functions/events-api/src/services/`):** One singleton per entity in `<entity>.service.ts` (`eventsService`, `peopleService`, `ordersService`, …). Extend `TableService` (or `AbstractService` for joins). **`list` and `count` share `ListQuery`** with root `limit` (default 100), `skip` (default 0), `filters` (default `{}` = all rows). Admin resources set `service:` on `defineAdminResource`; `createCrudRouter` mounts list/detail/mutations from the singleton. Use `detailProvider` / `actionProvider` for nested routes (event invitees). Do **not** `new EventsService()` at call sites — import the singleton only.
 
 ## Performance Optimization
 

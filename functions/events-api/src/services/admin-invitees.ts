@@ -1,24 +1,22 @@
 import { and, eq, isNull } from "drizzle-orm";
 
-import { phoneToStoredDigits } from "../contact.js";
-import { getDb } from "../db/index.js";
-import { eventInvitees, people } from "../db/schema.js";
+import { phoneToStoredDigits } from "../contact";
+import { getDb } from "../db/index";
+import { eventInvitees } from "../db/schema";
+import { eventInviteesService } from "./event-invitees.service";
 import {
   ensureHostInviteLinkForPersonInTx,
   mintOrRotateHostInviteLinkForPersonInTx,
-} from "./host-invite-link.js";
-import {
-  findPersonIdByEmail,
-  findPersonIdByPhoneE164,
-} from "./people.js";
+} from "./host-invite-link";
+import { peopleService } from "./people.service";
 import {
   materializePersonFromInvitee,
   MaterializeInviteeError,
   shouldMaterializeInvitee,
-} from "./materialize-invitee-person.js";
-import { requireInviteOnlyEvent } from "./event-read.js";
+} from "./materialize-invitee-person";
+import { requireInviteOnlyEvent } from "./event-read";
 
-export { InviteMechanismDisabledError } from "./event-read.js";
+export { InviteMechanismDisabledError } from "./event-read";
 
 export type InviteeInput = {
   givenName: string;
@@ -57,8 +55,6 @@ export class InviteeUpsertError extends Error {
   }
 }
 
-type DbTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
-
 type NormalizedInvitee = {
   givenName: string;
   familyName: string;
@@ -85,59 +81,6 @@ function hasEventInviteIdentity(norm: {
   return Boolean(norm.email || norm.phone);
 }
 
-async function findExistingInviteeOnEvent(
-  tx: DbTx,
-  eventId: string,
-  email: string | null,
-  phone: string | null,
-): Promise<typeof eventInvitees.$inferSelect | null> {
-  const base = and(eq(eventInvitees.eventId, eventId), isNull(eventInvitees.revokedAt));
-
-  if (email) {
-    const [byPending] = await tx
-      .select()
-      .from(eventInvitees)
-      .where(and(base, eq(eventInvitees.email, email)))
-      .limit(1);
-    if (byPending) {
-      return byPending;
-    }
-
-    const [byPersonEmail] = await tx
-      .select({ inv: eventInvitees })
-      .from(eventInvitees)
-      .innerJoin(people, eq(people.id, eventInvitees.personId))
-      .where(and(base, eq(people.email, email)))
-      .limit(1);
-    if (byPersonEmail) {
-      return byPersonEmail.inv;
-    }
-  }
-
-  if (phone) {
-    const [byPending] = await tx
-      .select()
-      .from(eventInvitees)
-      .where(and(base, eq(eventInvitees.phone, phone)))
-      .limit(1);
-    if (byPending) {
-      return byPending;
-    }
-
-    const [byPersonPhone] = await tx
-      .select({ inv: eventInvitees })
-      .from(eventInvitees)
-      .innerJoin(people, eq(people.id, eventInvitees.personId))
-      .where(and(base, eq(people.phone, phone)))
-      .limit(1);
-    if (byPersonPhone) {
-      return byPersonPhone.inv;
-    }
-  }
-
-  return null;
-}
-
 async function assertNoIdentityConflict(
   email: string | null,
   phone: string | null,
@@ -145,8 +88,8 @@ async function assertNoIdentityConflict(
   if (!email || !phone) {
     return;
   }
-  const byEmail = await findPersonIdByEmail(email);
-  const byPhone = await findPersonIdByPhoneE164(`+${phone}`);
+  const byEmail = await peopleService.findPersonIdByEmail(email);
+  const byPhone = await peopleService.findPersonIdByPhoneE164(`+${phone}`);
   if (byEmail && byPhone && byEmail !== byPhone) {
     throw new InviteeUpsertError(
       `Invitee identity conflict for ${email}: email and phone belong to different people.`,
@@ -176,11 +119,14 @@ export async function upsertInviteesForEvent(
 
       await assertNoIdentityConflict(norm.email, norm.phone);
 
-      const existingOnEvent = await findExistingInviteeOnEvent(
-        tx,
+      const existingOnEvent = await eventInviteesService.findActiveInviteeByContactOnEvent(
         eventId,
-        norm.email,
-        norm.phone,
+        {
+          email: norm.email,
+          phoneDigits: norm.phone,
+          phoneE164: norm.phone ? `+${norm.phone}` : null,
+        },
+        tx,
       );
       if (existingOnEvent) {
         results.push({

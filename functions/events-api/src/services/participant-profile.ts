@@ -1,13 +1,17 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 
-import { normalizeEmailTypo, normalizeOptionalPhoneE164, phoneToStoredDigits } from "../contact.js";
-import { getDb } from "../db/index.js";
+import {
+  e2eClearStaleOtpForCode,
+  e2eTestOtp,
+  isE2eTestMode,
+} from "../e2e-test-mode";
+import { getDb } from "../db/index";
 import {
   participantSessions,
-  people,
   profileVerificationCodes,
-} from "../db/schema.js";
-import { sendProfileVerificationEmail } from "../email.js";
+} from "../db/schema";
+import { sendProfileVerificationEmail } from "../email";
+import { isEmailEnabled } from "../email";
 import {
   e164FromStoredDigits,
   isEmailVerified,
@@ -15,23 +19,28 @@ import {
   isProfileComplete,
   pendingVerificationChannel,
   type PersonRow,
-} from "../profile.js";
-import { sha256Hex } from "../token.js";
-import { REGISTRATION_EXCHANGE_TTL_MS } from "../registration-exchange-constants.js";
-import { isSmsEnabled, sendRegistrationSmsCode } from "../sms.js";
-import { isEmailEnabled } from "../email.js";
+} from "../profile";
+import { sha256Hex } from "../token";
+import { REGISTRATION_EXCHANGE_TTL_MS } from "../registration-exchange-constants";
+import { isSmsEnabled, sendRegistrationSmsCode } from "../sms";
 import { createLogger } from "@neon/server-kit";
 import {
   materializePersonFromInvitee,
   MaterializeInviteeError,
   loadPublishedOrphanInviteeContact,
-} from "./materialize-invitee-person.js";
-import { ensurePersonInTx, syncEventInviteesToPerson } from "./people.js";
+} from "./materialize-invitee-person";
+import {
+  IdentityConflictError,
+  normalizeStoredEmail,
+  peopleService,
+  profileContactFieldsMatch,
+  toPersonRow,
+} from "./people.service";
 import {
   randomRegistrationExchangeCode,
   normalizeRegistrationExchangeCodeInput,
   type ParticipantSessionContext,
-} from "./registration-session.js";
+} from "./registration-session";
 
 const log = createLogger("participant-profile");
 
@@ -78,49 +87,8 @@ function toProfileResponse(
   };
 }
 
-async function loadPerson(personId: string): Promise<PersonRow | null> {
-  const db = getDb();
-  const [row] = await db
-    .select({
-      givenName: people.givenName,
-      familyName: people.familyName,
-      email: people.email,
-      phone: people.phone,
-      emailVerifiedAt: people.emailVerifiedAt,
-      phoneVerifiedAt: people.phoneVerifiedAt,
-    })
-    .from(people)
-    .where(eq(people.id, personId))
-    .limit(1);
-  return row ?? null;
-}
-
 function sessionInviteFlow(session: ParticipantSessionContext): boolean {
   return session.inviteLinkId != null;
-}
-
-function normalizedStoredEmail(raw: string | null | undefined): string | null {
-  if (!raw?.trim()) {
-    return null;
-  }
-  return normalizeEmailTypo(raw.trim()).toLowerCase();
-}
-
-function profileFieldsUnchanged(
-  existing: PersonRow,
-  params: {
-    givenName: string;
-    familyName: string;
-    email: string | null;
-    phoneDigits: string | null;
-  },
-): boolean {
-  return (
-    existing.givenName === params.givenName &&
-    existing.familyName === params.familyName &&
-    normalizedStoredEmail(existing.email) === params.email &&
-    (existing.phone ?? null) === params.phoneDigits
-  );
 }
 
 function toProfileResponseFromEventInviteContact(
@@ -140,12 +108,24 @@ function toProfileResponseFromEventInviteContact(
   };
 }
 
+function contactHashForChannel(
+  channel: "email" | "phone",
+  person: PersonRow,
+): string | null {
+  if (channel === "email") {
+    const em = person.email?.trim();
+    return em ? sha256Hex(em.toLowerCase()) : null;
+  }
+  const digits = person.phone?.trim();
+  return digits ? sha256Hex(digits) : null;
+}
+
 export async function getParticipantProfile(
   session: ParticipantSessionContext,
 ): Promise<ProfileMeResponse> {
   const inviteFlow = sessionInviteFlow(session);
   if (session.personId) {
-    const person = await loadPerson(session.personId);
+    const person = await peopleService.getProfileRow(session.personId);
     return toProfileResponse(person, inviteFlow);
   }
   if (session.eventInviteeId) {
@@ -173,65 +153,45 @@ export async function updateParticipantProfile(params: {
     return { ok: false, status: 400, error: "Given name and family name are required." };
   }
 
-  const em = params.email?.trim()
-    ? normalizeEmailTypo(params.email.trim()).toLowerCase()
-    : null;
-  let phoneDigits: string | null = null;
-  if (params.phoneE164?.trim()) {
-    const e164 = normalizeOptionalPhoneE164(params.phoneE164);
-    if (!e164) {
-      return { ok: false, status: 400, error: "Invalid phone number." };
-    }
-    phoneDigits = phoneToStoredDigits(e164);
-    if (!phoneDigits) {
-      return { ok: false, status: 400, error: "Invalid phone number." };
-    }
-  }
-  if (!em && !phoneDigits) {
-    return {
-      ok: false,
-      status: 400,
-      error: "Provide at least an email address or a phone number.",
-    };
+  const contact = peopleService.parseProfileContactInput({
+    email: params.email,
+    phoneE164: params.phoneE164,
+  });
+  if ("error" in contact) {
+    return { ok: false, status: 400, error: contact.error };
   }
 
   const db = getDb();
+  const inviteFlow = sessionInviteFlow(params.session);
   try {
     return await db.transaction(async (tx) => {
       let personId = params.session.personId;
       if (personId) {
-        const [existing] = await tx
-          .select()
-          .from(people)
-          .where(eq(people.id, personId))
-          .limit(1);
+        const existing = await peopleService.getInTx(tx, personId);
         if (!existing) {
           return { ok: false, status: 404, error: "Profile not found." };
         }
+        const existingProfile = toPersonRow(existing)!;
         if (
-          profileFieldsUnchanged(existing, {
+          profileContactFieldsMatch(existingProfile, {
             givenName: gn,
             familyName: fn,
-            email: em,
-            phoneDigits,
+            ...contact,
           })
         ) {
-          return {
-            ok: true,
-            profile: toProfileResponse(existing, sessionInviteFlow(params.session)),
-          };
+          return { ok: true, profile: toProfileResponse(existingProfile, inviteFlow) };
         }
-        const emailChanged = normalizedStoredEmail(existing.email) !== em;
-        const phoneChanged = (existing.phone ?? null) !== phoneDigits;
+        const emailChanged = normalizeStoredEmail(existing.email) !== contact.email;
+        const phoneChanged = (existing.phone ?? null) !== contact.phoneDigits;
         try {
-          personId = await ensurePersonInTx(tx, {
+          personId = await peopleService.ensurePersonInTx(tx, {
             givenName: gn,
             familyName: fn,
-            email: em,
-            phoneE164: phoneDigits ? `+${phoneDigits}` : null,
+            email: contact.email,
+            phoneE164: contact.phoneE164,
           });
         } catch (e) {
-          if (e instanceof Error && e.message === "identity_conflict") {
+          if (e instanceof IdentityConflictError) {
             return {
               ok: false,
               status: 409,
@@ -246,15 +206,12 @@ export async function updateParticipantProfile(params: {
             .set({ personId })
             .where(eq(participantSessions.id, params.session.sessionId));
         }
-        const now = new Date();
-        await tx
-          .update(people)
-          .set({
-            emailVerifiedAt: emailChanged ? null : existing.emailVerifiedAt,
-            phoneVerifiedAt: phoneChanged ? null : existing.phoneVerifiedAt,
-            updatedAt: now,
-          })
-          .where(eq(people.id, personId));
+        await peopleService.applyVerificationResetInTx(tx, personId, {
+          emailChanged,
+          phoneChanged,
+          previousEmailVerifiedAt: existing.emailVerifiedAt,
+          previousPhoneVerifiedAt: existing.phoneVerifiedAt,
+        });
       } else if (params.session.eventInviteeId) {
         try {
           personId = await materializePersonFromInvitee(
@@ -262,7 +219,7 @@ export async function updateParticipantProfile(params: {
             { givenName: gn, familyName: fn },
             tx,
           );
-          await syncEventInviteesToPerson(personId);
+          await peopleService.syncEventInviteesToPerson(personId);
         } catch (e) {
           if (e instanceof MaterializeInviteeError) {
             if (e.code === "identity_conflict") {
@@ -289,14 +246,14 @@ export async function updateParticipantProfile(params: {
           .where(eq(participantSessions.id, params.session.sessionId));
       } else {
         try {
-          personId = await ensurePersonInTx(tx, {
+          personId = await peopleService.ensurePersonInTx(tx, {
             givenName: gn,
             familyName: fn,
-            email: em,
-            phoneE164: phoneDigits ? `+${phoneDigits}` : null,
+            email: contact.email,
+            phoneE164: contact.phoneE164,
           });
         } catch (e) {
-          if (e instanceof Error && e.message === "identity_conflict") {
+          if (e instanceof IdentityConflictError) {
             return {
               ok: false,
               status: 409,
@@ -311,40 +268,14 @@ export async function updateParticipantProfile(params: {
           .where(eq(participantSessions.id, params.session.sessionId));
       }
 
-      const person = await tx
-        .select({
-          givenName: people.givenName,
-          familyName: people.familyName,
-          email: people.email,
-          phone: people.phone,
-          emailVerifiedAt: people.emailVerifiedAt,
-          phoneVerifiedAt: people.phoneVerifiedAt,
-        })
-        .from(people)
-        .where(eq(people.id, personId!))
-        .limit(1);
-      return {
-        ok: true,
-        profile: toProfileResponse(person[0] ?? null, sessionInviteFlow(params.session)),
-      };
+      const person = await peopleService.getProfileRowInTx(tx, personId!);
+      return { ok: true, profile: toProfileResponse(person, inviteFlow) };
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Profile update failed.";
     log.error({ err: e }, msg);
     return { ok: false, status: 500, error: msg };
   }
-}
-
-function contactHashForChannel(
-  channel: "email" | "phone",
-  person: PersonRow,
-): string | null {
-  if (channel === "email") {
-    const em = person.email?.trim();
-    return em ? sha256Hex(em.toLowerCase()) : null;
-  }
-  const digits = person.phone?.trim();
-  return digits ? sha256Hex(digits) : null;
 }
 
 export async function requestProfileVerification(params: {
@@ -358,7 +289,7 @@ export async function requestProfileVerification(params: {
   if (!params.session.personId) {
     return { ok: false, status: 400, error: "Save your profile details first." };
   }
-  const person = await loadPerson(params.session.personId);
+  const person = await peopleService.getProfileRow(params.session.personId);
   if (!person) {
     return { ok: false, status: 404, error: "Profile not found." };
   }
@@ -380,7 +311,7 @@ export async function requestProfileVerification(params: {
     return { ok: false, status: 400, error: "Invalid contact for verification." };
   }
 
-  if (params.channel === "email" && !isEmailEnabled) {
+  if (!isE2eTestMode() && params.channel === "email" && !isEmailEnabled) {
     return {
       ok: false,
       status: 503,
@@ -388,7 +319,7 @@ export async function requestProfileVerification(params: {
         "Email is not configured. Set RESEND_API_KEY and FROM_EMAIL (address on a domain verified in Resend).",
     };
   }
-  if (params.channel === "phone" && !isSmsEnabled()) {
+  if (!isE2eTestMode() && params.channel === "phone" && !isSmsEnabled()) {
     return {
       ok: false,
       status: 503,
@@ -396,7 +327,10 @@ export async function requestProfileVerification(params: {
     };
   }
 
-  const rawCode = randomRegistrationExchangeCode();
+  const rawCode = isE2eTestMode() ? e2eTestOtp() : randomRegistrationExchangeCode();
+  await e2eClearStaleOtpForCode(rawCode, {
+    profileSessionId: params.session.sessionId,
+  });
   const codeHash = sha256Hex(rawCode);
   const expiresAt = new Date(Date.now() + REGISTRATION_EXCHANGE_TTL_MS);
   const db = getDb();
@@ -409,37 +343,43 @@ export async function requestProfileVerification(params: {
     expiresAt,
   });
 
-  try {
-    if (params.channel === "email") {
-      await sendProfileVerificationEmail({
-        to: person.email!,
-        code: rawCode,
-        locale: params.locale,
-      });
-    } else {
-      const e164 = e164FromStoredDigits(person.phone);
-      if (!e164) {
-        throw new Error("Invalid phone on profile.");
+  if (!isE2eTestMode()) {
+    try {
+      if (params.channel === "email") {
+        await sendProfileVerificationEmail({
+          to: person.email!,
+          code: rawCode,
+          locale: params.locale,
+        });
+      } else {
+        const e164 = e164FromStoredDigits(person.phone);
+        if (!e164) {
+          throw new Error("Invalid phone on profile.");
+        }
+        const sms = await sendRegistrationSmsCode({
+          toE164: e164,
+          code: rawCode,
+          accessUrl: "",
+        });
+        if (!sms.ok) {
+          throw new Error(sms.error);
+        }
       }
-      const sms = await sendRegistrationSmsCode({
-        toE164: e164,
-        code: rawCode,
-        accessUrl: "",
-      });
-      if (!sms.ok) {
-        throw new Error(sms.error);
-      }
+    } catch (e) {
+      await db
+        .delete(profileVerificationCodes)
+        .where(eq(profileVerificationCodes.codeHash, codeHash));
+      const msg = e instanceof Error ? e.message : "Could not send verification code.";
+      log.error({ err: e, channel: params.channel }, msg);
+      return { ok: false, status: 503, error: msg };
     }
-  } catch (e) {
-    await db
-      .delete(profileVerificationCodes)
-      .where(eq(profileVerificationCodes.codeHash, codeHash));
-    const msg = e instanceof Error ? e.message : "Could not send verification code.";
-    log.error({ err: e, channel: params.channel }, msg);
-    return { ok: false, status: 503, error: msg };
+    log.info({ sessionId: params.session.sessionId, channel: params.channel }, "Profile verification sent");
+  } else {
+    log.info(
+      { sessionId: params.session.sessionId, channel: params.channel },
+      "Profile verification code issued (E2E test mode, not sent)",
+    );
   }
-
-  log.info({ sessionId: params.session.sessionId, channel: params.channel }, "Profile verification sent");
   return { ok: true, channel: params.channel };
 }
 
@@ -460,6 +400,7 @@ export async function confirmProfileVerification(params: {
   }
   const codeHash = sha256Hex(normalized);
   const db = getDb();
+  const inviteFlow = sessionInviteFlow(params.session);
 
   return await db.transaction(async (tx) => {
     const [codeRow] = await tx
@@ -478,11 +419,7 @@ export async function confirmProfileVerification(params: {
       return { ok: false, status: 400, error: "Invalid or expired code." };
     }
 
-    const [personRow] = await tx
-      .select()
-      .from(people)
-      .where(eq(people.id, params.session.personId!))
-      .limit(1);
+    const personRow = await peopleService.getProfileRowInTx(tx, params.session.personId!);
     if (!personRow) {
       return { ok: false, status: 404, error: "Profile not found." };
     }
@@ -498,34 +435,15 @@ export async function confirmProfileVerification(params: {
       .set({ usedAt: now })
       .where(eq(profileVerificationCodes.id, codeRow.id));
 
-    if (codeRow.channel === "email") {
-      await tx
-        .update(people)
-        .set({ emailVerifiedAt: now, updatedAt: now })
-        .where(eq(people.id, personRow.id));
-    } else {
-      await tx
-        .update(people)
-        .set({ phoneVerifiedAt: now, updatedAt: now })
-        .where(eq(people.id, personRow.id));
-    }
-
-    const [updated] = await tx
-      .select({
-        givenName: people.givenName,
-        familyName: people.familyName,
-        email: people.email,
-        phone: people.phone,
-        emailVerifiedAt: people.emailVerifiedAt,
-        phoneVerifiedAt: people.phoneVerifiedAt,
-      })
-      .from(people)
-      .where(eq(people.id, personRow.id))
-      .limit(1);
+    const updated = await peopleService.markContactVerifiedInTx(
+      tx,
+      params.session.personId!,
+      codeRow.channel,
+    );
 
     return {
       ok: true,
-      profile: toProfileResponse(updated ?? null, sessionInviteFlow(params.session)),
+      profile: toProfileResponse(updated, inviteFlow),
     };
   });
 }
@@ -536,6 +454,6 @@ export async function isSessionProfileComplete(
   if (!session.personId) {
     return false;
   }
-  const person = await loadPerson(session.personId);
+  const person = await peopleService.getProfileRow(session.personId);
   return person ? isProfileComplete(person) : false;
 }

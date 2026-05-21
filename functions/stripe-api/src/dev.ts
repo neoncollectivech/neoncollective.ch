@@ -7,7 +7,7 @@
  */
 import { serveDevApp } from "@neon/server-kit";
 
-import app from "./index.js";
+import app from "./index";
 
 serveDevApp({
   app,
