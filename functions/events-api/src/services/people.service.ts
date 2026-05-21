@@ -1,28 +1,39 @@
-import { defineFilterable, introspectPgTable, parseListQuery, type ListQuery } from "@neon/admin-crud";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+  defineFilterable,
+  introspectPgTable,
+  parseListQuery,
+  type ListQuery,
+} from "@neon/admin-crud";
+import { and, eq, ilike, inArray, ne, or } from "drizzle-orm";
 
 import {
   normalizeEmailTypo,
   normalizeOptionalPhoneE164,
   phoneDigitsLookupVariants,
   phoneToStoredDigits,
-} from "../contact";
+} from "../helpers/contact";
 import {
   isEmailVerified,
   isPhoneVerified,
   personHasEmailField,
   personHasPhoneField,
+  toPersonRow,
   type PersonRow,
-} from "../profile";
+} from "../helpers/profile";
+
+export type { PersonRow };
+export {
+  toPersonRow,
+  normalizeStoredEmail,
+  profileContactFieldsMatch,
+} from "../helpers/profile";
 import { getDb } from "../db/index";
-import { eventInvitees, people } from "../db/schema";
-import { eventInviteesService } from "./event-invitees.service";
-import { ordersService } from "./orders.service";
-import { getAdminPersonDetail } from "./admin/people-read";
-import {
-  prepareAdminPersonUpdate,
-  type AdminPersonUpdateInput,
-} from "./admin/update-person";
+import { people } from "../db/schema";
+
+export { people as peopleTable };
 import { orClauses } from "./base/sql-utils";
 import { TableService } from "./base/table-service";
 import type { ServiceContext } from "./base/types";
@@ -55,7 +66,9 @@ const peopleMeta = introspectPgTable(people, {
   },
 });
 
-export type PeopleTx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+import type { EntityTx } from "./transaction";
+
+export type PeopleTx = EntityTx;
 
 export class IdentityConflictError extends Error {
   constructor() {
@@ -70,37 +83,19 @@ export type ProfileContactFields = {
   phoneE164: string | null;
 };
 
-export function normalizeStoredEmail(raw: string | null | undefined): string | null {
-  if (!raw?.trim()) {
+export type AdminPersonUpdateInput = {
+  givenName?: string;
+  familyName?: string;
+  email?: string | null;
+  phoneE164?: string | null;
+};
+
+function normalizeAdminEmail(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
     return null;
   }
-  return normalizeEmailTypo(raw.trim()).toLowerCase();
-}
-
-export function toPersonRow(row: typeof people.$inferSelect | null | undefined): PersonRow | null {
-  if (!row) {
-    return null;
-  }
-  return {
-    givenName: row.givenName,
-    familyName: row.familyName,
-    email: row.email,
-    phone: row.phone,
-    emailVerifiedAt: row.emailVerifiedAt,
-    phoneVerifiedAt: row.phoneVerifiedAt,
-  };
-}
-
-export function profileContactFieldsMatch(
-  existing: PersonRow,
-  params: ProfileContactFields & { givenName: string; familyName: string },
-): boolean {
-  return (
-    existing.givenName === params.givenName &&
-    existing.familyName === params.familyName &&
-    normalizeStoredEmail(existing.email) === params.email &&
-    (existing.phone ?? null) === params.phoneDigits
-  );
+  return normalizeEmailTypo(trimmed).toLowerCase();
 }
 
 export class PeopleService extends TableService<
@@ -123,19 +118,105 @@ export class PeopleService extends TableService<
     return parseListQuery(raw);
   }
 
-  async getDetail(id: string, _ctx?: ServiceContext) {
-    return getAdminPersonDetail(id);
-  }
-
   protected override async beforeUpdate(
-    id: string,
-    data: Record<string, unknown>,
+    personId: string,
+    patch: Record<string, unknown>,
     _ctx?: ServiceContext,
   ): Promise<Record<string, unknown>> {
-    return prepareAdminPersonUpdate(id, data as AdminPersonUpdateInput);
+    const data = patch as AdminPersonUpdateInput;
+    const db = getDb();
+    const [existing] = await db
+      .select()
+      .from(people)
+      .where(eq(people.id, personId))
+      .limit(1);
+
+    if (!existing) {
+      throw new NotFoundError("Person not found.");
+    }
+
+    const givenName =
+      data.givenName !== undefined ? data.givenName.trim() : existing.givenName;
+    const familyName =
+      data.familyName !== undefined ? data.familyName.trim() : existing.familyName;
+
+    if (!givenName || !familyName) {
+      throw new BadRequestError("Given name and family name are required.");
+    }
+
+    const email =
+      data.email !== undefined ? normalizeAdminEmail(data.email) : existing.email;
+
+    let phone = existing.phone;
+    if (data.phoneE164 !== undefined) {
+      const raw = data.phoneE164?.trim() ?? "";
+      if (!raw) {
+        phone = null;
+      } else {
+        const digits = phoneToStoredDigits(raw);
+        if (!digits) {
+          throw new BadRequestError("Invalid phone number.");
+        }
+        phone = digits;
+      }
+    }
+
+    if (!email && !phone) {
+      throw new BadRequestError("Email or phone is required.");
+    }
+
+    if (email) {
+      const [conflict] = await db
+        .select({ id: people.id })
+        .from(people)
+        .where(and(eq(people.email, email), ne(people.id, personId)))
+        .limit(1);
+      if (conflict) {
+        throw new ConflictError("Another person already uses this email.");
+      }
+    }
+
+    if (phone) {
+      const [conflict] = await db
+        .select({ id: people.id })
+        .from(people)
+        .where(and(eq(people.phone, phone), ne(people.id, personId)))
+        .limit(1);
+      if (conflict) {
+        throw new ConflictError("Another person already uses this phone number.");
+      }
+    }
+
+    const emailChanged = data.email !== undefined && email !== existing.email;
+    const phoneChanged = data.phoneE164 !== undefined && phone !== existing.phone;
+
+    let emailVerifiedAt = existing.emailVerifiedAt;
+    let phoneVerifiedAt = existing.phoneVerifiedAt;
+
+    if (emailChanged) {
+      emailVerifiedAt = email ? null : null;
+    }
+    if (phoneChanged) {
+      phoneVerifiedAt = phone ? null : null;
+    }
+    if (!email) {
+      emailVerifiedAt = null;
+    }
+    if (!phone) {
+      phoneVerifiedAt = null;
+    }
+
+    return {
+      givenName,
+      familyName,
+      email,
+      phone,
+      emailVerifiedAt,
+      phoneVerifiedAt,
+      updatedAt: new Date(),
+    };
   }
 
-  /** Profile row for participant flows (subset of table columns). */
   async getProfileRow(id: string): Promise<PersonRow | null> {
     return toPersonRow(await this.get(id));
   }
@@ -196,7 +277,6 @@ export class PeopleService extends TableService<
       .where(eq(people.id, personId));
   }
 
-  /** Admin: mark present email/phone channels as verified (no OTP). */
   async verifyPeopleBulk(personIds: string[]): Promise<{
     updated: number;
     skipped: number;
@@ -271,14 +351,12 @@ export class PeopleService extends TableService<
     return this.getProfileRowInTx(tx, personId);
   }
 
-  /** Resolve or create a `people` row; fills missing phone/email when safe; errors on conflicting identities. */
   async ensurePersonInTx(
     tx: PeopleTx,
     params: {
       givenName: string;
       familyName: string;
       email: string | null;
-      /** E.164 including +, or null */
       phoneE164: string | null;
     },
   ): Promise<string> {
@@ -352,53 +430,15 @@ export class PeopleService extends TableService<
     return existing.id;
   }
 
-  /** Link event invite rows that match this person's contact but lack `person_id`. */
-  async syncEventInviteesToPerson(personId: string): Promise<void> {
-    return eventInviteesService.syncEventInviteesToPerson(personId);
-  }
-
-  async personHasRegistrationEligibility(personId: string): Promise<boolean> {
-    if (await ordersService.hasOrderForPerson(personId)) {
-      return true;
-    }
-    if (await eventInviteesService.hasLinkedPublishedInvitee(personId)) {
-      return true;
-    }
-    if (await eventInviteesService.hasPublishedEventInviteContactMatch(personId)) {
-      return true;
-    }
-    return false;
-  }
-
-  /** Resolve person for registration sign-in (email or E.164 phone). */
-  async resolvePersonIdForRegistrationContact(
-    contact: { kind: "email"; email: string } | { kind: "phone"; e164: string },
-  ): Promise<string | undefined> {
-    if (contact.kind === "email") {
-      return this.findPersonIdByEmail(contact.email);
-    }
-    return this.findPersonIdByPhoneE164(contact.e164);
-  }
-
   async findPersonIdByEmail(email: string): Promise<string | undefined> {
     const db = getDb();
     const em = normalizeEmailTypo(email.trim()).toLowerCase();
-
     const [person] = await db
       .select({ id: people.id })
       .from(people)
       .where(eq(people.email, em))
       .limit(1);
-    if (person) {
-      return person.id;
-    }
-
-    const [invitee] = await db
-      .select({ personId: eventInvitees.personId })
-      .from(eventInvitees)
-      .where(and(eq(eventInvitees.email, em), isNotNull(eventInvitees.personId)))
-      .limit(1);
-    return invitee?.personId ?? undefined;
+    return person?.id;
   }
 
   async findPersonIdByPhoneE164(phoneE164: string): Promise<string | undefined> {
@@ -406,32 +446,15 @@ export class PeopleService extends TableService<
     if (variants.length === 0) {
       return undefined;
     }
-
     const phoneMatch = orClauses(variants.map((d) => eq(people.phone, d)));
     if (!phoneMatch) {
       return undefined;
     }
-
     const db = getDb();
     const [person] = await db.select({ id: people.id }).from(people).where(phoneMatch).limit(1);
-    if (person) {
-      return person.id;
-    }
-
-    const inviteePhoneMatch = orClauses(variants.map((d) => eq(eventInvitees.phone, d)));
-    if (!inviteePhoneMatch) {
-      return undefined;
-    }
-
-    const [invitee] = await db
-      .select({ personId: eventInvitees.personId })
-      .from(eventInvitees)
-      .where(and(isNotNull(eventInvitees.personId), inviteePhoneMatch))
-      .limit(1);
-    return invitee?.personId ?? undefined;
+    return person?.id;
   }
 
-  /** Attach a phone to an email-only person; no-op if phone already set to same; 409 if phone belongs to another row. */
   async attachPhoneToPerson(params: {
     personId: string;
     phoneE164: string;
@@ -460,6 +483,71 @@ export class PeopleService extends TableService<
       .set({ phone: digits, updatedAt: new Date() })
       .where(eq(people.id, params.personId));
     return { ok: true };
+  }
+
+  async getByIds(ids: string[]): Promise<(typeof people.$inferSelect)[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const db = getDb();
+    return db.select().from(people).where(inArray(people.id, ids));
+  }
+
+  async getByIdsMap(ids: string[]): Promise<Map<string, typeof people.$inferSelect>> {
+    const rows = await this.getByIds(ids);
+    return new Map(rows.map((r) => [r.id, r]));
+  }
+
+  async searchIdsByAdminQuery(term: string): Promise<string[]> {
+    const q = term.trim();
+    if (!q) {
+      return [];
+    }
+    const pattern = `%${q}%`;
+    const db = getDb();
+    const rows = await db
+      .select({ id: people.id })
+      .from(people)
+      .where(
+        or(
+          ilike(people.email, pattern),
+          ilike(people.givenName, pattern),
+          ilike(people.familyName, pattern),
+          ilike(people.phone, pattern),
+        ),
+      );
+    return rows.map((r) => r.id);
+  }
+
+  async markChannelVerifiedInTx(
+    tx: PeopleTx,
+    personId: string,
+    channel: "email" | "phone",
+  ): Promise<void> {
+    const person = await this.getInTx(tx, personId);
+    if (!person) {
+      return;
+    }
+    const now = new Date();
+    if (channel === "email" && person.email?.trim()) {
+      await tx
+        .update(people)
+        .set({
+          emailVerifiedAt: person.emailVerifiedAt ?? now,
+          updatedAt: now,
+        })
+        .where(eq(people.id, personId));
+      return;
+    }
+    if (channel === "phone" && person.phone?.trim()) {
+      await tx
+        .update(people)
+        .set({
+          phoneVerifiedAt: person.phoneVerifiedAt ?? now,
+          updatedAt: now,
+        })
+        .where(eq(people.id, personId));
+    }
   }
 }
 

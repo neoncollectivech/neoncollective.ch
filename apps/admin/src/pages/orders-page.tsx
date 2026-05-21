@@ -21,7 +21,7 @@ export function OrdersPage() {
 
   const handleRefund = (orderId: string) => {
     refundMutation.mutate(orderId, {
-      onSuccess: () => toast.success("Order refunded"),
+      onSuccess: () => toast.success("Refund initiated"),
     });
   };
 

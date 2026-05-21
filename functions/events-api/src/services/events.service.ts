@@ -6,19 +6,48 @@ import {
   type InferFilterParams,
   type ListQuery,
 } from "@neon/admin-crud";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ilike, inArray } from "drizzle-orm";
 
 import { events } from "../db/schema";
+
+export { events as eventsTable };
 import { getDb } from "../db/index";
-import {
-  enrichTiersWithCapacityStats,
-  listPublishedEventsCatalog,
-  normalizeEventImageUrls,
-  type CatalogListParams,
-} from "./event-read";
-import { listTiersForEvent } from "./admin/event-tiers";
 import { TableService } from "./base/table-service";
 import type { ServiceContext } from "./base/types";
+import type { EntityTx } from "./transaction";
+
+export class InviteMechanismDisabledError extends Error {
+  constructor(
+    message = "Invites are only available for invite-only events.",
+  ) {
+    super(message);
+    this.name = "InviteMechanismDisabledError";
+  }
+}
+
+export type EventAccess = "full" | "minimal";
+
+export function normalizeEventImageUrls(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.filter((u): u is string => typeof u === "string" && u.trim().length > 0);
+}
+
+export type CatalogListRow = {
+  slug: string;
+  title: string;
+  summary: string | null;
+  location: string | null;
+  imageUrls: string[];
+  startsAt: Date | null;
+  inviteOnly: boolean;
+};
+
+export type CatalogListParams = {
+  viewerPersonId: string | null;
+  inviteEventId: string | null;
+};
 
 const eventsFilterable = defineFilterable([
   filterable("status", events.status),
@@ -71,9 +100,20 @@ export class EventsService extends TableService<
     return parseListQuery<EventsListFilters>(raw);
   }
 
-  /** Public catalog (delegates to shared event-read domain logic). */
-  listPublishedCatalog(params: CatalogListParams) {
-    return listPublishedEventsCatalog(params);
+  async getInTx(tx: EntityTx, eventId: string): Promise<typeof events.$inferSelect | null> {
+    const [row] = await tx.select().from(events).where(eq(events.id, eventId)).limit(1);
+    return row ?? null;
+  }
+
+  /** Throws when the event exists but `access_mode` is not `invite_only`. */
+  async requireInviteOnly(eventId: string): Promise<void> {
+    const row = await this.get(eventId);
+    if (!row) {
+      return;
+    }
+    if (row.accessMode !== "invite_only") {
+      throw new InviteMechanismDisabledError();
+    }
   }
 
   async getPublishedBySlug(slug: string): Promise<typeof events.$inferSelect | null> {
@@ -86,19 +126,95 @@ export class EventsService extends TableService<
     return row ?? null;
   }
 
-  async getDetail(id: string, _ctx?: ServiceContext) {
-    const db = getDb();
-    const [row] = await db.select().from(events).where(eq(events.id, id)).limit(1);
-    if (!row) {
-      return null;
+  async getPublishedBySlugInTx(
+    tx: EntityTx,
+    slug: string,
+  ): Promise<typeof events.$inferSelect | null> {
+    const [row] = await tx
+      .select()
+      .from(events)
+      .where(and(eq(events.slug, slug), eq(events.status, "published")))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async getByIds(ids: string[]): Promise<(typeof events.$inferSelect)[]> {
+    if (ids.length === 0) {
+      return [];
     }
-    const tiers = await listTiersForEvent(id);
-    const { tiers: tiersWithCapacity, capacity } = await enrichTiersWithCapacityStats(
-      id,
-      row.eventQuota,
-      tiers,
-    );
-    return { ...row, tiers: tiersWithCapacity, capacity };
+    const db = getDb();
+    return db.select().from(events).where(inArray(events.id, ids));
+  }
+
+  async searchIdsByTitle(term: string): Promise<string[]> {
+    const q = term.trim();
+    if (!q) {
+      return [];
+    }
+    const db = getDb();
+    const rows = await db
+      .select({ id: events.id })
+      .from(events)
+      .where(ilike(events.title, `%${q}%`));
+    return rows.map((r) => r.id);
+  }
+
+  async listPublishedPublicCatalogRows(): Promise<
+    Pick<
+      typeof events.$inferSelect,
+      "slug" | "title" | "summary" | "location" | "imageUrls" | "startsAt"
+    >[]
+  > {
+    const db = getDb();
+    return db
+      .select({
+        slug: events.slug,
+        title: events.title,
+        summary: events.summary,
+        location: events.location,
+        imageUrls: events.imageUrls,
+        startsAt: events.startsAt,
+      })
+      .from(events)
+      .where(and(eq(events.status, "published"), eq(events.accessMode, "public")));
+  }
+
+  async getPublishedInviteOnlyById(
+    eventId: string,
+  ): Promise<
+    Pick<
+      typeof events.$inferSelect,
+      "slug" | "title" | "summary" | "location" | "imageUrls" | "startsAt"
+    > | null
+  > {
+    const db = getDb();
+    const [row] = await db
+      .select({
+        slug: events.slug,
+        title: events.title,
+        summary: events.summary,
+        location: events.location,
+        imageUrls: events.imageUrls,
+        startsAt: events.startsAt,
+      })
+      .from(events)
+      .where(
+        and(
+          eq(events.id, eventId),
+          eq(events.status, "published"),
+          eq(events.accessMode, "invite_only"),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async hasAnyPublishedAmongIds(eventIds: string[]): Promise<boolean> {
+    if (eventIds.length === 0) {
+      return false;
+    }
+    const rows = await this.getByIds(eventIds);
+    return rows.some((e) => e.status === "published");
   }
 
   protected override async beforeCreate(

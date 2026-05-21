@@ -10,10 +10,10 @@
 
 import { and, eq, sql } from "drizzle-orm";
 
-import { phoneToStoredDigits } from "../contact";
+import { phoneToStoredDigits } from "../helpers/contact";
 import { closeDb, getDb } from "../db/index";
 import { eventTiers, events, people } from "../db/schema";
-import { upsertInviteesForEvent } from "../services/admin-invitees";
+import { upsertInviteesForEvent } from "../routes/admin/providers/invitees-admin";
 
 const SLUG = "e2e-invite-only";
 const LOCALE = "en";

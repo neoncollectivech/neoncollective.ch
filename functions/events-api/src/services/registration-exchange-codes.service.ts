@@ -1,0 +1,59 @@
+import { and, eq, gt, isNull } from "drizzle-orm";
+
+import { getDb } from "../db/index";
+import { registrationExchangeCodes } from "../db/schema";
+import type { EntityTx } from "./transaction";
+
+export type RegistrationExchangeRow = typeof registrationExchangeCodes.$inferSelect;
+
+export class RegistrationExchangeCodesService {
+  async insert(params: {
+    codeHash: string;
+    personId: string;
+    channel: "email" | "phone";
+    expiresAt: Date;
+  }): Promise<void> {
+    const db = getDb();
+    await db.insert(registrationExchangeCodes).values({
+      codeHash: params.codeHash,
+      personId: params.personId,
+      channel: params.channel,
+      expiresAt: params.expiresAt,
+    });
+  }
+
+  async deleteByCodeHash(codeHash: string): Promise<void> {
+    const db = getDb();
+    await db
+      .delete(registrationExchangeCodes)
+      .where(eq(registrationExchangeCodes.codeHash, codeHash));
+  }
+
+  async findValidByCodeHash(
+    codeHash: string,
+    tx?: EntityTx,
+  ): Promise<RegistrationExchangeRow | null> {
+    const executor = tx ?? getDb();
+    const [row] = await executor
+      .select()
+      .from(registrationExchangeCodes)
+      .where(
+        and(
+          eq(registrationExchangeCodes.codeHash, codeHash),
+          isNull(registrationExchangeCodes.usedAt),
+          gt(registrationExchangeCodes.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async markUsedInTx(tx: EntityTx, id: string): Promise<void> {
+    await tx
+      .update(registrationExchangeCodes)
+      .set({ usedAt: new Date() })
+      .where(eq(registrationExchangeCodes.id, id));
+  }
+}
+
+export const registrationExchangeCodesService = new RegistrationExchangeCodesService();

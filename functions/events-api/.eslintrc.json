@@ -1,0 +1,91 @@
+{
+  "extends": ["../../.eslintrc.node.json"],
+  "overrides": [
+    {
+      "files": ["src/routes/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "drizzle-orm",
+                "message": "Drizzle belongs in services/ only."
+              },
+              {
+                "name": "../db/index",
+                "message": "Use services/db.ts or table services from routes."
+              },
+              {
+                "name": "../../db/index",
+                "message": "Use services/db.ts or table services from routes."
+              },
+              {
+                "name": "../../../db/index",
+                "message": "Use services/db.ts or table services from routes."
+              },
+              {
+                "name": "../db/schema",
+                "message": "Import table metadata from services exports, not db/schema."
+              },
+              {
+                "name": "../../db/schema",
+                "message": "Import table metadata from services exports, not db/schema."
+              },
+              {
+                "name": "../../../db/schema",
+                "message": "Import table metadata from services exports, not db/schema."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/helpers/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "drizzle-orm",
+                "message": "Helpers are pure/IO only — no Drizzle."
+              },
+              {
+                "name": "../db/index",
+                "message": "Helpers must not access the database."
+              },
+              {
+                "name": "../db/schema",
+                "message": "Helpers must not import schema."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["hono", "hono/*", "@hono/*"],
+                "message": "Helpers must not import Hono."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/services/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/services/compose/**", "**/*-flow.service*"],
+                "message": "Forbidden: use routes/ orchestration + *InTx instead."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

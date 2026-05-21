@@ -84,7 +84,6 @@ export type InviteeRow = {
   notes: string | null;
   revokedAt: string | null;
   hostInviteLink: InviteLinkSummary | null;
-  adminInviteLinks: AdminInviteLinkSummary[];
   person: {
     id?: string | null;
     givenName: string;

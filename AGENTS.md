@@ -259,13 +259,30 @@ Set `NODE_ENV: "production"` in `env.yaml` (see `env.yaml.example`).
 functions/events-api/
 ├── drizzle/                 # Drizzle Kit migrations (SQL + meta/_journal.json)
 ├── src/
-│   ├── db/schema.ts         # Drizzle schema (source of truth)
-│   ├── index.ts             # Hono app, functions-framework export
-│   └── …
+│   ├── db/                  # Drizzle schema + connection
+│   ├── config/              # Static tunables (registration OTP, Stripe PI shape, email templates, regexes)
+│   ├── helpers/             # Stateless utils + external IO (contact, token, email, sms, stripe, otp, …)
+│   ├── routes/              # HTTP layer: flat domain routers (health, events, checkout, …) + admin/
+│   │   ├── shared/          # rate-limit, guards, respond
+│   │   └── admin/           # Admin CRUD + refund action
+│   ├── services/
+│   │   ├── base/            # TableService infrastructure
+│   │   └── *.service.ts     # One table service per Drizzle table — only layer (with base/) that imports db/schema
+│   ├── auth/                # Better Auth
+│   ├── schemas.ts           # ArkType route request bodies
+│   └── index.ts             # Bootstrap: middleware, mount routes, GCF export
 ├── drizzle.config.ts        # drizzle-kit generate | migrate | push
 ├── package.json             # @neon/events-api — db:* scripts; also wired at repo root as db:events-api:*
 └── .env.example
 ```
+
+**Config (`functions/events-api/src/config/`):** Static tunables only — no side effects at import (no clients, no DB). Registration OTP (`registration.ts`), Stripe PI defaults (`stripe.ts`), E2E defaults (`e2e.ts`), Twilio/SMS limits (`sms.ts`), validation regexes (`contact.ts`, `profile.ts`), email i18n templates (`email-templates.ts`). Import as `../config/<module>` from `services/` or `helpers/`.
+
+**Routes (`functions/events-api/src/routes/`):** HTTP (status, cookies, Hono `Context`, ArkType) **plus orchestration** — call table services, `runTransaction` from `services/transaction.ts`, merge in TS (`routes/shared/format-order-tiers.ts`, `routes/admin/providers/*`). Do **not** import `drizzle-orm`, `getDb`, or `db/schema` (use `services/db.ts` for `isDatabaseConfigured`, table column refs from service exports like `peopleTable`). Map failures via `jsonReasonFailure()` in `routes/shared/respond.ts`.
+
+**Services (`functions/events-api/src/services/`):** One `*.service.ts` per `pgTable`; rare `*.view.service.ts` only after the view gate in `db/views.ts`. **`services/transaction.ts`** — canonical `runTransaction` + `EntityTx` (sole `getDb().transaction` outside table/view services, `services/db.ts`, `services/admin/crud-mount.ts`). **Forbidden:** `services/compose/`, `*-flow.service.ts`, multi-table Drizzle in `*.service.ts`. Table services may call other services only for admin list `where` helpers (e.g. `ordersService.buildAdminListWhere` + `peopleService.searchIdsByAdminQuery`) — not for joined reads.
+
+**Helpers (`functions/events-api/src/helpers/`):** Stateless utils + outbound IO (contact, OTP, Stripe SDK, email, SMS). **No HTTP, no Hono, no Drizzle.** Order tier **formatting** only in `order-tier-labels.ts`; loading lines via `routes/shared/format-order-tiers.ts` + table services.
 
 **Drizzle migrations (events-api):** **Never write or edit `drizzle/*.sql` by hand.** After changing `functions/events-api/src/db/schema.ts`, run **`drizzle-kit generate`** so SQL and `drizzle/meta/*_snapshot.json` stay consistent with the journal:
 
@@ -300,7 +317,7 @@ functions/stripe-api/
 
 ### Patterns
 
-- **TypeScript imports:** use **extensionless** relative paths only — `from "./checkout-intent"`, never `from "./checkout-intent.js"`. Workspace TS uses `moduleResolution: "bundler"`; production bundles via **tsup**. Package imports stay bare (`@neon/server-kit`, not file extensions).
+- **TypeScript imports:** use **extensionless** relative paths only — `from "./routes/checkout"`, never `from "./checkout.js"`. Workspace TS uses `moduleResolution: "bundler"`; production bundles via **tsup**. Package imports stay bare (`@neon/server-kit`, not file extensions).
 - Define ArkType schemas in `schemas.ts`, use `arktypeValidator('json', schema)` middleware on routes.
 - Validated request data is accessed via `c.req.valid('json')` with full type inference.
 - Environment secrets (`STRIPE_SECRET_KEY`) come from GCP Secret Manager in production, `.env.local` in development.
@@ -311,9 +328,11 @@ functions/stripe-api/
 
 - **Frontend:** `@neon/admin` — Vite + React Router + TanStack Query + Shadcn-style UI (dark). No SSR. Local dev proxies `/api` and `/admin` to `events-api` (8082). Client data: `lib/admin-api.ts` (HTTP) + `hooks/use-admin-api/` (React Query). Route UUIDs: `hooks/use-uuid-route-param.ts`.
 - **Auth:** Better Auth on `events-api` at `/admin/auth/*` (not `/api/auth` — CDN must route `/neo-events-api/admin/*` to the function). **Google OAuth only** (no email/password). `databaseHooks` + session guard enforce `@neonclub.ch` emails. Env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
-- **Admin routes:** `functions/events-api/src/admin/router.ts` mounted at `/admin`. All routes use `requireAdminSession` (not `ADMIN_API_KEY` in the browser).
+- **Admin routes:** `functions/events-api/src/routes/admin/router.ts` mounted at `/admin` via `createAppRouter()`. All routes use `requireAdminSession` (not `ADMIN_API_KEY` in the browser).
 - **`@neon/admin-crud`:** `parseListQuery`, `buildFilterConditions` (suffix filters: `_in`, `_not`, `_gte`, …), `bulkProvider` (`POST/PATCH /bulk`), column-derived ArkType list schemas. Legacy `crudProvider` still works for table-only resources.
-- **Entity services (`functions/events-api/src/services/`):** One singleton per entity in `<entity>.service.ts` (`eventsService`, `peopleService`, `ordersService`, …). Extend `TableService` (or `AbstractService` for joins). **`list` and `count` share `ListQuery`** with root `limit` (default 100), `skip` (default 0), `filters` (default `{}` = all rows). Admin resources set `service:` on `defineAdminResource`; `createCrudRouter` mounts list/detail/mutations from the singleton. Use `detailProvider` / `actionProvider` for nested routes (event invitees). Do **not** `new EventsService()` at call sites — import the singleton only.
+- **Drizzle boundary:** enforced in `functions/events-api/.eslintrc.json`. `routes/` and `helpers/` must not import Drizzle or `db/schema`. Multi-step writes: `runTransaction` in route modules + `*InTx` on table services. Admin CRUD `getDb`: `services/admin/crud-mount.ts` only.
+- **Refund state (webhook-applied):** Admin `POST /admin/orders/:id/refund` only calls Stripe (`routes/admin/refund.ts`) and returns `202` with `{ pending: true }`. DB updates (`refunded`, admission revoked, invite redemptions removed) run in `ordersService.applyRefundFromStripeInTx` on Stripe `charge.refunded` (handler in `routes/webhooks.ts`). Local dev needs `pnpm stripe:listen`.
+- **Call priority:** **(1)** table `TableService` CRUD / `*InTx`; **(2)** route orchestration composing multiple services (checkout, webhooks, registrations, `routes/events/read.ts`, admin providers); **(3)** `helpers/` for stateless IO and cross-table label helpers (`order-tier-labels.ts`). HTTP mapping lives in `routes/` only. Admin joined lists/details that span tables use `routes/admin/providers/*`, not fat services. **`list` and `count` share `ListQuery`** with root `limit` (default 100), `skip` (default 0), `filters` (default `{}` = all rows). Use `detailProvider` / `actionProvider` for nested routes (event invitees). Do **not** `new EventsService()` at call sites — import the singleton only.
 
 ## Performance Optimization
 

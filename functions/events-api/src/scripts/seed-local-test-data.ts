@@ -12,10 +12,13 @@
 
 import { and, eq, sql } from "drizzle-orm";
 
-import { phoneToStoredDigits } from "../contact";
+import { phoneToStoredDigits } from "../helpers/contact";
 import { closeDb, getDb } from "../db/index";
 import { eventTiers, events, people } from "../db/schema";
-import { regenerateInviteLink, upsertInviteesForEvent } from "../services/admin-invitees";
+import {
+  regenerateInviteeHostLink,
+  upsertInviteesForEvent,
+} from "../routes/admin/providers/invitees-admin";
 
 /** Override in `.env.local`: `SEED_EMAIL`, `SEED_PHONE_E164` (+41…). */
 const SEED_EMAIL = process.env.SEED_EMAIL?.trim() || "filo87@gmail.com";
@@ -83,7 +86,11 @@ async function main(): Promise<void> {
     })
     .where(eq(people.id, personId));
 
-  const linkResult = await regenerateInviteLink(inviteEventId, inviteeId, 10);
+  const linkResult = await regenerateInviteeHostLink(
+    inviteEventId,
+    inviteeId,
+    10,
+  );
   if (!linkResult.ok) {
     throw new Error(`Failed to mint host invite link: ${linkResult.reason}`);
   }

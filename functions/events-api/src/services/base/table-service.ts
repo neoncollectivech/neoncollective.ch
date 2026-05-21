@@ -128,6 +128,25 @@ export class TableService<
     );
   }
 
+  /** Override to `"custom"` when list/count need joins or enriched DTOs. */
+  protected listExecution(): "table" | "custom" {
+    return "table";
+  }
+
+  protected async executeCustomList(
+    _query: ListQuery<TFilters>,
+    _ctx?: ServiceContext,
+  ): Promise<ListResult<TListItem>> {
+    throw new Error("executeCustomList not implemented");
+  }
+
+  protected async executeCustomCount(
+    _query: ListQuery<TFilters>,
+    _ctx?: ServiceContext,
+  ): Promise<number> {
+    throw new Error("executeCustomCount not implemented");
+  }
+
   protected async resolveListScope(query: ListQuery<TFilters>, ctx?: ServiceContext) {
     const parent = parentSqlFromCtx(ctx);
     const hookWhere = await this.listWhere(ctx);
@@ -161,7 +180,11 @@ export class TableService<
     return rows[0] ?? null;
   }
 
-  async list(query: ListQuery<TFilters>, ctx?: ServiceContext): Promise<ListResult<TListItem>> {
+  /** Default table-backed list (used by subclasses when custom list defers to standard). */
+  protected async listFromTable(
+    query: ListQuery<TFilters>,
+    ctx?: ServiceContext,
+  ): Promise<ListResult<TListItem>> {
     const scope = await this.resolveListScope(query, ctx);
     const db = this.getDb();
     const { rows, total } = await runAdminListFromScope({
@@ -175,7 +198,11 @@ export class TableService<
     return { items, meta: listMetaFromScope(scope, total) };
   }
 
-  async count(query: ListQuery<TFilters>, ctx?: ServiceContext): Promise<number> {
+  /** Default table-backed count (used by subclasses when custom count defers to standard). */
+  protected async countFromTable(
+    query: ListQuery<TFilters>,
+    ctx?: ServiceContext,
+  ): Promise<number> {
     const scope = await this.resolveListScope(query, ctx);
     const db = this.getDb();
     const [countRow] = (await db
@@ -183,6 +210,20 @@ export class TableService<
       .from(this.table)
       .where(scope.where)) as { total: number }[];
     return Number(countRow?.total ?? 0);
+  }
+
+  async list(query: ListQuery<TFilters>, ctx?: ServiceContext): Promise<ListResult<TListItem>> {
+    if (this.listExecution() === "custom") {
+      return this.executeCustomList(query, ctx);
+    }
+    return this.listFromTable(query, ctx);
+  }
+
+  async count(query: ListQuery<TFilters>, ctx?: ServiceContext): Promise<number> {
+    if (this.listExecution() === "custom") {
+      return this.executeCustomCount(query, ctx);
+    }
+    return this.countFromTable(query, ctx);
   }
 
   async create(data: TCreate, ctx?: ServiceContext): Promise<TRow> {

@@ -72,7 +72,7 @@ export function OrderDetailPage() {
                     onClick={() => {
                       if (confirm("Refund this order?")) {
                         refundMutation.mutate(orderId, {
-                          onSuccess: () => toast.success("Order refunded"),
+                          onSuccess: () => toast.success("Refund initiated"),
                         });
                       }
                     }}

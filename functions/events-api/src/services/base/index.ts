@@ -1,6 +1,7 @@
 export { AbstractService } from "./abstract-service";
 export { AbstractTableService } from "./abstract-table-service";
 export type { AdminListMeta, BulkUpdateItem, ListQuery, ListResult } from "@neon/admin-crud";
+export { customListMeta } from "./joined-list";
 export { BulkLimitError } from "./errors";
 export { mapCtx, parentSqlFromCtx } from "./map-ctx";
 export { orClauses } from "./sql-utils";

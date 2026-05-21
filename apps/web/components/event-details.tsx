@@ -362,7 +362,13 @@ function PaymentStep({
 
   return (
     <form className="mt-6 space-y-4" onSubmit={handlePay}>
-      <PaymentElement />
+      <PaymentElement
+        options={{
+          wallets: {
+            link: "never",
+          },
+        }}
+      />
       <p className="text-xs text-foreground/40">{onePersonHint}</p>
       {err ? <FormError>{err}</FormError> : null}
       <NeonButton
