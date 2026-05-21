@@ -5,7 +5,7 @@ import { buildFilterConditions } from "./filter-helpers";
 import type { FilterableColumn } from "./filter-types";
 import type { AdminListMeta } from "./schemas";
 
-const RESERVED_QUERY_KEYS = new Set(["limit", "skip", "sort", "q", "page", "pageSize"]);
+const RESERVED_QUERY_KEYS = new Set(["limit", "skip", "sort", "q"]);
 
 export type BulkUpdateItem<TUpdate> = { id: string; data: TUpdate };
 
@@ -54,20 +54,8 @@ export function parseListQuery<TFilters extends Record<string, unknown> = Record
     }
   }
 
-  let limit = clampLimit(Number.parseInt(String(raw.limit ?? "100"), 10) || 100, maxPageSize);
-  let skip = Math.max(0, Number.parseInt(String(raw.skip ?? "0"), 10) || 0);
-
-  const pageRaw = raw.page;
-  const pageSizeRaw = raw.pageSize;
-  if (raw.limit === undefined && raw.skip === undefined && (pageRaw !== undefined || pageSizeRaw !== undefined)) {
-    const page = Math.max(1, Number.parseInt(String(pageRaw ?? "1"), 10) || 1);
-    const pageSize = clampLimit(
-      Number.parseInt(String(pageSizeRaw ?? "20"), 10) || 20,
-      maxPageSize,
-    );
-    limit = pageSize;
-    skip = (page - 1) * pageSize;
-  }
+  const limit = clampLimit(Number.parseInt(String(raw.limit ?? "100"), 10) || 100, maxPageSize);
+  const skip = Math.max(0, Number.parseInt(String(raw.skip ?? "0"), 10) || 0);
 
   const sort = typeof raw.sort === "string" ? raw.sort : undefined;
   const q = typeof raw.q === "string" ? raw.q : undefined;
@@ -147,8 +135,6 @@ export function listMetaFromScope(
     total,
     limit,
     skip,
-    page: limit > 0 ? Math.floor(skip / limit) + 1 : 1,
-    pageSize: limit,
   };
 }
 

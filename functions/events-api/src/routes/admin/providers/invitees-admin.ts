@@ -190,8 +190,6 @@ export async function listAdminEventInvitees(
       total: items.length,
       limit: query.limit,
       skip: 0,
-      page: 1,
-      pageSize: items.length,
     },
   };
 }

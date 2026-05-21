@@ -11,9 +11,9 @@ export const api = axios.create({
 });
 
 export type ListMeta = {
-  page: number;
-  pageSize: number;
   total: number;
+  limit: number;
+  skip: number;
 };
 
 export type ListResponse<T> = {

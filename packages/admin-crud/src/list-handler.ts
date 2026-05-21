@@ -1,7 +1,8 @@
 import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
-import { parseAdminListQuery, type AdminListMeta, type AdminListQuery } from "./schemas";
+import { parseListQuery } from "./list-scope";
+import type { AdminListMeta, AdminListQuery } from "./schemas";
 
 export type ListHandlerParams<TTable extends PgTable> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,23 +27,20 @@ function parseSort(
   if (!raw || !sortFields) {
     return null;
   }
-  const desc = raw.startsWith("-");
-  const key = desc ? raw.slice(1) : raw;
+  const descFlag = raw.startsWith("-");
+  const key = descFlag ? raw.slice(1) : raw;
   const column = sortFields[key];
   if (!column) {
     return null;
   }
-  return { column, desc };
+  return { column, desc: descFlag };
 }
 
 export async function runAdminList<TTable extends PgTable>(
   params: ListHandlerParams<TTable>,
 ): Promise<{ rows: Record<string, unknown>[]; meta: AdminListMeta }> {
-  const parsed = parseAdminListQuery(params.query);
-  const page = parsed.page;
-  const maxPageSize = params.maxPageSize ?? 100;
-  const pageSize = Math.min(maxPageSize, parsed.pageSize);
-  const offset = (page - 1) * pageSize;
+  const parsed = parseListQuery(params.query, params.maxPageSize ?? 100);
+  const { limit, skip } = parsed;
 
   const conditions: (SQL | undefined)[] = [];
   if (params.extraWhere) {
@@ -78,24 +76,20 @@ export async function runAdminList<TTable extends PgTable>(
     .from(params.table)
     .where(whereClause)
     .orderBy(orderBy)
-    .limit(pageSize)
-    .offset(offset)) as Record<string, unknown>[];
+    .limit(limit)
+    .offset(skip)) as Record<string, unknown>[];
 
   const [countRow] = (await params.db
     .select({ total: count() })
     .from(params.table)
     .where(whereClause)) as { total: number }[];
 
-  const skip = offset;
-  const limit = pageSize;
   return {
     rows,
     meta: {
       total: Number(countRow?.total ?? 0),
       limit,
       skip,
-      page,
-      pageSize,
     },
   };
 }

@@ -52,8 +52,16 @@ export type VerifyPeopleMeta = {
   notFound: number;
 };
 
-export async function listEvents() {
-  const res = await api.get<ListResponse<EventRow>>("/admin/events");
+export type AdminListRequestParams = {
+  limit: string;
+  skip: string;
+  q?: string;
+};
+
+export async function listEvents(params: AdminListRequestParams) {
+  const res = await api.get<ListResponse<EventRow>>("/admin/events", {
+    params,
+  });
 
   return res.data;
 }
@@ -168,8 +176,10 @@ export async function putEventTiers(
   await api.put(`/admin/events/${eventId}/tiers`, payload);
 }
 
-export async function listOrders() {
-  const res = await api.get<ListResponse<OrderRow>>("/admin/orders");
+export async function listOrders(params: AdminListRequestParams) {
+  const res = await api.get<ListResponse<OrderRow>>("/admin/orders", {
+    params,
+  });
 
   return res.data;
 }
@@ -190,7 +200,7 @@ export async function deleteOrder(orderId: string) {
   await api.delete(`/admin/orders/${orderId}`);
 }
 
-export async function listPeople(params?: { q?: string; pageSize?: string }) {
+export async function listPeople(params: AdminListRequestParams) {
   const res = await api.get<ListResponse<PersonRow>>("/admin/people", {
     params,
   });

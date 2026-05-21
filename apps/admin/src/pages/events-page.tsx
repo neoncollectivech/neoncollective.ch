@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
+import { AdminListPagination } from "@/components/admin-list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,10 +13,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminApi } from "@/hooks/use-admin-api";
+import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
 import { isUuid } from "@/lib/uuid";
 
 export function EventsPage() {
-  const { data, isLoading, error } = useQuery(adminApi.events.list());
+  const { page, pageSize, setPage, setPageSize } = useAdminListPagination();
+  const { data, isLoading, error } = useQuery(
+    adminApi.events.list({ page, pageSize }),
+  );
 
   return (
     <div className="space-y-6">
@@ -30,46 +35,56 @@ export function EventsPage() {
       {error && <p className="text-red-400">Failed to load events.</p>}
 
       {data && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Access</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.items.map((event) => (
-              <TableRow key={event.id ?? event.slug}>
-                <TableCell className="font-medium">{event.title}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {event.slug}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      event.status === "published" ? "default" : "secondary"
-                    }
-                  >
-                    {event.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>{event.accessMode}</TableCell>
-                <TableCell>
-                  {isUuid(event.id) ? (
-                    <Button asChild size="sm" variant="ghost">
-                      <Link to={`/events/${event.id}`}>Open</Link>
-                    </Button>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">—</span>
-                  )}
-                </TableCell>
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Access</TableHead>
+                <TableHead />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {data.items.map((event) => (
+                <TableRow key={event.id ?? event.slug}>
+                  <TableCell className="font-medium">{event.title}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {event.slug}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        event.status === "published" ? "default" : "secondary"
+                      }
+                    >
+                      {event.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{event.accessMode}</TableCell>
+                  <TableCell>
+                    {isUuid(event.id) ? (
+                      <Button asChild size="sm" variant="ghost">
+                        <Link to={`/events/${event.id}`}>Open</Link>
+                      </Button>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <AdminListPagination
+            isLoading={isLoading}
+            meta={data.meta}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
     </div>
   );

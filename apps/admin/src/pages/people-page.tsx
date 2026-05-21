@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import { AdminListPagination } from "@/components/admin-list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminApi } from "@/hooks/use-admin-api";
+import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
 import { buildPublicLoginUrl, personLoginContact } from "@/lib/invite-url";
 import {
   personNeedsVerification,
@@ -41,8 +43,12 @@ export function PeoplePage() {
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { page, pageSize, setPage, setPageSize, resetPage } =
+    useAdminListPagination();
 
-  const { data, isLoading, refetch } = useQuery(adminApi.people.list(search));
+  const { data, isLoading } = useQuery(
+    adminApi.people.list({ page, pageSize }, search),
+  );
 
   const items = data?.items ?? [];
 
@@ -92,6 +98,12 @@ export function PeoplePage() {
     }
   };
 
+  const runSearch = () => {
+    setSearch(q);
+    resetPage();
+    setSelected(new Set());
+  };
+
   const selectedIds = [...selected];
 
   return (
@@ -105,21 +117,11 @@ export function PeoplePage() {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              setSearch(q);
-              setSelected(new Set());
-              void refetch();
+              runSearch();
             }
           }}
         />
-        <Button
-          onClick={() => {
-            setSearch(q);
-            setSelected(new Set());
-            void refetch();
-          }}
-        >
-          Search
-        </Button>
+        <Button onClick={runSearch}>Search</Button>
         <Button
           disabled={selectedIds.length === 0 || verifyMutation.isPending}
           variant="outline"
@@ -134,87 +136,97 @@ export function PeoplePage() {
       {isLoading && <p className="text-muted-foreground">Loading…</p>}
 
       {data && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
-                <input
-                  aria-label="Select all needing verification"
-                  checked={allSelectableSelected}
-                  className="size-4 rounded border-input"
-                  disabled={selectableIds.length === 0}
-                  type="checkbox"
-                  onChange={toggleAll}
-                />
-              </TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Verification</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((p) => {
-              const canSelect = isUuid(p.id) && personNeedsVerification(p);
-              const verified =
-                !personNeedsVerification(p) &&
-                Boolean(p.email?.trim() || p.phone?.trim());
-              const loginContact = personLoginContact(p);
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    aria-label="Select all needing verification on this page"
+                    checked={allSelectableSelected}
+                    className="size-4 rounded border-input"
+                    disabled={selectableIds.length === 0}
+                    type="checkbox"
+                    onChange={toggleAll}
+                  />
+                </TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Verification</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((p) => {
+                const canSelect = isUuid(p.id) && personNeedsVerification(p);
+                const verified =
+                  !personNeedsVerification(p) &&
+                  Boolean(p.email?.trim() || p.phone?.trim());
+                const loginContact = personLoginContact(p);
 
-              return (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    <input
-                      aria-label={`Select ${p.givenName} ${p.familyName}`}
-                      checked={selected.has(p.id)}
-                      className="size-4 rounded border-input"
-                      disabled={!canSelect}
-                      type="checkbox"
-                      onChange={() => toggleOne(p.id)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {p.givenName} {p.familyName}
-                  </TableCell>
-                  <TableCell>{p.email ?? "—"}</TableCell>
-                  <TableCell>{p.phone ? `+${p.phone}` : "—"}</TableCell>
-                  <TableCell>
-                    {verified ? (
-                      <Badge>Verified</Badge>
-                    ) : personNeedsVerification(p) ? (
-                      <Badge variant="secondary">Pending</Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {personVerificationSummary(p)}
-                    </p>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex flex-wrap justify-end gap-1">
-                      {loginContact ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void copyPersonLoginLink(p)}
-                        >
-                          Copy login link
-                        </Button>
-                      ) : null}
-                      {isUuid(p.id) ? (
-                        <Button asChild size="sm" variant="ghost">
-                          <Link to={`/people/${p.id}`}>View</Link>
-                        </Button>
-                      ) : null}
-                      {!loginContact && !isUuid(p.id) ? "—" : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <input
+                        aria-label={`Select ${p.givenName} ${p.familyName}`}
+                        checked={selected.has(p.id)}
+                        className="size-4 rounded border-input"
+                        disabled={!canSelect}
+                        type="checkbox"
+                        onChange={() => toggleOne(p.id)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {p.givenName} {p.familyName}
+                    </TableCell>
+                    <TableCell>{p.email ?? "—"}</TableCell>
+                    <TableCell>{p.phone ? `+${p.phone}` : "—"}</TableCell>
+                    <TableCell>
+                      {verified ? (
+                        <Badge>Verified</Badge>
+                      ) : personNeedsVerification(p) ? (
+                        <Badge variant="secondary">Pending</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {personVerificationSummary(p)}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {loginContact ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void copyPersonLoginLink(p)}
+                          >
+                            Copy login link
+                          </Button>
+                        ) : null}
+                        {isUuid(p.id) ? (
+                          <Button asChild size="sm" variant="ghost">
+                            <Link to={`/people/${p.id}`}>View</Link>
+                          </Button>
+                        ) : null}
+                        {!loginContact && !isUuid(p.id) ? "—" : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          <AdminListPagination
+            isLoading={isLoading}
+            meta={data.meta}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
     </div>
   );

@@ -1,7 +1,6 @@
 export { AdminApiError, BadRequestError, ConflictError, NotFoundError } from "./errors";
 export {
   adminListQuerySchema,
-  parseAdminListQuery,
   type AdminListMeta,
   type AdminListQuery,
 } from "./schemas";

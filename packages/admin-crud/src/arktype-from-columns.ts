@@ -123,8 +123,6 @@ export function buildArkTypeSchemas(
   const listQueryFields: Record<string, string> = {
     "limit?": "string",
     "skip?": "string",
-    "page?": "string",
-    "pageSize?": "string",
     "sort?": "string",
     "q?": "string",
   };
@@ -201,8 +199,6 @@ export function buildListQuerySchemaFromFilterable(
   const listQueryFields: Record<string, string> = {
     "limit?": "string",
     "skip?": "string",
-    "page?": "string",
-    "pageSize?": "string",
     "sort?": "string",
     "q?": "string",
   };

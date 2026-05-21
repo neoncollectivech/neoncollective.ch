@@ -30,6 +30,7 @@ import {
 } from "@/lib/admin-api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { queryClient } from "@/lib/query-client";
+import { buildAdminListQueryKey, pageToLimitSkip } from "@/lib/admin-list";
 
 import { adminKeys } from "./keys";
 
@@ -66,10 +67,13 @@ async function invalidatePeople(personId?: string) {
 export const adminApi = {
   keys: adminKeys,
   events: {
-    list: () =>
+    list: (pagination: { page: number; pageSize: number }) =>
       queryOptions({
-        queryKey: adminKeys.events.list(),
-        queryFn: listEvents,
+        queryKey: adminKeys.events.list(
+          buildAdminListQueryKey(pagination.page, pagination.pageSize),
+        ),
+        queryFn: () =>
+          listEvents(pageToLimitSkip(pagination.page, pagination.pageSize)),
       }),
   },
   event: {
@@ -205,10 +209,13 @@ export const adminApi = {
       }),
   },
   orders: {
-    list: () =>
+    list: (pagination: { page: number; pageSize: number }) =>
       queryOptions({
-        queryKey: adminKeys.orders.list(),
-        queryFn: listOrders,
+        queryKey: adminKeys.orders.list(
+          buildAdminListQueryKey(pagination.page, pagination.pageSize),
+        ),
+        queryFn: () =>
+          listOrders(pageToLimitSkip(pagination.page, pagination.pageSize)),
       }),
   },
   order: {
@@ -236,13 +243,17 @@ export const adminApi = {
       }),
   },
   people: {
-    list: (search: string) =>
+    list: (pagination: { page: number; pageSize: number }, search: string) =>
       queryOptions({
-        queryKey: adminKeys.people.list({ q: search }),
+        queryKey: adminKeys.people.list(
+          buildAdminListQueryKey(pagination.page, pagination.pageSize, {
+            q: search,
+          }),
+        ),
         queryFn: () =>
           listPeople({
+            ...pageToLimitSkip(pagination.page, pagination.pageSize),
             ...(search ? { q: search } : {}),
-            pageSize: "100",
           }),
       }),
     verify: () =>
