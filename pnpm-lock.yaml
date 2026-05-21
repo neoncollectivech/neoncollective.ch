@@ -16,9 +16,6 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
-      stripe:
-        specifier: ^17.0.0
-        version: 17.7.0
       tsup:
         specifier: ^8.5.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
