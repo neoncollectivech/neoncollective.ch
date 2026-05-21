@@ -3,6 +3,7 @@ import {
   ConflictError,
   NotFoundError,
   defineFilterable,
+  filterable,
   introspectPgTable,
   parseListQuery,
   type ListQuery,
@@ -38,7 +39,7 @@ import { orClauses } from "./base/sql-utils";
 import { TableService } from "./base/table-service";
 import type { ServiceContext } from "./base/types";
 
-const peopleFilterable = defineFilterable([] as const);
+const peopleFilterable = defineFilterable([filterable("id", people.id)] as const);
 
 const peopleMeta = introspectPgTable(people, {
   exclude: {

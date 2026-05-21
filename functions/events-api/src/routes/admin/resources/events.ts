@@ -65,6 +65,14 @@ export const events = defineAdminResource({
   detail: async (id) => getAdminEventDetail(id),
   opts: {
     operations: ["list", "create", "update"],
+    list: {
+      filterFields: {
+        id: eventsTable.id,
+        status: eventsTable.status,
+        accessMode: eventsTable.accessMode,
+        startsAt: eventsTable.startsAt,
+      },
+    },
     schemas: {
       jsonbStringArrays: ["imageUrls"],
     },

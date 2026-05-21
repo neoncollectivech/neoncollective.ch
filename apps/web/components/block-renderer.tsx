@@ -53,12 +53,6 @@ export function BlockRenderer({ blocks, locale }: BlockRendererProps) {
         const Component = BLOCK_REGISTRY[block.component];
 
         if (!Component) {
-          if (process.env.NODE_ENV === "development") {
-            console.warn(
-              `[BlockRenderer] Unknown block type: "${block.component}"`,
-            );
-          }
-
           return null;
         }
 

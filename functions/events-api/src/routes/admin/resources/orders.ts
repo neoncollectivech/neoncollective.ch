@@ -2,8 +2,11 @@ import { actionProvider } from "@neon/admin-crud";
 import type { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import { orders as ordersTable } from "../../../db/schema";
-import { ordersFilterable, ordersService } from "../../../services/orders.service";
+import {
+  ordersFilterable,
+  ordersService,
+  ordersTable,
+} from "../../../services/orders.service";
 import { getAdminOrderDetail } from "../providers/orders-admin";
 import { refundOrder, type RefundOrderFailureReason } from "../refund";
 import { defineAdminResource } from "../resource";

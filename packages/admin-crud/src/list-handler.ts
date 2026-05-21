@@ -1,6 +1,7 @@
-import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, ilike, or, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
+import { buildFilterConditions, filterable } from "./filter-helpers";
 import { parseListQuery } from "./list-scope";
 import type { AdminListMeta, AdminListQuery } from "./schemas";
 
@@ -54,12 +55,14 @@ export async function runAdminList<TTable extends PgTable>(
   }
 
   if (params.filterFields) {
-    for (const [key, column] of Object.entries(params.filterFields)) {
-      const val = params.query[key];
-      if (val !== undefined && val !== "") {
-        conditions.push(eq(column, val));
-      }
-    }
+    const filterableFields = Object.entries(params.filterFields).map(
+      ([name, column]) => filterable(name, column),
+    );
+    const filterConds = buildFilterConditions(
+      parsed.filters as Record<string, string | string[] | undefined>,
+      filterableFields,
+    );
+    conditions.push(...filterConds);
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

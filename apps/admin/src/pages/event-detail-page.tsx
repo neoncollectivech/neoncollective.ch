@@ -19,6 +19,7 @@ import { TierEditor } from "@/components/tier-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InlineSpinner } from "@/components/ui/inline-spinner";
 import {
   Table,
   TableBody,
@@ -32,7 +33,7 @@ import {
   eventToFormValues,
   formValuesToUpdatePayload,
 } from "@/lib/event-form-utils";
-import { adminApi } from "@/hooks/use-admin-api";
+import { adminApi, useAdminForeignKeys } from "@/hooks/use-admin-api";
 import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
 
@@ -58,6 +59,11 @@ export function EventDetailPage() {
       pageSize: inviteePageSize,
     }),
   );
+  const {
+    personById: inviteePersonById,
+    isPending: inviteeFkPending,
+    isFetching: inviteeFkFetching,
+  } = useAdminForeignKeys(inviteesQuery.data?.items ?? []);
   const updateMutation = useMutation(adminApi.event.update(eventId));
   const upsertMutation = useMutation(adminApi.event.upsertInvitees(eventId));
   const revokeMutation = useMutation(adminApi.event.revokeInvitee(eventId));
@@ -241,7 +247,33 @@ export function EventDetailPage() {
                                 {inv.phone ? `+${inv.phone}` : "—"}
                               </TableCell>
                               <TableCell className="font-mono text-xs">
-                                {inv.personId ?? "—"}
+                                {inv.personId ? (
+                                  <>
+                                    {inviteeFkPending ? (
+                                      <span className="mr-2 inline-flex align-middle">
+                                        <InlineSpinner />
+                                      </span>
+                                    ) : null}
+                                    {(() => {
+                                      const person = inviteePersonById.get(
+                                        inv.personId!,
+                                      );
+
+                                      if (!person) {
+                                        return inv.personId;
+                                      }
+
+                                      return `${person.givenName ?? ""} ${person.familyName ?? ""}`.trim();
+                                    })()}
+                                    {!inviteeFkPending && inviteeFkFetching ? (
+                                      <span className="ml-2 inline-flex align-middle">
+                                        <InlineSpinner />
+                                      </span>
+                                    ) : null}
+                                  </>
+                                ) : (
+                                  "—"
+                                )}
                               </TableCell>
                               <TableCell className="max-w-[200px] truncate">
                                 {inv.notes ?? "—"}

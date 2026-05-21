@@ -12,6 +12,8 @@ import { orders } from "../db/schema";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base";
 
+export { orders as ordersTable };
+
 export const ordersFilterable = defineFilterable([
   filterable("eventId", orders.eventId),
   filterable("status", orders.status),

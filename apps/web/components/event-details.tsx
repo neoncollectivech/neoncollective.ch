@@ -427,9 +427,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
       ? undefined
       : urlInviteToken;
 
-  const showCheckout =
-    Boolean(eventQuery.data?.tiers?.length) &&
-    !eventQuery.data?.registrationConfirmed;
   const profileLabels = useProfileModalLabels();
   const [profileGateOpen, setProfileGateOpen] = useState(true);
   const {

@@ -57,3 +57,13 @@ export function buildAdminListQueryKey(
     ...extra,
   };
 }
+
+export function canonicalizeIds(
+  ids: Array<string | null | undefined>,
+): string[] {
+  return [...new Set(ids.filter((id): id is string => Boolean(id)))].sort();
+}
+
+export function toIdInParam(ids: Array<string | null | undefined>): string {
+  return canonicalizeIds(ids).join(",");
+}

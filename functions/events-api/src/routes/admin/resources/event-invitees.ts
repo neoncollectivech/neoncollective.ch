@@ -1,21 +1,15 @@
-import { defineFilterable, filterable } from "@neon/admin-crud";
-
-import { eventInvitees } from "../../../db/schema";
 import { eventsService } from "../../../services/events.service";
 import {
   eventInviteesService,
+  eventInviteesEventIdColumn,
   eventInviteesTable,
 } from "../../../services/event-invitees.service";
 import { getAdminInviteeDetail } from "../providers/invitees-admin";
 import { defineAdminResource } from "../resource";
 
-const eventInviteesFilterable = defineFilterable([
-  filterable("eventId", eventInvitees.eventId),
-] as const);
-
-const inviteesFilterFields = Object.fromEntries(
-  eventInviteesFilterable.map((f) => [f.name, f.column]),
-) as Record<string, import("drizzle-orm/pg-core").PgColumn>;
+const inviteesFilterFields: Record<string, import("drizzle-orm/pg-core").PgColumn> = {
+  eventId: eventInviteesEventIdColumn,
+};
 
 export const eventInviteesResource = defineAdminResource({
   table: eventInviteesTable,

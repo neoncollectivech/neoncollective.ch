@@ -59,7 +59,6 @@ function EventsIndexInner() {
 
   const {
     profile,
-    inviteFlow,
     needsProfile,
     isLoading: profileLoading,
     invalidateAfterProfileComplete,

@@ -11,6 +11,11 @@ export const people = defineAdminResource({
   detail: async (id) => getAdminPersonDetail(id),
   opts: {
     operations: ["list", "update"],
+    list: {
+      filterFields: {
+        id: peopleTable.id,
+      },
+    },
     exclude: {
       update: ["phone", "emailVerifiedAt", "phoneVerifiedAt", "updatedAt"],
     },

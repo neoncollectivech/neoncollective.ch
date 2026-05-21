@@ -50,6 +50,7 @@ export type CatalogListParams = {
 };
 
 const eventsFilterable = defineFilterable([
+  filterable("id", events.id),
   filterable("status", events.status),
   filterable("accessMode", events.accessMode),
   filterable("startsAt", events.startsAt),
