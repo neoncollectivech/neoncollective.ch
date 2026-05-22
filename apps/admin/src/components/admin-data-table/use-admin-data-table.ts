@@ -13,7 +13,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   extractFkServicesFromColumns,
@@ -22,6 +22,26 @@ import {
 import { useAdminListState } from "@/hooks/use-admin-list-state";
 import { useForeignKey } from "@/hooks/use-foreign-key";
 import { limitSkipToPage } from "@/lib/admin-list";
+
+function selectionSetsEqual(
+  current: readonly string[] | Set<string>,
+  next: Set<string>,
+): boolean {
+  const currentSet =
+    current instanceof Set ? current : new Set<string>(current);
+
+  if (currentSet.size !== next.size) {
+    return false;
+  }
+
+  for (const id of currentSet) {
+    if (!next.has(id)) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export type AdminDataTableRowSelection<TRow> = {
   getRowId: (row: TRow) => string;
@@ -113,26 +133,42 @@ export function useAdminDataTable<
     () => new Set<string>(),
   );
 
+  const rowSelectionRef = useRef(args.rowSelection);
+
+  rowSelectionRef.current = args.rowSelection;
+
   const selectedSet = useMemo(() => {
-    if (args.rowSelection?.selectedIds) {
-      return new Set(args.rowSelection.selectedIds);
+    if (rowSelectionRef.current?.selectedIds) {
+      return new Set(rowSelectionRef.current.selectedIds);
     }
 
     return uncontrolledSelected;
   }, [args.rowSelection?.selectedIds, uncontrolledSelected]);
 
-  const setSelectedIds = useCallback(
-    (ids: string[] | Set<string>) => {
-      const next = ids instanceof Set ? ids : new Set(ids);
+  const setSelectedIds = useCallback((ids: string[] | Set<string>) => {
+    const next = ids instanceof Set ? ids : new Set(ids);
+    const rowSelection = rowSelectionRef.current;
 
-      if (args.rowSelection?.onSelectedIdsChange) {
-        args.rowSelection.onSelectedIdsChange([...next]);
-      } else {
-        setUncontrolledSelected(next);
+    if (rowSelection?.onSelectedIdsChange) {
+      const current = rowSelection.selectedIds ?? [];
+
+      if (selectionSetsEqual(current, next)) {
+        return;
       }
-    },
-    [args.rowSelection],
-  );
+
+      rowSelection.onSelectedIdsChange([...next]);
+
+      return;
+    }
+
+    setUncontrolledSelected((prev) => {
+      if (selectionSetsEqual(prev, next)) {
+        return prev;
+      }
+
+      return next;
+    });
+  }, []);
 
   const clearSelection = useCallback(() => {
     setSelectedIds([]);

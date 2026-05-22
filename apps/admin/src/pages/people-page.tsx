@@ -1,5 +1,7 @@
+import type { PersonRow } from "@/lib/admin-api";
+
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AdminDataTable } from "@/components/admin-data-table";
@@ -12,9 +14,27 @@ import { isUuid } from "@/lib/uuid";
 
 const columns = peopleColumns();
 
+function getPersonRowId(person: PersonRow) {
+  return person.id;
+}
+
+function isPersonRowSelectable(person: PersonRow) {
+  return isUuid(person.id) && personNeedsVerification(person);
+}
+
 export function PeoplePage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const verifyMutation = useMutation(adminApi.people.verify());
+
+  const rowSelection = useMemo(
+    () => ({
+      getRowId: getPersonRowId,
+      isRowSelectable: isPersonRowSelectable,
+      selectedIds,
+      onSelectedIdsChange: setSelectedIds,
+    }),
+    [selectedIds],
+  );
 
   const handleVerify = (personIds: string[]) => {
     verifyMutation.mutate(personIds, {
@@ -35,12 +55,7 @@ export function PeoplePage() {
       <h2 className="text-2xl font-semibold">People</h2>
       <AdminDataTable
         columns={columns}
-        rowSelection={{
-          getRowId: (p) => p.id,
-          isRowSelectable: (p) => isUuid(p.id) && personNeedsVerification(p),
-          selectedIds,
-          onSelectedIdsChange: setSelectedIds,
-        }}
+        rowSelection={rowSelection}
         service={peopleListService}
         toolbar={(ctx) => (
           <PeopleTableToolbar
