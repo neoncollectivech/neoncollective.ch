@@ -16,6 +16,7 @@ export { orders as ordersTable };
 
 export const ordersFilterable = defineFilterable([
   filterable("eventId", orders.eventId),
+  filterable("personId", orders.personId),
   filterable("status", orders.status),
 ] as const);
 

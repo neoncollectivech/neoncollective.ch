@@ -3,7 +3,6 @@ export const adminKeys = {
     all: ["admin", "events"] as const,
     list: (params?: Record<string, string>) =>
       ["admin", "events", "list", params] as const,
-    byIds: (idIn: string) => ["admin", "events", "by-ids", idIn] as const,
     detail: (id: string) => ["admin", "events", id] as const,
   },
   orders: {
@@ -16,7 +15,6 @@ export const adminKeys = {
     all: ["admin", "people"] as const,
     list: (params?: Record<string, string>) =>
       ["admin", "people", "list", params] as const,
-    byIds: (idIn: string) => ["admin", "people", "by-ids", idIn] as const,
     detail: (id: string) => ["admin", "people", id] as const,
   },
   eventInvitees: {

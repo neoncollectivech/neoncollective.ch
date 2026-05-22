@@ -31,11 +31,7 @@ import {
 } from "@/lib/admin-api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { queryClient } from "@/lib/query-client";
-import {
-  buildAdminListQueryKey,
-  canonicalizeIds,
-  pageToLimitSkip,
-} from "@/lib/admin-list";
+import { buildAdminListQueryKey, pageToLimitSkip } from "@/lib/admin-list";
 
 import { adminKeys } from "./keys";
 
@@ -80,27 +76,6 @@ export const adminApi = {
         queryFn: () =>
           listEvents(pageToLimitSkip(pagination.page, pagination.pageSize)),
       }),
-    byIds: (ids: string[]) => {
-      const canonicalIds = canonicalizeIds(ids);
-      const idIn = canonicalIds.join(",");
-
-      return queryOptions({
-        queryKey: adminKeys.events.byIds(idIn),
-        queryFn: () => {
-          const idCount = idIn ? idIn.split(",").length : 0;
-
-          return listEvents({
-            limit: String(idCount || 1),
-            skip: "0",
-            ...(idIn ? { id_in: idIn } : {}),
-          });
-        },
-        enabled: Boolean(idIn),
-        staleTime: 60_000,
-        placeholderData: (previousData) => previousData,
-        select: (data) => new Map(data.items.map((item) => [item.id, item])),
-      });
-    },
   },
   event: {
     detail: (eventId: string) =>
@@ -299,27 +274,6 @@ export const adminApi = {
             ...(search ? { q: search } : {}),
           }),
       }),
-    byIds: (ids: string[]) => {
-      const canonicalIds = canonicalizeIds(ids);
-      const idIn = canonicalIds.join(",");
-
-      return queryOptions({
-        queryKey: adminKeys.people.byIds(idIn),
-        queryFn: () => {
-          const idCount = idIn ? idIn.split(",").length : 0;
-
-          return listPeople({
-            limit: String(idCount || 1),
-            skip: "0",
-            ...(idIn ? { id_in: idIn } : {}),
-          });
-        },
-        enabled: Boolean(idIn),
-        staleTime: 60_000,
-        placeholderData: (previousData) => previousData,
-        select: (data) => new Map(data.items.map((item) => [item.id, item])),
-      });
-    },
     verify: () =>
       mutationOptions({
         mutationFn: verifyPeople,

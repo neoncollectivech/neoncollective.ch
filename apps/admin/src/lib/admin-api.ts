@@ -72,6 +72,8 @@ export type AdminListRequestParams = {
   q?: string;
   eventId?: string;
   id_in?: string;
+  personId_in?: string;
+  sort?: string;
 };
 
 export async function listEvents(params: AdminListRequestParams) {

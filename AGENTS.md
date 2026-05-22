@@ -269,6 +269,38 @@ functions/stripe-api/
 - Refund flow: `POST /admin/orders/:id/refund` calls Stripe and returns `202 { pending: true }`; DB state updates happen on webhook (`charge.refunded`) in `ordersService.applyRefundFromStripeInTx` (`routes/webhooks.ts`); local dev needs `pnpm stripe:listen`.
 - Call order: (1) table service CRUD/`*InTx`; (2) route orchestration for multi-service flows (`checkout`, `webhooks`, `registrations`, `routes/events/read.ts`, admin providers); (3) helpers for stateless IO/cross-table labels (`order-tier-labels.ts`). Keep HTTP mapping in `routes/`; joined admin list/details in `routes/admin/providers/*`; `list`+`count` share `ListQuery` (`limit` 100, `skip` 0, `filters` `{}` defaults); use `detailProvider`/`actionProvider` for nested routes; never `new EventsService()` at call sites.
 
+### Admin foreign-key population (list tables)
+
+When an admin list row shows related entities (event title, person name, order status), **do not** N+1 `GET /:id` per row or add FK-specific `adminApi` factories.
+
+**Pattern:**
+
+1. **Paginated primary list** — unchanged: `adminApi.{resource}.list` + `page`/`pageSize` → `limit`/`skip` at the HTTP boundary.
+2. **Batch FK load for the current page** — `useForeignKey({ rows, load, scope? })`:
+   - Declares which foreign services to load: `event`, `person`, `order` (extensible via `FK_SERVICE_REGISTRY`).
+   - Collects IDs from visible rows, **dedupes + sorts** (`canonicalizeIds` / `toIdInParam`) for stable React Query keys.
+   - One batched **CRUD list** request per service per page, via existing helpers only:
+     - `listEvents({ id_in, limit, skip: "0" })`
+     - `listPeople({ id_in, limit, skip: "0" })`
+     - `listOrders({ eventId, personId_in, sort: "-createdAt", limit, skip: "0" })` when `scope.eventId` is set
+   - TanStack Query: `enabled` when ID set non-empty; `staleTime`; `placeholderData`; `select` → `Map` keyed by lookup id.
+   - Query keys: `adminKeys.{service}.list(canonicalParams)` — not separate `byIds` keys.
+3. **Render** — `<AdminFkCell fk={fk} foreignService="…" foreignId={…} foreignDisplayField="…" />`:
+   - `foreignService`: registry key (`event` | `person` | `order`).
+   - `foreignId`: value used to read from that service’s lookup map (row FK column; for orders keyed by `personId`).
+   - `foreignDisplayField`: field name or array of fields on the resolved foreign row (e.g. `"title"`, `["givenName","familyName"]`, `"status"`).
+   - Cell owns spinner, link/badge presentation, UUID fallback, and `—` when missing.
+4. **Do not** duplicate FK spinner/link markup in page files.
+
+**Examples:**
+
+- Orders list: `load: ["event", "person"]`.
+- Event invitees list: `load: ["person", "order"]`, `scope: { eventId }` (order column shows latest order `status` for that person on the event).
+
+**Backend:** FK batching relies on `@neon/admin-crud` list filters (`id_in`, `eventId`, `personId_in`, etc.) on the target resource’s `filterable` columns — add filterable fields in the service layer, not one-off list endpoints.
+
+**Mutations:** Invalidate `adminKeys.{service}.all` (or the list prefix) when related rows change so FK maps refresh.
+
 ## Performance Optimization
 
 - Use `next/image` with explicit `width`/`height`; set `priority` for LCP images.

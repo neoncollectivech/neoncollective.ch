@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { AdminListPagination } from "@/components/admin-list-pagination";
 import { EventCapacityStats } from "@/components/event-capacity-stats";
 import { EventForm } from "@/components/event-form";
@@ -19,7 +20,6 @@ import { TierEditor } from "@/components/tier-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { InlineSpinner } from "@/components/ui/inline-spinner";
 import {
   Table,
   TableBody,
@@ -33,8 +33,9 @@ import {
   eventToFormValues,
   formValuesToUpdatePayload,
 } from "@/lib/event-form-utils";
-import { adminApi, useAdminForeignKeys } from "@/hooks/use-admin-api";
+import { adminApi } from "@/hooks/use-admin-api";
 import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
+import { useForeignKey } from "@/hooks/use-foreign-key";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
 
 export function EventDetailPage() {
@@ -59,11 +60,11 @@ export function EventDetailPage() {
       pageSize: inviteePageSize,
     }),
   );
-  const {
-    personById: inviteePersonById,
-    isPending: inviteeFkPending,
-    isFetching: inviteeFkFetching,
-  } = useAdminForeignKeys(inviteesQuery.data?.items ?? []);
+  const inviteeFk = useForeignKey({
+    rows: inviteesQuery.data?.items ?? [],
+    load: ["person", "order"],
+    scope: { eventId },
+  });
   const updateMutation = useMutation(adminApi.event.update(eventId));
   const upsertMutation = useMutation(adminApi.event.upsertInvitees(eventId));
   const revokeMutation = useMutation(adminApi.event.revokeInvitee(eventId));
@@ -230,9 +231,8 @@ export function EventDetailPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Phone</TableHead>
                             <TableHead>Person</TableHead>
+                            <TableHead>Order</TableHead>
                             <TableHead>Notes</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Invite link</TableHead>
@@ -242,48 +242,38 @@ export function EventDetailPage() {
                         <TableBody>
                           {inviteesQuery.data.items.map((inv) => (
                             <TableRow key={inv.id}>
-                              <TableCell>{inv.email ?? "—"}</TableCell>
                               <TableCell>
-                                {inv.phone ? `+${inv.phone}` : "—"}
+                                <AdminFkCell
+                                  fk={inviteeFk}
+                                  foreignDisplayField={[
+                                    "givenName",
+                                    "familyName",
+                                  ]}
+                                  foreignId={inv.personId}
+                                  foreignService="person"
+                                />
                               </TableCell>
-                              <TableCell className="font-mono text-xs">
-                                {inv.personId ? (
-                                  <>
-                                    {inviteeFkPending ? (
-                                      <span className="mr-2 inline-flex align-middle">
-                                        <InlineSpinner />
-                                      </span>
-                                    ) : null}
-                                    {(() => {
-                                      const person = inviteePersonById.get(
-                                        inv.personId!,
-                                      );
-
-                                      if (!person) {
-                                        return inv.personId;
-                                      }
-
-                                      return `${person.givenName ?? ""} ${person.familyName ?? ""}`.trim();
-                                    })()}
-                                    {!inviteeFkPending && inviteeFkFetching ? (
-                                      <span className="ml-2 inline-flex align-middle">
-                                        <InlineSpinner />
-                                      </span>
-                                    ) : null}
-                                  </>
-                                ) : (
-                                  "—"
-                                )}
+                              <TableCell>
+                                <AdminFkCell
+                                  fk={inviteeFk}
+                                  foreignDisplayField="status"
+                                  foreignId={inv.personId}
+                                  foreignService="order"
+                                />
                               </TableCell>
                               <TableCell className="max-w-[200px] truncate">
                                 {inv.notes ?? "—"}
                               </TableCell>
                               <TableCell>
-                                {inv.revokedAt
-                                  ? "Revoked"
-                                  : !inv.personId
-                                    ? "Profile pending"
-                                    : "Active"}
+                                {inv.revokedAt ? (
+                                  <Badge variant="secondary">Revoked</Badge>
+                                ) : !inv.personId ? (
+                                  <Badge variant="secondary">
+                                    Profile pending
+                                  </Badge>
+                                ) : (
+                                  <Badge>Active</Badge>
+                                )}
                               </TableCell>
                               <TableCell className="min-w-[200px]">
                                 <InviteeLinkActions

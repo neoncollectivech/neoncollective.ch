@@ -2,10 +2,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { AdminListPagination } from "@/components/admin-list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { InlineSpinner } from "@/components/ui/inline-spinner";
 import {
   Table,
   TableBody,
@@ -14,8 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { adminApi, useAdminForeignKeys } from "@/hooks/use-admin-api";
+import { adminApi } from "@/hooks/use-admin-api";
 import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
+import { useForeignKey } from "@/hooks/use-foreign-key";
 import { isUuid } from "@/lib/uuid";
 
 export function OrdersPage() {
@@ -23,12 +24,10 @@ export function OrdersPage() {
   const { data, isLoading } = useQuery(
     adminApi.orders.list({ page, pageSize }),
   );
-  const {
-    eventById,
-    personById,
-    isPending: fkPending,
-    isFetching: fkFetching,
-  } = useAdminForeignKeys(data?.items ?? []);
+  const fk = useForeignKey({
+    rows: data?.items ?? [],
+    load: ["event", "person"],
+  });
   const refundMutation = useMutation(adminApi.order.refund());
 
   const handleRefund = (orderId: string) => {
@@ -46,8 +45,8 @@ export function OrdersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Event ID</TableHead>
-                <TableHead>Person ID</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Person</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead />
@@ -56,58 +55,21 @@ export function OrdersPage() {
             <TableBody>
               {data.items.map((order) => (
                 <TableRow key={order.id}>
-                  <TableCell className="font-mono text-xs">
-                    {fkPending ? (
-                      <span className="mr-2 inline-flex align-middle">
-                        <InlineSpinner />
-                      </span>
-                    ) : null}
-                    {isUuid(order.eventId) ? (
-                      <Link
-                        className="text-primary hover:underline"
-                        to={`/events/${order.eventId}`}
-                      >
-                        {eventById.get(order.eventId)?.title ??
-                          `${order.eventId.slice(0, 8)}…`}
-                      </Link>
-                    ) : (
-                      order.eventId
-                    )}
-                    {!fkPending && fkFetching ? (
-                      <span className="ml-2 inline-flex align-middle">
-                        <InlineSpinner />
-                      </span>
-                    ) : null}
+                  <TableCell>
+                    <AdminFkCell
+                      fk={fk}
+                      foreignDisplayField="title"
+                      foreignId={order.eventId}
+                      foreignService="event"
+                    />
                   </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {fkPending ? (
-                      <span className="mr-2 inline-flex align-middle">
-                        <InlineSpinner />
-                      </span>
-                    ) : null}
-                    {isUuid(order.personId) ? (
-                      <Link
-                        className="text-primary hover:underline"
-                        to={`/people/${order.personId}`}
-                      >
-                        {(() => {
-                          const person = personById.get(order.personId);
-
-                          if (!person) {
-                            return `${order.personId.slice(0, 8)}…`;
-                          }
-
-                          return `${person.givenName ?? ""} ${person.familyName ?? ""}`.trim();
-                        })()}
-                      </Link>
-                    ) : (
-                      order.personId
-                    )}
-                    {!fkPending && fkFetching ? (
-                      <span className="ml-2 inline-flex align-middle">
-                        <InlineSpinner />
-                      </span>
-                    ) : null}
+                  <TableCell>
+                    <AdminFkCell
+                      fk={fk}
+                      foreignDisplayField={["givenName", "familyName"]}
+                      foreignId={order.personId}
+                      foreignService="person"
+                    />
                   </TableCell>
                   <TableCell>
                     CHF {(order.amountCents / 100).toFixed(2)}
