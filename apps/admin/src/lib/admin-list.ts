@@ -51,9 +51,11 @@ export function buildAdminListQueryKey(
   page: number,
   pageSize: number,
   extra?: Record<string, string>,
+  sort?: string,
 ): Record<string, string> {
   return {
     ...pageToLimitSkip(page, pageSize),
+    ...(sort ? { sort } : {}),
     ...extra,
   };
 }

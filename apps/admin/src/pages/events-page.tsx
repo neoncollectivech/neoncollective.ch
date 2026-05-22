@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { AdminListPagination } from "@/components/admin-list-pagination";
+import { AdminSortableTableHead } from "@/components/admin-sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,13 +14,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminApi } from "@/hooks/use-admin-api";
-import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
+import { useAdminListState } from "@/hooks/use-admin-list-state";
 import { isUuid } from "@/lib/uuid";
 
 export function EventsPage() {
-  const { page, pageSize, setPage, setPageSize } = useAdminListPagination();
+  const list = useAdminListState({ defaultSortField: "title" });
   const { data, isLoading, error } = useQuery(
-    adminApi.events.list({ page, pageSize }),
+    adminApi.events.list({
+      page: list.page,
+      pageSize: list.pageSize,
+      sort: list.sort,
+    }),
   );
 
   return (
@@ -39,10 +44,34 @@ export function EventsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Access</TableHead>
+                <AdminSortableTableHead
+                  field="title"
+                  label="Title"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
+                <AdminSortableTableHead
+                  field="slug"
+                  label="Slug"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
+                <AdminSortableTableHead
+                  field="status"
+                  label="Status"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
+                <AdminSortableTableHead
+                  field="accessMode"
+                  label="Access"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -79,10 +108,10 @@ export function EventsPage() {
           <AdminListPagination
             isLoading={isLoading}
             meta={data.meta}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            page={list.page}
+            pageSize={list.pageSize}
+            onPageChange={list.setPage}
+            onPageSizeChange={list.setPageSize}
           />
         </>
       )}

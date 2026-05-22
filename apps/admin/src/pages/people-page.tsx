@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AdminListPagination } from "@/components/admin-list-pagination";
+import { AdminSortableTableHead } from "@/components/admin-sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminApi } from "@/hooks/use-admin-api";
-import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
+import { useAdminListState } from "@/hooks/use-admin-list-state";
 import { buildPublicLoginUrl, personLoginContact } from "@/lib/invite-url";
 import {
   personNeedsVerification,
@@ -43,11 +44,13 @@ export function PeoplePage() {
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const { page, pageSize, setPage, setPageSize, resetPage } =
-    useAdminListPagination();
+  const list = useAdminListState({ defaultSortField: "givenName" });
 
   const { data, isLoading } = useQuery(
-    adminApi.people.list({ page, pageSize }, search),
+    adminApi.people.list(
+      { page: list.page, pageSize: list.pageSize, sort: list.sort },
+      search,
+    ),
   );
 
   const items = data?.items ?? [];
@@ -100,7 +103,7 @@ export function PeoplePage() {
 
   const runSearch = () => {
     setSearch(q);
-    resetPage();
+    list.resetPage();
     setSelected(new Set());
   };
 
@@ -150,9 +153,27 @@ export function PeoplePage() {
                     onChange={toggleAll}
                   />
                 </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
+                <AdminSortableTableHead
+                  field="givenName"
+                  label="Name"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
+                <AdminSortableTableHead
+                  field="email"
+                  label="Email"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
+                <AdminSortableTableHead
+                  field="phone"
+                  label="Phone"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
                 <TableHead>Verification</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -221,10 +242,10 @@ export function PeoplePage() {
           <AdminListPagination
             isLoading={isLoading}
             meta={data.meta}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            page={list.page}
+            pageSize={list.pageSize}
+            onPageChange={list.setPage}
+            onPageSizeChange={list.setPageSize}
           />
         </>
       )}

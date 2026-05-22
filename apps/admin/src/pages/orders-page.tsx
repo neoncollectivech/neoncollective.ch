@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { AdminListPagination } from "@/components/admin-list-pagination";
+import { AdminSortableTableHead } from "@/components/admin-sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,14 +16,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminApi } from "@/hooks/use-admin-api";
-import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
+import { useAdminListState } from "@/hooks/use-admin-list-state";
 import { useForeignKey } from "@/hooks/use-foreign-key";
 import { isUuid } from "@/lib/uuid";
 
 export function OrdersPage() {
-  const { page, pageSize, setPage, setPageSize } = useAdminListPagination();
+  const list = useAdminListState({ defaultSortField: "eventId" });
   const { data, isLoading } = useQuery(
-    adminApi.orders.list({ page, pageSize }),
+    adminApi.orders.list({
+      page: list.page,
+      pageSize: list.pageSize,
+      sort: list.sort,
+    }),
   );
   const fk = useForeignKey({
     rows: data?.items ?? [],
@@ -45,10 +50,34 @@ export function OrdersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead>Person</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
+                <AdminSortableTableHead
+                  field="eventId"
+                  label="Event"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
+                <AdminSortableTableHead
+                  field="personId"
+                  label="Person"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
+                <AdminSortableTableHead
+                  field="amountCents"
+                  label="Amount"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
+                <AdminSortableTableHead
+                  field="status"
+                  label="Status"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -104,10 +133,10 @@ export function OrdersPage() {
           <AdminListPagination
             isLoading={isLoading}
             meta={data.meta}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            page={list.page}
+            pageSize={list.pageSize}
+            onPageChange={list.setPage}
+            onPageSizeChange={list.setPageSize}
           />
         </>
       )}

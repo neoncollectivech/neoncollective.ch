@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { AdminSortableTableHead } from "@/components/admin-sortable-table-head";
 import { PersonEditFormFields } from "@/components/person-edit-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminApi } from "@/hooks/use-admin-api";
+import { useClientTableSort } from "@/hooks/use-client-table-sort";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
 import {
   personEditFormToPayload,
@@ -45,6 +47,23 @@ export function PersonDetailPage() {
 
   const updateMutation = useMutation(adminApi.person.update(personId));
   const verifyMutation = useMutation(adminApi.people.verify());
+
+  const ordersSort = useClientTableSort(person?.orders ?? [], {
+    defaultField: "eventTitle",
+  });
+  const inviteesSort = useClientTableSort(person?.invitees ?? [], {
+    defaultField: "eventTitle",
+    getValue: (row, field) => {
+      if (field === "status") {
+        return row.revokedAt ? "revoked" : "active";
+      }
+
+      return (row as Record<string, unknown>)[field] as
+        | string
+        | null
+        | undefined;
+    },
+  });
 
   if (!isValid) {
     return <Navigate replace to="/people" />;
@@ -162,14 +181,32 @@ export function PersonDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Event</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
+                      <AdminSortableTableHead
+                        field="eventTitle"
+                        label="Event"
+                        sortDirection={ordersSort.sortDirection}
+                        sortField={ordersSort.sortField}
+                        onSort={ordersSort.toggleSort}
+                      />
+                      <AdminSortableTableHead
+                        field="amountCents"
+                        label="Amount"
+                        sortDirection={ordersSort.sortDirection}
+                        sortField={ordersSort.sortField}
+                        onSort={ordersSort.toggleSort}
+                      />
+                      <AdminSortableTableHead
+                        field="status"
+                        label="Status"
+                        sortDirection={ordersSort.sortDirection}
+                        sortField={ordersSort.sortField}
+                        onSort={ordersSort.toggleSort}
+                      />
                       <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {person.orders.map((order) => (
+                    {ordersSort.rows.map((order) => (
                       <TableRow key={order.id}>
                         <TableCell>
                           <Link
@@ -211,13 +248,25 @@ export function PersonDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Event</TableHead>
-                      <TableHead>Status</TableHead>
+                      <AdminSortableTableHead
+                        field="eventTitle"
+                        label="Event"
+                        sortDirection={inviteesSort.sortDirection}
+                        sortField={inviteesSort.sortField}
+                        onSort={inviteesSort.toggleSort}
+                      />
+                      <AdminSortableTableHead
+                        field="status"
+                        label="Status"
+                        sortDirection={inviteesSort.sortDirection}
+                        sortField={inviteesSort.sortField}
+                        onSort={inviteesSort.toggleSort}
+                      />
                       <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {person.invitees.map((inv) => (
+                    {inviteesSort.rows.map((inv) => (
                       <TableRow key={inv.id}>
                         <TableCell>
                           <Link

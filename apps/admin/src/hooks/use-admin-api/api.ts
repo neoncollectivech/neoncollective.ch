@@ -68,13 +68,21 @@ async function invalidatePeople(personId?: string) {
 export const adminApi = {
   keys: adminKeys,
   events: {
-    list: (pagination: { page: number; pageSize: number }) =>
+    list: (pagination: { page: number; pageSize: number; sort: string }) =>
       queryOptions({
         queryKey: adminKeys.events.list(
-          buildAdminListQueryKey(pagination.page, pagination.pageSize),
+          buildAdminListQueryKey(
+            pagination.page,
+            pagination.pageSize,
+            undefined,
+            pagination.sort,
+          ),
         ),
         queryFn: () =>
-          listEvents(pageToLimitSkip(pagination.page, pagination.pageSize)),
+          listEvents({
+            ...pageToLimitSkip(pagination.page, pagination.pageSize),
+            sort: pagination.sort,
+          }),
       }),
   },
   event: {
@@ -86,18 +94,22 @@ export const adminApi = {
       }),
     invitees: (
       eventId: string,
-      pagination: { page: number; pageSize: number },
+      pagination: { page: number; pageSize: number; sort: string },
     ) =>
       queryOptions({
         queryKey: adminKeys.eventInvitees.list(
-          buildAdminListQueryKey(pagination.page, pagination.pageSize, {
-            eventId,
-          }),
+          buildAdminListQueryKey(
+            pagination.page,
+            pagination.pageSize,
+            { eventId },
+            pagination.sort,
+          ),
         ),
         queryFn: () =>
           listEventInvitees({
             ...pageToLimitSkip(pagination.page, pagination.pageSize),
             eventId,
+            sort: pagination.sort,
           }),
         enabled: Boolean(eventId),
       }),
@@ -227,13 +239,21 @@ export const adminApi = {
       }),
   },
   orders: {
-    list: (pagination: { page: number; pageSize: number }) =>
+    list: (pagination: { page: number; pageSize: number; sort: string }) =>
       queryOptions({
         queryKey: adminKeys.orders.list(
-          buildAdminListQueryKey(pagination.page, pagination.pageSize),
+          buildAdminListQueryKey(
+            pagination.page,
+            pagination.pageSize,
+            undefined,
+            pagination.sort,
+          ),
         ),
         queryFn: () =>
-          listOrders(pageToLimitSkip(pagination.page, pagination.pageSize)),
+          listOrders({
+            ...pageToLimitSkip(pagination.page, pagination.pageSize),
+            sort: pagination.sort,
+          }),
       }),
   },
   order: {
@@ -261,16 +281,23 @@ export const adminApi = {
       }),
   },
   people: {
-    list: (pagination: { page: number; pageSize: number }, search: string) =>
+    list: (
+      pagination: { page: number; pageSize: number; sort: string },
+      search: string,
+    ) =>
       queryOptions({
         queryKey: adminKeys.people.list(
-          buildAdminListQueryKey(pagination.page, pagination.pageSize, {
-            q: search,
-          }),
+          buildAdminListQueryKey(
+            pagination.page,
+            pagination.pageSize,
+            { q: search },
+            pagination.sort,
+          ),
         ),
         queryFn: () =>
           listPeople({
             ...pageToLimitSkip(pagination.page, pagination.pageSize),
+            sort: pagination.sort,
             ...(search ? { q: search } : {}),
           }),
       }),

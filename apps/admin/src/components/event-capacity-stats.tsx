@@ -1,14 +1,15 @@
 import type { EventCapacitySnapshot, TierRow } from "@/lib/admin-types";
 
+import { AdminSortableTableHead } from "@/components/admin-sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useClientTableSort } from "@/hooks/use-client-table-sort";
 
 function formatCap(value: number | null | undefined): string {
   if (value == null) {
@@ -31,6 +32,24 @@ export function EventCapacityStats({
 }: EventCapacityStatsProps) {
   const used = capacity?.used ?? 0;
   const eventRemaining = capacity?.remaining ?? null;
+  const tierSort = useClientTableSort(tiers, {
+    defaultField: "name",
+    getValue: (row, field) => {
+      if (field === "status") {
+        return row.active ? "active" : "inactive";
+      }
+      if (field === "remaining") {
+        return row.placesRemaining ?? Number.MAX_SAFE_INTEGER;
+      }
+
+      return (row as Record<string, unknown>)[field] as
+        | string
+        | number
+        | boolean
+        | null
+        | undefined;
+    },
+  });
 
   return (
     <div className="space-y-4 border-t border-border pt-4">
@@ -63,15 +82,48 @@ export function EventCapacityStats({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tier</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Quota</TableHead>
-              <TableHead className="text-right">Sold</TableHead>
-              <TableHead className="text-right">Remaining</TableHead>
+              <AdminSortableTableHead
+                field="name"
+                label="Tier"
+                sortDirection={tierSort.sortDirection}
+                sortField={tierSort.sortField}
+                onSort={tierSort.toggleSort}
+              />
+              <AdminSortableTableHead
+                field="status"
+                label="Status"
+                sortDirection={tierSort.sortDirection}
+                sortField={tierSort.sortField}
+                onSort={tierSort.toggleSort}
+              />
+              <AdminSortableTableHead
+                className="text-right"
+                field="quota"
+                label="Quota"
+                sortDirection={tierSort.sortDirection}
+                sortField={tierSort.sortField}
+                onSort={tierSort.toggleSort}
+              />
+              <AdminSortableTableHead
+                className="text-right"
+                field="sold"
+                label="Sold"
+                sortDirection={tierSort.sortDirection}
+                sortField={tierSort.sortField}
+                onSort={tierSort.toggleSort}
+              />
+              <AdminSortableTableHead
+                className="text-right"
+                field="remaining"
+                label="Remaining"
+                sortDirection={tierSort.sortDirection}
+                sortField={tierSort.sortField}
+                onSort={tierSort.toggleSort}
+              />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tiers.map((tier) => (
+            {tierSort.rows.map((tier) => (
               <TableRow key={tier.id ?? tier.name}>
                 <TableCell className="font-medium">{tier.name}</TableCell>
                 <TableCell>

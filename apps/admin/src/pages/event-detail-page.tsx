@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { AdminListPagination } from "@/components/admin-list-pagination";
+import { AdminSortableTableHead } from "@/components/admin-sortable-table-head";
 import { EventCapacityStats } from "@/components/event-capacity-stats";
 import { EventForm } from "@/components/event-form";
 import {
@@ -34,7 +35,7 @@ import {
   formValuesToUpdatePayload,
 } from "@/lib/event-form-utils";
 import { adminApi } from "@/hooks/use-admin-api";
-import { useAdminListPagination } from "@/hooks/use-admin-list-pagination";
+import { useAdminListState } from "@/hooks/use-admin-list-state";
 import { useForeignKey } from "@/hooks/use-foreign-key";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
 
@@ -46,18 +47,14 @@ export function EventDetailPage() {
     null,
   );
   const [bulkImportKey, setBulkImportKey] = useState(0);
-  const {
-    page: inviteePage,
-    pageSize: inviteePageSize,
-    setPage: setInviteePage,
-    setPageSize: setInviteePageSize,
-  } = useAdminListPagination();
+  const inviteeList = useAdminListState({ defaultSortField: "personId" });
 
   const eventQuery = useQuery(adminApi.event.detail(eventId));
   const inviteesQuery = useQuery(
     adminApi.event.invitees(eventId, {
-      page: inviteePage,
-      pageSize: inviteePageSize,
+      page: inviteeList.page,
+      pageSize: inviteeList.pageSize,
+      sort: inviteeList.sort,
     }),
   );
   const inviteeFk = useForeignKey({
@@ -231,10 +228,28 @@ export function EventDetailPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Person</TableHead>
+                            <AdminSortableTableHead
+                              field="personId"
+                              label="Person"
+                              sortDirection={inviteeList.sortDirection}
+                              sortField={inviteeList.sortField}
+                              onSort={inviteeList.toggleSort}
+                            />
                             <TableHead>Order</TableHead>
-                            <TableHead>Notes</TableHead>
-                            <TableHead>Status</TableHead>
+                            <AdminSortableTableHead
+                              field="notes"
+                              label="Notes"
+                              sortDirection={inviteeList.sortDirection}
+                              sortField={inviteeList.sortField}
+                              onSort={inviteeList.toggleSort}
+                            />
+                            <AdminSortableTableHead
+                              field="revokedAt"
+                              label="Status"
+                              sortDirection={inviteeList.sortDirection}
+                              sortField={inviteeList.sortField}
+                              onSort={inviteeList.toggleSort}
+                            />
                             <TableHead>Invite link</TableHead>
                             <TableHead />
                           </TableRow>
@@ -317,10 +332,10 @@ export function EventDetailPage() {
                       <AdminListPagination
                         isLoading={inviteesQuery.isLoading}
                         meta={inviteesQuery.data.meta}
-                        page={inviteePage}
-                        pageSize={inviteePageSize}
-                        onPageChange={setInviteePage}
-                        onPageSizeChange={setInviteePageSize}
+                        page={inviteeList.page}
+                        pageSize={inviteeList.pageSize}
+                        onPageChange={inviteeList.setPage}
+                        onPageSizeChange={inviteeList.setPageSize}
                       />
                     </>
                   )}
