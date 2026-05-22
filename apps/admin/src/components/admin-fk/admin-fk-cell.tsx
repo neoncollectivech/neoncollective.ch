@@ -50,7 +50,7 @@ export function AdminFkCell({
     formatForeignKeyDisplay(lookup, foreignDisplayField) ??
     truncateId(foreignId);
   const presentation = presentationOverride ?? fk.presentation[foreignService];
-  const href =
+  const resolveHref = () =>
     hrefOverride?.(foreignId, lookup) ??
     fk.href(foreignService, foreignId, lookup);
   const defaultPresentation = FK_SERVICE_REGISTRY[foreignService].presentation;
@@ -84,6 +84,7 @@ export function AdminFkCell({
       );
     }
     const badge = <Badge>{label}</Badge>;
+    const href = resolveHref();
 
     if (href && isUuid((lookup as { id?: string }).id ?? foreignId)) {
       return (
@@ -106,6 +107,7 @@ export function AdminFkCell({
     );
   }
 
+  const href = resolveHref();
   const content =
     href && isUuid(foreignId) ? (
       <Link className="text-primary hover:underline" to={href}>

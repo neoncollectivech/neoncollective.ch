@@ -87,7 +87,11 @@ export const FK_SERVICE_REGISTRY = {
     list: listOrders,
     lookupKeyFromRow: orderLookupKeyByPersonId,
     presentation: "badge",
-    href: (_personId, row) => `/orders/${(row as OrderRow).id}`,
+    href: (_personId, row) => {
+      const orderId = (row as OrderRow | undefined)?.id;
+
+      return orderId ? `/orders/${orderId}` : undefined;
+    },
   },
 } satisfies Record<
   ForeignKeyService,
