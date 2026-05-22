@@ -53,11 +53,16 @@ export function buildAdminListQueryKey(
   extra?: Record<string, string>,
   sort?: string,
 ): Record<string, string> {
-  return {
+  const key: Record<string, string> = {
     ...pageToLimitSkip(page, pageSize),
-    ...(sort ? { sort } : {}),
     ...extra,
   };
+
+  if (sort) {
+    key.sort = sort;
+  }
+
+  return key;
 }
 
 export function canonicalizeIds(

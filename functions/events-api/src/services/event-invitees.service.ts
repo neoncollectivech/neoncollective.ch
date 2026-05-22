@@ -15,6 +15,17 @@ export type EventInviteesTx = EntityTx;
 /** Admin CRUD parent column for nested invitee routes. */
 export const eventInviteesEventIdColumn = eventInvitees.eventId;
 
+/** Columns allowed for admin invitee list sorting. */
+export const eventInviteesAdminSortFields = {
+  id: eventInvitees.id,
+  personId: eventInvitees.personId,
+  email: eventInvitees.email,
+  phone: eventInvitees.phone,
+  notes: eventInvitees.notes,
+  revokedAt: eventInvitees.revokedAt,
+  createdAt: eventInvitees.createdAt,
+} as const;
+
 export type InviteeContactLookup = {
   email: string | null;
   phoneDigits?: string | null;

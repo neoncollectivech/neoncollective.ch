@@ -12,6 +12,7 @@ import type { AdminCrudContext } from "@neon/admin-crud";
 import { getAdminCrudDb } from "../../../services/admin/crud-mount";
 import {
   buildInviteeOrderStatusWhere,
+  eventInviteesAdminSortFields,
   eventInviteesEventIdColumn,
   eventInviteesService,
   eventInviteesTable,
@@ -21,6 +22,9 @@ import {
 const ORDER_STATUS_FILTER_KEY = "orderStatus";
 
 const inviteesListMeta = introspectPgTable(eventInviteesTable, {
+  list: {
+    sortFields: { ...eventInviteesAdminSortFields },
+  },
   fields: {
     list: [
       "id",
@@ -46,20 +50,37 @@ function projectListRow(row: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
+function queryParam(raw: string | string[] | undefined): string | undefined {
+  if (typeof raw === "string") {
+    return raw;
+  }
+  if (Array.isArray(raw)) {
+    return raw[0];
+  }
+
+  return undefined;
+}
+
+function parseInviteesAdminListQuery(
+  raw: Record<string, string | string[] | undefined>,
+) {
+  const orderStatus = queryParam(raw[ORDER_STATUS_FILTER_KEY]);
+  const listRaw = { ...raw };
+  delete listRaw[ORDER_STATUS_FILTER_KEY];
+
+  const parsed = parseListQuery(listRaw);
+
+  return { parsed, orderStatus };
+}
+
 export async function listAdminEventInvitees(
   c: AdminCrudContext,
 ): Promise<ListProviderResult> {
   const raw = c.req.query() as Record<string, string | string[] | undefined>;
-  const parsed = parseListQuery(raw);
+  const { parsed, orderStatus: orderStatusRaw } = parseInviteesAdminListQuery(raw);
   const filters = { ...parsed.filters } as Record<string, string | string[] | undefined>;
 
-  const orderStatusRaw = filters[ORDER_STATUS_FILTER_KEY];
-  delete filters[ORDER_STATUS_FILTER_KEY];
-
-  const eventIdRaw = filters.eventId;
-  const eventId =
-    typeof eventIdRaw === "string" && eventIdRaw.trim() ? eventIdRaw.trim() : undefined;
-
+  const eventId = queryParam(filters.eventId)?.trim();
   const orderStatus = parseInviteeOrderStatusFilter(orderStatusRaw);
   const orderStatusWhere =
     eventId && orderStatus
@@ -69,7 +90,10 @@ export async function listAdminEventInvitees(
   const scope = resolveAdminListScope(
     {
       query: {
-        ...parsed,
+        limit: parsed.limit,
+        skip: parsed.skip,
+        sort: parsed.sort,
+        q: parsed.q,
         filters: filters as Record<string, never>,
       },
       filterable: [filterable("eventId", eventInviteesEventIdColumn)],
