@@ -174,7 +174,11 @@ export function adminFkColumn<TRow extends Record<string, unknown>>(
   };
 }
 
-export function adminSelectionColumn<TRow>(): AdminColumnDef<TRow> {
+export function adminSelectionColumn<TRow>(opts?: {
+  idPrefix?: string;
+}): AdminColumnDef<TRow> {
+  const idPrefix = opts?.idPrefix ?? "admin-table-row";
+
   return {
     id: "select",
     header: ({ table }) => {
@@ -185,12 +189,16 @@ export function adminSelectionColumn<TRow>(): AdminColumnDef<TRow> {
         return null;
       }
 
+      const selectAllId = `${idPrefix}-select-all`;
+
       return (
         <input
           aria-label="Select all selectable rows on this page"
           checked={sel.allSelectableSelected}
           className="size-4 rounded border-input"
           disabled={sel.selectableIdsOnPage.length === 0}
+          id={selectAllId}
+          name={selectAllId}
           type="checkbox"
           onChange={() => sel.toggleAllOnPage()}
         />
@@ -206,6 +214,7 @@ export function adminSelectionColumn<TRow>(): AdminColumnDef<TRow> {
 
       const id = sel.getRowId(row.original);
       const canSelect = sel.isRowSelectable?.(row.original) ?? true;
+      const checkboxId = `${idPrefix}-${id}`;
 
       return (
         <input
@@ -213,7 +222,10 @@ export function adminSelectionColumn<TRow>(): AdminColumnDef<TRow> {
           checked={sel.selectedIds.has(id)}
           className="size-4 rounded border-input"
           disabled={!canSelect}
+          id={checkboxId}
+          name={`${idPrefix}-selected`}
           type="checkbox"
+          value={id}
           onChange={() => sel.toggleRow(id)}
         />
       );

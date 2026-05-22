@@ -36,7 +36,7 @@ async function copyPersonLoginLink(person: {
 
 export function peopleColumns(): AdminColumnDef<PersonRow>[] {
   return [
-    adminSelectionColumn(),
+    adminSelectionColumn({ idPrefix: "people-row" }),
     {
       id: "name",
       accessorKey: "givenName",

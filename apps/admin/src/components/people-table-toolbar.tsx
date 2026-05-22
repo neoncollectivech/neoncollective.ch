@@ -26,7 +26,10 @@ export function PeopleTableToolbar({
   return (
     <div className="flex flex-wrap gap-2 max-w-2xl">
       <Input
+        autoComplete="off"
         className="min-w-[200px] flex-1"
+        id="people-search"
+        name="people-search"
         placeholder="Search name, email, phone…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
