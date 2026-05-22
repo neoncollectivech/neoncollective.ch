@@ -20,6 +20,7 @@ import { InviteeLinkActions } from "@/components/invitee-link-actions";
 import { TierEditor } from "@/components/tier-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -38,6 +39,10 @@ import { adminApi } from "@/hooks/use-admin-api";
 import { useAdminListState } from "@/hooks/use-admin-list-state";
 import { useForeignKey } from "@/hooks/use-foreign-key";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
+import {
+  INVITEE_ORDER_STATUS_FILTER_OPTIONS,
+  type InviteeOrderStatusFilterValue,
+} from "@/lib/invitee-order-status-filter";
 
 export function EventDetailPage() {
   const { id: eventId, isValid } = useUuidRouteParam();
@@ -47,6 +52,8 @@ export function EventDetailPage() {
     null,
   );
   const [bulkImportKey, setBulkImportKey] = useState(0);
+  const [orderStatusFilter, setOrderStatusFilter] =
+    useState<InviteeOrderStatusFilterValue>("");
   const inviteeList = useAdminListState({ defaultSortField: "personId" });
 
   const eventQuery = useQuery(adminApi.event.detail(eventId));
@@ -55,6 +62,7 @@ export function EventDetailPage() {
       page: inviteeList.page,
       pageSize: inviteeList.pageSize,
       sort: inviteeList.sort,
+      orderStatus: orderStatusFilter || undefined,
     }),
   );
   const inviteeFk = useForeignKey({
@@ -193,6 +201,30 @@ export function EventDetailPage() {
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        Order status
+                      </span>
+                      <Select
+                        className="w-[180px]"
+                        value={orderStatusFilter}
+                        onChange={(e) => {
+                          setOrderStatusFilter(
+                            e.target.value as InviteeOrderStatusFilterValue,
+                          );
+                          inviteeList.resetPage();
+                        }}
+                      >
+                        {INVITEE_ORDER_STATUS_FILTER_OPTIONS.map((opt) => (
+                          <option key={opt.value || "all"} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
+                  </div>
+
                   <InviteeBulkImport
                     key={bulkImportKey}
                     isPending={upsertMutation.isPending}

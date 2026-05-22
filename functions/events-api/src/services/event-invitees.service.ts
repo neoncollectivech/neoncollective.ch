@@ -1,9 +1,9 @@
 import { defineFilterable, introspectPgTable } from "@neon/admin-crud";
-import { and, asc, eq, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 
 import { normalizeEmailTypo, phoneDigitsLookupVariants } from "../helpers/contact";
 import { getDb } from "../db/index";
-import { eventInvitees } from "../db/schema";
+import { eventInvitees, orders } from "../db/schema";
 
 export { eventInvitees as eventInviteesTable };
 import { orClauses } from "./base/sql-utils";
@@ -47,6 +47,81 @@ function contactMatchSql(contact: InviteeContactLookup): SQL | null {
 
 const inviteesFilterable = defineFilterable([] as const);
 
+export const INVITEE_ORDER_STATUS_FILTERS = [
+  "empty",
+  "has",
+  "pending",
+  "paid",
+  "failed",
+  "refunded",
+] as const;
+
+export type InviteeOrderStatusFilter =
+  (typeof INVITEE_ORDER_STATUS_FILTERS)[number];
+
+export function parseInviteeOrderStatusFilter(
+  raw: string | string[] | undefined,
+): InviteeOrderStatusFilter | undefined {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value?.trim()) {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "none" || normalized === "false" || normalized === "0") {
+    return "empty";
+  }
+  if (normalized === "true" || normalized === "1") {
+    return "has";
+  }
+
+  return INVITEE_ORDER_STATUS_FILTERS.includes(
+    normalized as InviteeOrderStatusFilter,
+  )
+    ? (normalized as InviteeOrderStatusFilter)
+    : undefined;
+}
+
+export function buildInviteeOrderStatusWhere(
+  eventId: string,
+  filter: InviteeOrderStatusFilter,
+): SQL {
+  if (filter === "empty") {
+    return sql`(
+      ${eventInvitees.personId} IS NULL
+      OR NOT EXISTS (
+        SELECT 1 FROM ${orders} o
+        WHERE o.event_id = ${eventId}::uuid
+          AND o.person_id = ${eventInvitees.personId}
+      )
+    )`;
+  }
+
+  if (filter === "has") {
+    return sql`(
+      ${eventInvitees.personId} IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM ${orders} o
+        WHERE o.event_id = ${eventId}::uuid
+          AND o.person_id = ${eventInvitees.personId}
+      )
+    )`;
+  }
+
+  return sql`(
+    ${eventInvitees.personId} IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM (
+        SELECT DISTINCT ON (o.person_id) o.person_id, o.status
+        FROM ${orders} o
+        WHERE o.event_id = ${eventId}::uuid
+        ORDER BY o.person_id, o.created_at DESC
+      ) latest
+      WHERE latest.person_id = ${eventInvitees.personId}
+        AND latest.status = ${filter}
+    )
+  )`;
+}
+
 export class EventInviteesService extends TableService<
   typeof eventInvitees,
   typeof eventInvitees.$inferSelect,
@@ -60,6 +135,10 @@ export class EventInviteesService extends TableService<
       meta: introspectPgTable(eventInvitees),
       filterable: inviteesFilterable,
     });
+  }
+
+  listDefaultSort(): string {
+    return "-createdAt";
   }
 
   contactMatchFromPersonFields(fields: {

@@ -74,6 +74,8 @@ export type AdminListRequestParams = {
   id_in?: string;
   personId_in?: string;
   sort?: string;
+  /** Event invitees: `empty`, `has`, or latest order status (`pending`, `paid`, …). */
+  orderStatus?: string;
 };
 
 export async function listEvents(params: AdminListRequestParams) {

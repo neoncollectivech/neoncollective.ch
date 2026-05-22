@@ -5,6 +5,7 @@ import {
   eventInviteesTable,
 } from "../../../services/event-invitees.service";
 import { getAdminInviteeDetail } from "../providers/invitees-admin";
+import { listAdminEventInvitees } from "../providers/invitees-list";
 import { defineAdminResource } from "../resource";
 
 const inviteesFilterFields: Record<string, import("drizzle-orm/pg-core").PgColumn> = {
@@ -13,6 +14,7 @@ const inviteesFilterFields: Record<string, import("drizzle-orm/pg-core").PgColum
 
 export const eventInviteesResource = defineAdminResource({
   table: eventInviteesTable,
+  list: listAdminEventInvitees,
   detail: async (id) => getAdminInviteeDetail(id),
   opts: {
     operations: ["list", "update"],
