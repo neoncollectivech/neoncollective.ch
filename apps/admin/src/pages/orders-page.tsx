@@ -21,7 +21,10 @@ import { useForeignKey } from "@/hooks/use-foreign-key";
 import { isUuid } from "@/lib/uuid";
 
 export function OrdersPage() {
-  const list = useAdminListState({ defaultSortField: "eventId" });
+  const list = useAdminListState({
+    defaultSortField: "createdAt",
+    defaultSortDirection: "desc",
+  });
   const { data, isLoading } = useQuery(
     adminApi.orders.list({
       page: list.page,
@@ -50,6 +53,13 @@ export function OrdersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <AdminSortableTableHead
+                  field="createdAt"
+                  label="Date & time"
+                  sortDirection={list.sortDirection}
+                  sortField={list.sortField}
+                  onSort={list.toggleSort}
+                />
                 <AdminSortableTableHead
                   field="eventId"
                   label="Event"
@@ -84,6 +94,9 @@ export function OrdersPage() {
             <TableBody>
               {data.items.map((order) => (
                 <TableRow key={order.id}>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleString()}
+                  </TableCell>
                   <TableCell>
                     <AdminFkCell
                       fk={fk}
