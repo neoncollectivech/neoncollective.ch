@@ -15,6 +15,7 @@ import {
   deleteHostInviteLink,
   updateHostInviteLinkMaxRedemptions,
 } from "../../shared/invite-links-orchestration";
+import { exportEventInviteesCsv } from "./invitees-export";
 import { adminInviteesUpsertSchema } from "../../../schemas";
 import {
   adminInviteLinkMaxRedemptionsSchema,
@@ -29,6 +30,11 @@ export function createInviteesProvider(): Hono {
     "/invitees",
     actionProvider(
       [
+        {
+          method: "get",
+          path: "/export",
+          handler: exportEventInviteesCsv,
+        },
         {
           method: "post",
           path: "/",

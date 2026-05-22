@@ -1,5 +1,6 @@
 import { publicSiteConfig } from "@/config/public-site";
 
+/** Keep login URL formula in sync with functions/events-api/src/helpers/public-login-url.ts */
 const LOCAL_DEV_ORIGIN = "http://localhost:3000";
 
 function normalizeOrigin(origin: string): string {

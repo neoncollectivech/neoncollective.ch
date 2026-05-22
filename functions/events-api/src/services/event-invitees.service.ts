@@ -1,5 +1,9 @@
-import { defineFilterable, introspectPgTable } from "@neon/admin-crud";
-import { and, asc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import {
+  defineFilterable,
+  introspectPgTable,
+  type ResolvedListScope,
+} from "@neon/admin-crud";
+import { and, asc, count, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 
 import { normalizeEmailTypo, phoneDigitsLookupVariants } from "../helpers/contact";
 import { getDb } from "../db/index";
@@ -523,6 +527,30 @@ export class EventInviteesService extends TableService<
       .where(and(eq(eventInvitees.id, inviteeId), eq(eventInvitees.eventId, eventId)))
       .returning({ id: eventInvitees.id });
     return res.length > 0;
+  }
+
+  /** Unpaginated count for admin export (scope from `resolveInviteesAdminListScope`). */
+  async countForAdminScope(scope: ResolvedListScope): Promise<number> {
+    const db = getDb();
+    const [row] = await db
+      .select({ total: count() })
+      .from(eventInvitees)
+      .where(scope.where);
+
+    return Number(row?.total ?? 0);
+  }
+
+  /** Unpaginated rows for admin export (scope from `resolveInviteesAdminListScope`). */
+  async selectAllForAdminScope(
+    scope: ResolvedListScope,
+  ): Promise<(typeof eventInvitees.$inferSelect)[]> {
+    const db = getDb();
+
+    return db
+      .select()
+      .from(eventInvitees)
+      .where(scope.where)
+      .orderBy(...scope.orderBy);
   }
 }
 

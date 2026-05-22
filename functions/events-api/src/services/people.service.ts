@@ -6,6 +6,7 @@ import {
   filterable,
   introspectPgTable,
   parseListQuery,
+  type InferFilterParams,
   type ListQuery,
 } from "@neon/admin-crud";
 import { and, eq, ilike, inArray, ne, or } from "drizzle-orm";
@@ -40,6 +41,8 @@ import { TableService } from "./base/table-service";
 import type { ServiceContext } from "./base/types";
 
 const peopleFilterable = defineFilterable([filterable("id", people.id)] as const);
+
+export type PeopleListFilters = InferFilterParams<typeof peopleFilterable>;
 
 const peopleMeta = introspectPgTable(people, {
   exclude: {
@@ -104,7 +107,7 @@ export class PeopleService extends TableService<
   typeof people.$inferSelect,
   Record<string, unknown>,
   Record<string, unknown>,
-  Record<string, never>
+  PeopleListFilters
 > {
   constructor() {
     super({
@@ -115,7 +118,7 @@ export class PeopleService extends TableService<
     });
   }
 
-  parseListQuery(raw: Record<string, string | string[] | undefined>): ListQuery<Record<string, never>> {
+  parseListQuery(raw: Record<string, string | string[] | undefined>): ListQuery<PeopleListFilters> {
     return parseListQuery(raw);
   }
 

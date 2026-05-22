@@ -39,6 +39,8 @@ import { adminApi } from "@/hooks/use-admin-api";
 import { useAdminListState } from "@/hooks/use-admin-list-state";
 import { useForeignKey } from "@/hooks/use-foreign-key";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
+import { exportEventInviteesCsv } from "@/lib/admin-api";
+import { downloadBlob } from "@/lib/download-blob";
 import {
   INVITEE_ORDER_STATUS_FILTER_OPTIONS,
   type InviteeOrderStatusFilterValue,
@@ -54,6 +56,7 @@ export function EventDetailPage() {
   const [bulkImportKey, setBulkImportKey] = useState(0);
   const [orderStatusFilter, setOrderStatusFilter] =
     useState<InviteeOrderStatusFilterValue>("");
+  const [exportingCsv, setExportingCsv] = useState(false);
   const inviteeList = useAdminListState({ defaultSortField: "personId" });
 
   const eventQuery = useQuery(adminApi.event.detail(eventId));
@@ -223,6 +226,37 @@ export function EventDetailPage() {
                         ))}
                       </Select>
                     </label>
+                    <Button
+                      disabled={exportingCsv}
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        setExportingCsv(true);
+                        try {
+                          const { blob, filename } =
+                            await exportEventInviteesCsv(eventId, {
+                              orderStatus: orderStatusFilter || undefined,
+                              sort: inviteeList.sort,
+                            });
+
+                          downloadBlob(blob, filename);
+                          toast.success("CSV downloaded.");
+                        } catch (e) {
+                          const message =
+                            e instanceof Error ? e.message : "Export failed.";
+
+                          toast.error(
+                            message.includes("narrow filters")
+                              ? "Too many invitees — narrow filters and try again."
+                              : message,
+                          );
+                        } finally {
+                          setExportingCsv(false);
+                        }
+                      }}
+                    >
+                      {exportingCsv ? "Exporting…" : "Export CSV"}
+                    </Button>
                   </div>
 
                   <InviteeBulkImport

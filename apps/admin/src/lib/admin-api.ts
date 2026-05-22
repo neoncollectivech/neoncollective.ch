@@ -7,6 +7,8 @@ import type {
 } from "@/lib/admin-types";
 import type { InviteeUpsertPayload } from "@/lib/parse-invitees-csv";
 
+import axios from "axios";
+
 import { api, type ItemResponse, type ListResponse } from "@/lib/api-client";
 
 export type EventRow = {
@@ -127,6 +129,61 @@ export async function getEventInvitee(inviteeId: string) {
   );
 
   return res.data.item;
+}
+
+function filenameFromContentDisposition(
+  header: string | undefined,
+  fallback: string,
+): string {
+  if (!header) {
+    return fallback;
+  }
+  const match = /filename="([^"]+)"/i.exec(header);
+
+  return match?.[1]?.trim() || fallback;
+}
+
+export async function exportEventInviteesCsv(
+  eventId: string,
+  params: { orderStatus?: string; sort?: string },
+): Promise<{ blob: Blob; filename: string }> {
+  const fallbackFilename = "invitees.csv";
+
+  try {
+    const res = await api.get<Blob>(
+      `/admin/events/${eventId}/invitees/export`,
+      {
+        params,
+        responseType: "blob",
+      },
+    );
+
+    return {
+      blob: res.data,
+      filename: filenameFromContentDisposition(
+        res.headers["content-disposition"],
+        fallbackFilename,
+      ),
+    };
+  } catch (e) {
+    if (!axios.isAxiosError(e) || !(e.response?.data instanceof Blob)) {
+      throw e;
+    }
+    const text = await e.response.data.text();
+    let message = "Export failed.";
+
+    try {
+      const body = JSON.parse(text) as { error?: string };
+
+      if (body.error) {
+        message = body.error;
+      }
+    } catch {
+      /* non-JSON error body */
+    }
+
+    throw new Error(message);
+  }
 }
 
 export async function upsertEventInvitees(

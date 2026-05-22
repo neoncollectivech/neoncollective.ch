@@ -102,19 +102,22 @@ export const adminApi = {
       },
     ) =>
       queryOptions({
-        queryKey: adminKeys.eventInvitees.list(
-          buildAdminListQueryKey(
-            pagination.page,
-            pagination.pageSize,
-            {
-              eventId,
-              ...(pagination.orderStatus
-                ? { orderStatus: pagination.orderStatus }
-                : {}),
-            },
-            pagination.sort,
+        queryKey: [
+          ...adminKeys.eventInvitees.list(
+            buildAdminListQueryKey(
+              pagination.page,
+              pagination.pageSize,
+              {
+                eventId,
+                ...(pagination.orderStatus
+                  ? { orderStatus: pagination.orderStatus }
+                  : {}),
+              },
+              pagination.sort,
+            ),
           ),
-        ),
+          pagination.orderStatus,
+        ],
         queryFn: () =>
           listEventInvitees({
             ...pageToLimitSkip(pagination.page, pagination.pageSize),
