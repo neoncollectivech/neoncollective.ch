@@ -1,14 +1,15 @@
 import type { EventInviteeListRow } from "@/lib/admin-api";
 import type { InviteeUpsertPayload } from "@/lib/parse-invitees-csv";
+import type { InviteeOrderStatusFilterValue } from "@/lib/invitee-order-status-filter";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
-import { AdminListPagination } from "@/components/admin-list-pagination";
-import { AdminSortableTableHead } from "@/components/admin-sortable-table-head";
+import { AdminDataTable } from "@/components/admin-data-table";
+import { eventInviteesColumns } from "@/components/admin-data-table/columns/event-invitees-columns";
+import { EventInviteesTableToolbar } from "@/components/event-invitees-table-toolbar";
 import { EventCapacityStats } from "@/components/event-capacity-stats";
 import { EventForm } from "@/components/event-form";
 import {
@@ -16,35 +17,21 @@ import {
   EditInviteeDialog,
 } from "@/components/invitee-dialogs";
 import { InviteeBulkImport } from "@/components/invitee-bulk-import";
-import { InviteeLinkActions } from "@/components/invitee-link-actions";
 import { TierEditor } from "@/components/tier-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   eventToFormValues,
   formValuesToUpdatePayload,
 } from "@/lib/event-form-utils";
 import { adminApi } from "@/hooks/use-admin-api";
-import { useAdminListState } from "@/hooks/use-admin-list-state";
-import { useForeignKey } from "@/hooks/use-foreign-key";
 import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
 import { exportEventInviteesCsv } from "@/lib/admin-api";
 import { downloadBlob } from "@/lib/download-blob";
-import {
-  INVITEE_ORDER_STATUS_FILTER_OPTIONS,
-  type InviteeOrderStatusFilterValue,
-} from "@/lib/invitee-order-status-filter";
+import { eventInviteesListService } from "@/lib/admin-list-services";
+import { toAdminSortParam } from "@/lib/admin-list-sort";
 
 export function EventDetailPage() {
   const { id: eventId, isValid } = useUuidRouteParam();
@@ -57,27 +44,33 @@ export function EventDetailPage() {
   const [orderStatusFilter, setOrderStatusFilter] =
     useState<InviteeOrderStatusFilterValue>("");
   const [exportingCsv, setExportingCsv] = useState(false);
-  const inviteeList = useAdminListState({ defaultSortField: "personId" });
+  const inviteeSortRef = useRef("personId");
 
   const eventQuery = useQuery(adminApi.event.detail(eventId));
-  const inviteesQuery = useQuery(
-    adminApi.event.invitees(eventId, {
-      page: inviteeList.page,
-      pageSize: inviteeList.pageSize,
-      sort: inviteeList.sort,
-      orderStatus: orderStatusFilter || undefined,
-    }),
-  );
-  const inviteeFk = useForeignKey({
-    rows: inviteesQuery.data?.items ?? [],
-    load: ["person", "order"],
-    scope: { eventId },
-  });
   const updateMutation = useMutation(adminApi.event.update(eventId));
   const upsertMutation = useMutation(adminApi.event.upsertInvitees(eventId));
   const revokeMutation = useMutation(adminApi.event.revokeInvitee(eventId));
 
   const event = eventQuery.data;
+
+  const inviteeColumns = useMemo(
+    () =>
+      event
+        ? eventInviteesColumns({
+            eventId,
+            eventSlug: event.slug,
+            defaultInviteLinkMaxRedemptions:
+              event.defaultInviteLinkMaxRedemptions,
+            onEdit: setEditInvitee,
+            onRevoke: (inviteeId) => {
+              revokeMutation.mutate(inviteeId, {
+                onSuccess: () => toast.success("Invitee revoked"),
+              });
+            },
+          })
+        : [],
+    [event, eventId, revokeMutation],
+  );
 
   if (!isValid) {
     return <Navigate replace to="/events" />;
@@ -205,27 +198,6 @@ export function EventDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm">
-                      <span className="text-muted-foreground whitespace-nowrap">
-                        Order status
-                      </span>
-                      <Select
-                        className="w-[180px]"
-                        value={orderStatusFilter}
-                        onChange={(e) => {
-                          setOrderStatusFilter(
-                            e.target.value as InviteeOrderStatusFilterValue,
-                          );
-                          inviteeList.resetPage();
-                        }}
-                      >
-                        {INVITEE_ORDER_STATUS_FILTER_OPTIONS.map((opt) => (
-                          <option key={opt.value || "all"} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </label>
                     <Button
                       disabled={exportingCsv}
                       size="sm"
@@ -236,7 +208,7 @@ export function EventDetailPage() {
                           const { blob, filename } =
                             await exportEventInviteesCsv(eventId, {
                               orderStatus: orderStatusFilter || undefined,
-                              sort: inviteeList.sort,
+                              sort: inviteeSortRef.current,
                             });
 
                           downloadBlob(blob, filename);
@@ -284,127 +256,30 @@ export function EventDetailPage() {
                     }
                   />
 
-                  {inviteesQuery.isLoading && (
-                    <p className="text-muted-foreground text-sm">
-                      Loading invitees…
-                    </p>
-                  )}
-                  {inviteesQuery.data && (
-                    <>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <AdminSortableTableHead
-                              field="personId"
-                              label="Person"
-                              sortDirection={inviteeList.sortDirection}
-                              sortField={inviteeList.sortField}
-                              onSort={inviteeList.toggleSort}
-                            />
-                            <TableHead>Order</TableHead>
-                            <AdminSortableTableHead
-                              field="notes"
-                              label="Notes"
-                              sortDirection={inviteeList.sortDirection}
-                              sortField={inviteeList.sortField}
-                              onSort={inviteeList.toggleSort}
-                            />
-                            <AdminSortableTableHead
-                              field="revokedAt"
-                              label="Status"
-                              sortDirection={inviteeList.sortDirection}
-                              sortField={inviteeList.sortField}
-                              onSort={inviteeList.toggleSort}
-                            />
-                            <TableHead>Invite link</TableHead>
-                            <TableHead />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {inviteesQuery.data.items.map((inv) => (
-                            <TableRow key={inv.id}>
-                              <TableCell>
-                                <AdminFkCell
-                                  fk={inviteeFk}
-                                  foreignDisplayField={[
-                                    "givenName",
-                                    "familyName",
-                                  ]}
-                                  foreignId={inv.personId}
-                                  foreignService="person"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <AdminFkCell
-                                  fk={inviteeFk}
-                                  foreignDisplayField="status"
-                                  foreignId={inv.personId}
-                                  foreignService="order"
-                                />
-                              </TableCell>
-                              <TableCell className="max-w-[200px] truncate">
-                                {inv.notes ?? "—"}
-                              </TableCell>
-                              <TableCell>
-                                {inv.revokedAt ? (
-                                  <Badge variant="secondary">Revoked</Badge>
-                                ) : !inv.personId ? (
-                                  <Badge variant="secondary">
-                                    Profile pending
-                                  </Badge>
-                                ) : (
-                                  <Badge>Active</Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="min-w-[200px]">
-                                <InviteeLinkActions
-                                  defaultMaxRedemptions={
-                                    event.defaultInviteLinkMaxRedemptions
-                                  }
-                                  eventId={eventId}
-                                  eventSlug={event.slug}
-                                  inviteeId={inv.id}
-                                  personId={inv.personId}
-                                  revoked={Boolean(inv.revokedAt)}
-                                />
-                              </TableCell>
-                              <TableCell className="space-x-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setEditInvitee(inv)}
-                                >
-                                  Edit
-                                </Button>
-                                {!inv.revokedAt && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() =>
-                                      revokeMutation.mutate(inv.id, {
-                                        onSuccess: () =>
-                                          toast.success("Invitee revoked"),
-                                      })
-                                    }
-                                  >
-                                    Revoke
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                      <AdminListPagination
-                        isLoading={inviteesQuery.isLoading}
-                        meta={inviteesQuery.data.meta}
-                        page={inviteeList.page}
-                        pageSize={inviteeList.pageSize}
-                        onPageChange={inviteeList.setPage}
-                        onPageSizeChange={inviteeList.setPageSize}
-                      />
-                    </>
-                  )}
+                  <AdminDataTable
+                    columns={inviteeColumns}
+                    enabled={Boolean(event)}
+                    filters={{
+                      orderStatus: orderStatusFilter || undefined,
+                    }}
+                    fkScope={{ eventId }}
+                    scope={{ eventId }}
+                    service={eventInviteesListService}
+                    toolbar={(ctx) => {
+                      inviteeSortRef.current = toAdminSortParam(
+                        ctx.sortField,
+                        ctx.sortDirection,
+                      );
+
+                      return (
+                        <EventInviteesTableToolbar
+                          ctx={ctx}
+                          orderStatusFilter={orderStatusFilter}
+                          onOrderStatusFilterChange={setOrderStatusFilter}
+                        />
+                      );
+                    }}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

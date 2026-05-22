@@ -1,4 +1,5 @@
 import type { UseForeignKeyResult } from "@/hooks/use-foreign-key";
+import type { AdminFkServiceDefinition } from "@/lib/admin-fk-services";
 
 import { Link } from "react-router-dom";
 
@@ -6,16 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { InlineSpinner } from "@/components/ui/inline-spinner";
 import {
   formatForeignKeyDisplay,
-  FK_SERVICE_REGISTRY,
   type ForeignKeyLookupRow,
   type ForeignKeyPresentation,
-  type ForeignKeyService,
-} from "@/lib/foreign-key-registry";
+} from "@/lib/admin-fk-services";
 import { isUuid } from "@/lib/uuid";
 
 type AdminFkCellProps = {
   fk: UseForeignKeyResult;
-  foreignService: ForeignKeyService;
+  fkService: AdminFkServiceDefinition;
   foreignId: string | null | undefined;
   foreignDisplayField: string | readonly string[];
   presentation?: ForeignKeyPresentation;
@@ -31,13 +30,13 @@ function truncateId(id: string): string {
 
 export function AdminFkCell({
   fk,
-  foreignService,
+  fkService,
   foreignId,
   foreignDisplayField,
   presentation: presentationOverride,
   href: hrefOverride,
 }: AdminFkCellProps) {
-  const loading = fk.loading[foreignService];
+  const loading = fk.loading[fkService.id];
   const isPending = loading?.isPending ?? false;
   const isFetching = loading?.isFetching ?? false;
 
@@ -45,16 +44,17 @@ export function AdminFkCell({
     return <span className="text-muted-foreground">—</span>;
   }
 
-  const lookup = fk.lookups[foreignService]?.get(foreignId);
+  const lookup = fk.lookups[fkService.id]?.get(foreignId);
   const label =
     formatForeignKeyDisplay(lookup, foreignDisplayField) ??
     truncateId(foreignId);
-  const presentation = presentationOverride ?? fk.presentation[foreignService];
+  const presentation =
+    presentationOverride ??
+    fk.presentation[fkService.id] ??
+    fkService.presentation;
   const resolveHref = () =>
-    hrefOverride?.(foreignId, lookup) ??
-    fk.href(foreignService, foreignId, lookup);
-  const defaultPresentation = FK_SERVICE_REGISTRY[foreignService].presentation;
-  const effectivePresentation = presentation ?? defaultPresentation;
+    hrefOverride?.(foreignId, lookup) ?? fk.href(fkService, foreignId, lookup);
+  const effectivePresentation = presentation;
 
   const spinner = (
     <>
