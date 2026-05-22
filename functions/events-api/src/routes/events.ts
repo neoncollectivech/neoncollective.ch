@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 
+import { getPublishedEventAvailability } from "./events/availability";
 import {
   getPublishedEventDetailForViewer,
   resolveInviteEventId,
@@ -36,6 +37,19 @@ export function createEventsRouter(): Hono {
         inviteOnly: r.inviteOnly,
       })),
     });
+  });
+
+  router.get("/events/:slug/availability", async (c) => {
+    if (!requireDatabase(c)) {
+      return databaseUnavailableResponse(c);
+    }
+    const body = await getPublishedEventAvailability(c.req.param("slug"));
+
+    if (!body) {
+      return c.json({ error: "Event not found." }, 404);
+    }
+
+    return c.json(body);
   });
 
   router.get("/events/:slug", async (c) => {
