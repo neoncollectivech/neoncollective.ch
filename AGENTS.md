@@ -22,9 +22,9 @@ neo-neoncollective.ch/
 ├── .nvmrc # Node 22
 ├── packages/
 │   ├── server-kit/ # @neon/server-kit: logger, Hono middleware/CORS, Resend shell, dev serve
-│   └── admin-crud/ # @neon/admin-crud: crudProvider + list/detail/action providers
+│   └── admin-crud/ # @neon/admin-crud: introspect, list scope, providers (bridge-first admin HTTP)
 ├── apps/
-│   ├── admin/ # @neon/admin: Vite SPA, Shadcn UI, Better Auth (Google @neonclub.ch)
+│   ├── admin/ # @neon/admin: Vite SPA, Shadcn UI, Better Auth; lib/admin-list-services/, admin-api.ts
 │   └── web/ # @neon/web: Next.js static site
 │       ├── app/ # App Router pages/layouts
 │       ├── components/
@@ -74,6 +74,12 @@ Prefer guard clauses/early exits over nested `if` trees so happy path reads stra
 - Prefer `if (!hasCondition()) return/continue` over wrapping body in `if (hasCondition())`.
 
 Apply this style across `functions/`, `packages/`, and non-trivial client logic.
+
+## TypeScript (strict typing)
+
+- Prefer schema-derived types (`typeof table.$inferSelect`, `Pick<…, listFields>`), explicit projection helpers, and generics over type assertions.
+- **Type assertions are last resort only** — never use chained/double casts to silence the compiler; fix the model (DTO types, service type params, projection at the boundary) instead.
+- Custom admin list enrichment: separate **list row** vs **enriched list item** types (e.g. `EventTierListRow` + `EventTierListItem`); project DB rows with a typed helper (field coercion + narrow enums), then merge enrichment.
 
 ## Tailwind CSS (v4, CSS-first)
 
@@ -163,7 +169,7 @@ PageContent { meta, blocks[] }
 - Content comes from `getContent(slug, locale)`; swap backend by changing only that function body.
 - Helpers are imperative IO only (`helpers/*.ts`, `apps/admin/src/lib/admin-api.ts`); components import helper types, not direct helper reads/writes in query code.
 - TanStack client API pattern: `hooks/use-*-api/{keys.ts,api.ts,invalidate.ts}` plus events `flows.ts` (`useProfileBootstrap`, `useParticipantSession`, `useExchangeRegistrationCode`).
-- Components call `useQuery`/`useMutation` with factories (`eventsApi.*`, `adminApi.*`), and reuse those factories for `prefetchQuery`, `setQueryData`, `invalidateQueries`.
+- Components call `useQuery`/`useMutation` with factories (`eventsApi.*`, `adminApi.*`), and reuse those factories for `prefetchQuery`, `setQueryData`, `invalidateQueries`. **Admin paginated list pages** use `*ListService.listQuery()` from `lib/admin-list-services/` — not `adminApi.{resource}.list` in `api.ts`.
 - Do not write inline `useQuery({ queryFn: ... })` in components; add factory entries in `api.ts`.
 - Do not add per-operation wrapper hooks on barrels (`useEventsCatalogQuery`, etc.); only flow hooks from `flows.ts` are named hooks.
 - Locale in `[locale]` client routes: use `useLocale()` from `hooks/use-locale.ts`; do not duplicate locale props or read `useParams().locale`.
@@ -207,7 +213,7 @@ pnpm deploy:gcp --all
 
 - **Config (`src/config/`)**: static tunables only; no import side effects/clients/DB. Modules include registration, Stripe PI defaults, e2e, sms, contact/profile regex, email templates; import via `../config/<module>`.
 - **Routes (`src/routes/`)**: HTTP + orchestration (`runTransaction`, table services, `routes/shared/format-order-tiers.ts`, `routes/admin/providers/*`); never import `drizzle-orm`, `getDb`, `db/schema`; use `services/db.ts` (`isDatabaseConfigured`) and service-exported table refs; map failures with `jsonReasonFailure()` in `routes/shared/respond.ts`.
-- **Services (`src/services/`)**: one-table `*.service.ts`; rare `*.view.service.ts` only after `db/views.ts` gate; `services/transaction.ts` is canonical `runTransaction` + `EntityTx` and only allowed non-table/view `getDb().transaction` location (plus `services/db.ts`, `services/admin/crud-mount.ts`); forbidden: `services/compose/`, `*-flow.service.ts`, multi-table Drizzle in table services; service-to-service calls only for admin list where helpers.
+- **Services (`src/services/`)**: one-table `*.service.ts` exporting `*AdminMeta` + `tableServiceToBridge`-ready singleton; rare `*.view.service.ts` only after `db/views.ts` gate; `services/transaction.ts` is canonical `runTransaction` + `EntityTx` and only allowed non-table/view `getDb().transaction` location (plus `services/db.ts`, `services/admin/crud-mount.ts`); forbidden: `services/compose/`, `*-flow.service.ts`, multi-table Drizzle in table services; service-to-service calls only for admin list where helpers; custom admin list logic via `parseListQuery` / `applyListFilters` / `listExecution: "custom"` on the service — never separate `*-list.ts` providers for CRUD tables.
 - **Helpers (`src/helpers/`)**: stateless/outbound IO (contact, OTP, Stripe SDK, email, SMS), never HTTP/Hono/Drizzle; order-tier formatting only in `order-tier-labels.ts`; line loading in `routes/shared/format-order-tiers.ts` + table services.
 
 #### Drizzle migrations (events-api)
@@ -261,46 +267,159 @@ functions/stripe-api/
 
 ## Admin Portal (`apps/admin` + `/admin` API)
 
-- Frontend: `@neon/admin` (Vite + React Router + TanStack Query + dark Shadcn-style UI), no SSR; local proxy `/api` + `/admin` -> `events-api:8082`; HTTP layer `lib/admin-api.ts`, query layer `hooks/use-admin-api/`, UUID helper `hooks/use-uuid-route-param.ts`.
-- Auth: Better Auth at `/admin/auth/*` (not `/api/auth`; CDN must route `/neo-events-api/admin/*`), Google OAuth only, `databaseHooks` + session guard enforce `@neonclub.ch`; env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
-- Admin router: `functions/events-api/src/routes/admin/router.ts`, mounted at `/admin` via `createAppRouter()`, protected by `requireAdminSession` (never browser `ADMIN_API_KEY`).
-- `@neon/admin-crud`: `parseListQuery` (`limit`/`skip` query params only; response `meta` is `{ total, limit, skip }`), `buildFilterConditions` suffix operators (`_in`, `_not`, `_gte`, ...), `bulkProvider` (`POST/PATCH /bulk`), column-derived ArkType list schemas; admin list/read/write uses `crudProvider(table, opts)` via `createCrudRouter` (no custom list bridges). Enriched detail payloads use `detail` overrides; side-effect routes (`refund`, `verify`, invite-link actions, tier replace) stay as `actionProvider` extensions. Flat resources: `/admin/events`, `/admin/people`, `/admin/orders`, `/admin/event-invitees` (filter by `eventId`, etc.). Admin SPA uses UI `page`/`pageSize` and converts to `limit`/`skip` at the HTTP boundary.
-- Drizzle boundary (`functions/events-api/.eslintrc.json`): `routes/` and `helpers/` cannot import Drizzle/`db/schema`; multi-step writes = route `runTransaction` + service `*InTx`; admin CRUD `getDb` allowed only in `services/admin/crud-mount.ts`.
-- Refund flow: `POST /admin/orders/:id/refund` calls Stripe and returns `202 { pending: true }`; DB state updates happen on webhook (`charge.refunded`) in `ordersService.applyRefundFromStripeInTx` (`routes/webhooks.ts`); local dev needs `pnpm stripe:listen`.
-- Call order: (1) table service CRUD/`*InTx`; (2) route orchestration for multi-service flows (`checkout`, `webhooks`, `registrations`, `routes/events/read.ts`, admin providers); (3) helpers for stateless IO/cross-table labels (`order-tier-labels.ts`). Keep HTTP mapping in `routes/`; joined admin list/details in `routes/admin/providers/*`; `list`+`count` share `ListQuery` (`limit` 100, `skip` 0, `filters` `{}` defaults); use `detailProvider`/`actionProvider` for nested routes; never `new EventsService()` at call sites.
-- **Event invitees CSV export:** `GET /admin/events/:eventId/invitees/export` (invite-only events) shares `resolveInviteesAdminListScope` with the paginated invitees list (`orderStatus`, `sort`); full select capped by `MAX_INVITEE_EXPORT_ROWS`; enriches via batch `peopleService.list` (`id_in`) and `ordersService.list` (`eventId`, `personId_in`, `sort: -createdAt`); `loginLink` uses `helpers/public-login-url.ts` (same formula as admin `invite-url.ts`); CSV via `csv-stringify`.
+### Stack overview (enforced pipeline)
 
-### Admin foreign-key population (list tables)
+Admin table behavior has **one source of truth per table**. Do not define parallel `fields.list` / introspect config in resources, providers, or the SPA.
 
-When an admin list row shows related entities (event title, person name, order status), **do not** N+1 `GET /:id` per row or add FK-specific `adminApi` factories.
+```
+*AdminMeta (export from services/*.service.ts)
+  → TableService (constructor meta + list/read logic)
+  → tableServiceToBridge(svc)
+  → defineAdminResource({ meta, service, table, opts })
+  → createCrudRouter (list/read via bridge; mutations via bridge or opts)
+  → SPA: createAdminListClient + createAdminListService (registry)
+```
 
-**Pattern:**
+**Frontend:** `@neon/admin` (Vite + React Router + TanStack Query + dark Shadcn UI), no SSR; local proxy `/api` + `/admin` → `events-api:8082`.
 
-1. **Paginated primary list** — unchanged: `adminApi.{resource}.list` + `page`/`pageSize` → `limit`/`skip` at the HTTP boundary.
-2. **Batch FK load for the current page** — `useForeignKey({ rows, load, scope? })`:
-   - Declares which foreign services to load: `event`, `person`, `order` (extensible via `FK_SERVICE_REGISTRY`).
-   - Collects IDs from visible rows, **dedupes + sorts** (`canonicalizeIds` / `toIdInParam`) for stable React Query keys.
-   - One batched **CRUD list** request per service per page, via existing helpers only:
-     - `listEvents({ id_in, limit, skip: "0" })`
-     - `listPeople({ id_in, limit, skip: "0" })`
-     - `listOrders({ eventId, personId_in, sort: "-createdAt", limit, skip: "0" })` when `scope.eventId` is set
-   - TanStack Query: `enabled` when ID set non-empty; `staleTime`; `placeholderData`; `select` → `Map` keyed by lookup id.
+**Layers:** `lib/admin-api.ts` (HTTP + row types), `lib/admin-list-services/` (paginated list pages), `hooks/use-admin-api/` (detail/mutations only — not duplicate list factories for list pages).
+
+**Auth:** Better Auth at `/admin/auth/*` (not `/api/auth`; CDN must route `/neo-events-api/admin/*`), Google OAuth only, `databaseHooks` + session guard enforce `@neonclub.ch`; env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
+
+**Router:** `functions/events-api/src/routes/admin/router.ts`, mounted at `/admin` via `createAppRouter()`, protected by `requireAdminSession` (never browser `ADMIN_API_KEY`).
+
+---
+
+### Backend — meta single source of truth (MUST)
+
+1. **One `introspectPgTable(...)` per table** in `functions/events-api/src/services/<table>.service.ts`, exported as `*AdminMeta` (e.g. `ordersAdminMeta`, `eventInviteesAdminMeta`).
+2. **TableService constructor** MUST use that meta: `super(table, { meta: ordersAdminMeta, ... })`.
+3. **Admin resources** (`routes/admin/resources/*.ts`) MUST:
+   - `import { *AdminMeta, *Service, *Table } from "../../../services/..."`
+   - pass `meta: *AdminMeta` and `service: tableServiceToBridge(*Service)`
+   - keep only resource-specific config in `opts`: `operations`, `exclude` overrides, `schemas`, `hooks`, `parent`, `actions`, `extensions`
+4. **NEVER** duplicate `opts.fields.list` / `opts.fields.read` in resources — list/read projections live only in service meta.
+5. **NEVER** call `introspectPgTable` in resources, list providers, or export handlers for tables that already have `*AdminMeta` on the service.
+
+`create-crud-router.ts` resolves schemas via `def.meta` or `resolveResourceMeta(def)` — not a second introspect from orphaned `opts.fields`.
+
+---
+
+### Backend — TableService bridge (MUST for all admin CRUD tables)
+
+All standard admin resources MUST wire HTTP list/read/mutations through the bridge:
+
+```typescript
+export const orders = defineAdminResource({
+  table: ordersTable,
+  meta: ordersAdminMeta,
+  service: tableServiceToBridge(ordersService),
+  opts: { operations: ["list", "read"] },
+  actions: [/* side effects only */],
+  extensions: () => [/* refund, etc. */],
+});
+```
+
+- **Bridge:** `services/base/table-service-bridge.ts` — `tableServiceToBridge(svc)` maps `list`, `count`, `get` → `getForAdmin`, bulk mutations, optional `parseListQuery`, `filterMeta`.
+- **Read projection:** `TableService.getForAdmin()` (or bridge `get`) MUST return rows projected with `meta.project.read` — never raw full DB rows on `GET /:id`.
+- **When `service` is set:** `createCrudRouter` skips `crudProvider` list/read; mutations use `mountServiceMutations` with bridge + `buildArkTypeSchemas(meta, ...)`.
+- **FORBIDDEN for new work:** standalone `list:` / `detail:` handlers on resources for tables that have a `TableService`; duplicate `CrudService` list paths; `crudProvider`-only resources without `service` (legacy fallback only — do not add new ones).
+
+**Wired tables (all use bridge today):** orders, events, people, event-invitees, event-tiers, admissions, invite-links, order-tiers, invite-redemptions.
+
+---
+
+### Backend — custom list logic (MUST live on TableService)
+
+Non-trivial list behavior belongs in the service, not `routes/admin/providers/*-list.ts`.
+
+| Concern | Where | Pattern |
+|--------|--------|---------|
+| Extra query params (e.g. `orderStatus`) | `parseListQuery` override | Strip param, stash on query, delegate to `super.parseListQuery` |
+| Filter SQL | `applyListFilters` override | e.g. invitee order-status `WHERE` |
+| Shared list + export scope | `resolveAdminListScopeFromRaw(raw, options?)` | Export/providers call service method, not duplicate scope helpers |
+| Enriched list rows | `listExecution(): "custom"` + `executeCustomList` | Separate `*ListRow` / `*ListItem` types; `runAdminListFromScope` + typed `project*ListRow()`; merge enrichment with explicit DTO mapping |
+
+**Event invitees:** `ORDER_STATUS_FILTER_KEY`, `resolveAdminListScopeFromRaw` on `EventInviteesService` — export uses `eventInviteesService.resolveAdminListScopeFromRaw` (not deleted `invitees-list-scope.ts`).
+
+**Event tiers:** custom list + `enrichTiersWithCapacityStats` in `EventTiersService`; resource has no `list:` override.
+
+**Providers** under `routes/admin/providers/` are only for: nested route trees, CSV/export, upsert/verify actions, invite-link side effects — **not** paginated CRUD list implementations.
+
+---
+
+### Backend — `@neon/admin-crud` (allowed vs removed)
+
+**Use:** `parseListQuery`, `resolveAdminListScope`, `runAdminListFromScope`, `listMetaFromScope`, `buildFilterConditions`, filter suffix operators (`_in`, `_gte`, …), `bulkProvider`, `actionProvider`, `detailProvider`, `listProvider` (when no service), `introspectPgTable`, `buildArkTypeSchemas`, `crudProvider` (legacy fallback only).
+
+**List pipeline:** `runAdminList` delegates to `resolveAdminListScope` + `runAdminListFromScope` — do not reintroduce duplicate sort/filter parsing.
+
+**Removed — NEVER reintroduce:** `registerAdminCrud`, `registerAdminRoute`, `customListMeta` (`joined-list.ts`), `useAdminListPagination` (admin SPA).
+
+**Response shape:** `limit`/`skip` query params; list `meta` is `{ total, limit, skip }`. Admin SPA uses UI `page`/`pageSize` and converts to `limit`/`skip` at the HTTP boundary only.
+
+**Drizzle boundary** (`functions/events-api/.eslintrc.json`): `routes/` and `helpers/` cannot import Drizzle/`db/schema`; multi-step writes = route `runTransaction` + service `*InTx`; admin CRUD `getDb` allowed only in `services/admin/crud-mount.ts`.
+
+**Other backend rules (unchanged):** Refund flow `POST /admin/orders/:id/refund` → `202 { pending: true }`; webhook updates DB. Call order: table service → route orchestration → helpers. Never `new EventsService()` at call sites.
+
+**Event invitees CSV export:** `GET /admin/events/:eventId/invitees/export` uses `eventInviteesService.resolveAdminListScopeFromRaw` (same `orderStatus`/sort as list); capped by `MAX_INVITEE_EXPORT_ROWS`; batch `peopleService.list` / `ordersService.list`; `loginLink` via `helpers/public-login-url.ts`.
+
+---
+
+### Admin SPA — HTTP and list layer (MUST)
+
+**List HTTP:** `createAdminListClient<TRow>(path)` in `lib/admin-list-services/create-admin-list-client.ts` — one client per `/admin/{resource}` list endpoint in `admin-api.ts`.
+
+**Row types** in `admin-api.ts` MUST include a comment tying each to backend meta, e.g. `/** Mirrors ordersAdminMeta.project.list. */` — field names MUST match service list projection (no drift).
+
+**Paginated list pages** MUST use `createAdminListService` from `lib/admin-list-services/registry.ts`:
+
+```typescript
+export const ordersListService = createAdminListService<OrderRow>({
+  defaultSort: { field: "createdAt", direction: "desc" },
+  keys: adminKeys.orders,
+  listFn: listOrders,
+});
+```
+
+- **NEVER** add per-table `orders.ts` / `events.ts` list-service files — extend `registry.ts` (~10 lines per resource).
+- **NEVER** add `adminApi.{resource}.list` query factories in `hooks/use-admin-api/api.ts` for resources that have a list service — list pages use `*ListService.listQuery()` + `useAdminDataTable` / equivalent.
+- **NEVER** add one-off batch-by-ids queries (e.g. `eventsByIds`) when `useForeignKey` can batch via existing list filters.
+
+**Detail / mutations:** `hooks/use-admin-api/api.ts` — `adminApi.person.detail`, `adminApi.order.refund`, etc. Related 0–1 row fetches MUST use `relatedListFirst` / `relatedListTotal` from `lib/admin-related-list.ts` with `relatedListParams({ ...filters })`.
+
+---
+
+### Admin SPA — foreign keys (MUST)
+
+When a list or detail table shows related entities (event title, person name, order status):
+
+**FORBIDDEN:** N+1 `GET /:id` per row; FK-specific `adminApi` factories; manual title joins via separate `eventsByIds` queries; duplicated spinner/link markup in pages.
+
+**MUST:**
+
+1. **Primary list** — `*ListService` or detail query; `page`/`pageSize` → `limit`/`skip` at HTTP boundary only.
+2. **Batch FK** — `useForeignKey({ rows, load: [eventFkService, personFkService, ...], scope? })`:
+   - `load` is `AdminFkServiceDefinition[]` from `lib/admin-fk-services` — **not** string literals like `"event"`.
+   - Dedupe + sort IDs (`canonicalizeIds` / `toIdInParam`); one batched list per FK service per page.
    - Query keys: `adminKeys.{service}.list(canonicalParams)` — not separate `byIds` keys.
-3. **Render** — `<AdminFkCell fk={fk} foreignService="…" foreignId={…} foreignDisplayField="…" />`:
-   - `foreignService`: registry key (`event` | `person` | `order`).
-   - `foreignId`: value used to read from that service’s lookup map (row FK column; for orders keyed by `personId`).
-   - `foreignDisplayField`: field name or array of fields on the resolved foreign row (e.g. `"title"`, `["givenName","familyName"]`, `"status"`).
-   - Cell owns spinner, link/badge presentation, UUID fallback, and `—` when missing.
-4. **Do not** duplicate FK spinner/link markup in page files.
+3. **Render** — `adminFkColumn(...)` in `AdminDataTable` columns, or `<AdminFkCell fk={fk} fkService={eventFkService} foreignId={...} foreignDisplayField="title" />` in hand-rolled tables.
+4. **Detail related tables** — reuse `useForeignKey` + `AdminFkCell` (see `person-detail-related-tables.tsx`); do not hand-roll event title lookups.
 
-**Examples:**
+**Examples:** Orders list: `load: [eventFkService, personFkService]`. Event invitees: `load: [personFkService, orderFkService]`, `scope: { eventId }`.
 
-- Orders list: `load: ["event", "person"]`.
-- Event invitees list: `load: ["person", "order"]`, `scope: { eventId }` (order column shows latest order `status` for that person on the event).
+**Backend:** FK batching uses `@neon/admin-crud` list filters on service `filterable` columns (`id_in`, `eventId`, `personId_in`, …) — add filterable fields in meta/service, not one-off list endpoints.
 
-**Backend:** FK batching relies on `@neon/admin-crud` list filters (`id_in`, `eventId`, `personId_in`, etc.) on the target resource’s `filterable` columns — add filterable fields in the service layer, not one-off list endpoints.
+**Mutations:** Invalidate `adminKeys.{service}.all` (or list prefix) when related rows change.
 
-**Mutations:** Invalidate `adminKeys.{service}.all` (or the list prefix) when related rows change so FK maps refresh.
+---
+
+### Admin SPA — tables and columns (MUST)
+
+- **Server-paginated lists:** `AdminDataTable` + column defs in `components/admin-data-table/columns/` using `adminFkColumn`, `adminDateColumn`, etc.
+- **Client-sorted detail subtables** (small in-memory lists): may use `Table` + `useClientTableSort` + `useForeignKey` — still MUST use `AdminFkCell` / `adminFkColumn`, not manual FK joins.
+- **NEVER** duplicate list pagination hooks — use list services + `useAdminDataTable`.
+
 
 ## Performance Optimization
 
