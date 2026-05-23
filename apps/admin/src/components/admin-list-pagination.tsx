@@ -25,6 +25,8 @@ type AdminListPaginationProps = {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   isLoading?: boolean;
+  /** Unique prefix for the page-size field id/name (e.g. list service id). */
+  idPrefix?: string;
 };
 
 function pageNumbers(
@@ -67,8 +69,10 @@ export function AdminListPagination({
   onPageChange,
   onPageSizeChange,
   isLoading = false,
+  idPrefix = "admin-list",
 }: AdminListPaginationProps) {
   const { totalPages } = limitSkipToPage(meta);
+  const pageSizeFieldId = `${idPrefix}-page-size`;
 
   useEffect(() => {
     if (page > totalPages) {
@@ -91,12 +95,15 @@ export function AdminListPagination({
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <span>{listRangeLabel(meta)}</span>
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2" htmlFor={pageSizeFieldId}>
           <span className="sr-only">Rows per page</span>
           <span aria-hidden>Rows</span>
           <Select
+            autoComplete="off"
             className="h-8 w-auto min-w-[4.5rem] py-1"
             disabled={isLoading}
+            id={pageSizeFieldId}
+            name={pageSizeFieldId}
             value={String(pageSize)}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
           >

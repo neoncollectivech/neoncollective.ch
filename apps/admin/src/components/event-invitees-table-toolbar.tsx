@@ -19,12 +19,18 @@ export function EventInviteesTableToolbar({
   onOrderStatusFilterChange,
 }: EventInviteesTableToolbarProps) {
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label
+      className="flex items-center gap-2 text-sm"
+      htmlFor="event-invitees-order-status"
+    >
       <span className="whitespace-nowrap text-muted-foreground">
         Order status
       </span>
       <Select
+        autoComplete="off"
         className="w-[180px]"
+        id="event-invitees-order-status"
+        name="event-invitees-order-status"
         value={orderStatusFilter}
         onChange={(e) => {
           const value = e.target.value as InviteeOrderStatusFilterValue;

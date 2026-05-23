@@ -64,6 +64,7 @@ export function AdminDataTable<TRow, TScope = undefined, TFilters = undefined>(
       />
       {ctx.meta ? (
         <AdminListPagination
+          idPrefix={props.service.id}
           isLoading={ctx.isLoading || ctx.isFetching}
           meta={ctx.meta}
           page={list.page}
