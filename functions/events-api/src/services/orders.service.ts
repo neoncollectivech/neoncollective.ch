@@ -1,9 +1,7 @@
 import {
-  defineFilterable,
-  filterable,
   introspectPgTable,
   parseListQuery,
-  type InferFilterParams,
+  type FilterParams,
 } from "@neon/admin-crud";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
@@ -14,13 +12,7 @@ import { TableService } from "./base";
 
 export { orders as ordersTable };
 
-export const ordersFilterable = defineFilterable([
-  filterable("eventId", orders.eventId),
-  filterable("personId", orders.personId),
-  filterable("status", orders.status),
-] as const);
-
-export type OrdersListFilters = InferFilterParams<typeof ordersFilterable>;
+export type OrdersListFilters = FilterParams;
 
 export type OrderTx = EntityTx;
 
@@ -37,7 +29,6 @@ export class OrdersService extends TableService<
     super({
       table: orders,
       meta: ordersMeta,
-      filterable: ordersFilterable,
     });
   }
 

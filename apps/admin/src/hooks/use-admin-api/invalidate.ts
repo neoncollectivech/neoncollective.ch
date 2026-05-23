@@ -37,6 +37,3 @@ export function useAdminInvalidate() {
     },
   };
 }
-
-/** @deprecated Use useAdminInvalidate */
-export const useAdminApiInvalidate = useAdminInvalidate;

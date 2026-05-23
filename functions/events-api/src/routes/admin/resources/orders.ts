@@ -2,19 +2,10 @@ import { actionProvider } from "@neon/admin-crud";
 import type { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import {
-  ordersFilterable,
-  ordersService,
-  ordersTable,
-} from "../../../services/orders.service";
-import { getAdminOrderDetail } from "../providers/orders-admin";
+import { ordersService, ordersTable } from "../../../services/orders.service";
 import { refundOrder, type RefundOrderFailureReason } from "../refund";
 import { defineAdminResource } from "../resource";
 import { jsonReasonFailure } from "../../shared/respond";
-
-const ordersFilterFields = Object.fromEntries(
-  ordersFilterable.map((f) => [f.name, f.column]),
-) as Record<string, import("drizzle-orm/pg-core").PgColumn>;
 
 const REFUND_ERRORS: Record<RefundOrderFailureReason, { status: ContentfulStatusCode; error: string }> = {
   order_not_found: { status: 404, error: "Order not found." },
@@ -52,11 +43,9 @@ function orderRefundExtension(): Hono {
 
 export const orders = defineAdminResource({
   table: ordersTable,
-  detail: async (id) => getAdminOrderDetail(id),
   opts: {
-    operations: ["list"],
+    operations: ["list", "read"],
     list: {
-      filterFields: ordersFilterFields,
       defaultSort: "-createdAt",
     },
     fields: {
@@ -68,6 +57,18 @@ export const orders = defineAdminResource({
         "amountCents",
         "locale",
         "createdAt",
+      ],
+      read: [
+        "id",
+        "eventId",
+        "personId",
+        "status",
+        "amountCents",
+        "locale",
+        "stripePaymentIntentId",
+        "inviteLinkId",
+        "createdAt",
+        "updatedAt",
       ],
     },
   },

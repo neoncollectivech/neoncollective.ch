@@ -26,11 +26,12 @@ type AnyDb = any;
 
 export type TableServiceConfig<
   TTable extends PgTable,
-  TFilterable extends readonly FilterableColumn[],
+  TFilterable extends readonly FilterableColumn[] = AdminTableMeta["filterable"],
 > = {
   table: TTable;
   meta: AdminTableMeta;
-  filterable: TFilterable;
+  /** Defaults to `meta.filterable` from table introspection. */
+  filterable?: TFilterable;
   searchFields?: PgColumn[];
   sortFields?: Record<string, PgColumn>;
   defaultSort?: string;
@@ -64,7 +65,7 @@ export class TableService<
   constructor(config: TableServiceConfig<TTable, TFilterable>) {
     super(config.table);
     this.#meta = config.meta;
-    this.#filterable = config.filterable;
+    this.#filterable = (config.filterable ?? config.meta.filterable) as TFilterable;
     this.#searchFields = config.searchFields ?? config.meta.searchFields;
     this.#sortFields = config.sortFields ?? config.meta.sortFields;
     this.#defaultSort = config.defaultSort ?? config.meta.defaultSort;

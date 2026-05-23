@@ -1,16 +1,25 @@
 import { getTableColumns, getTableName } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 
+import { filterable } from "./filter-helpers";
+import type { FilterableColumn } from "./filter-types";
+
 export type IntrospectExclude = {
   create?: string[];
   update?: string[];
   list?: string[];
   read?: string[];
+  /** Column names excluded from default filter query params. */
+  filter?: string[];
+  /** Column names excluded from default sort query params. */
+  sort?: string[];
 };
 
 export type IntrospectListOverrides = {
   searchFields?: PgColumn[];
+  /** Extra filter columns merged onto introspected defaults (opt-out via exclude.filter). */
   filterFields?: Record<string, PgColumn>;
+  /** Extra sort columns merged onto introspected defaults (opt-out via exclude.sort). */
   sortFields?: Record<string, PgColumn>;
   defaultSort?: string;
 };
@@ -37,6 +46,7 @@ export type AdminTableMeta = {
   searchFields: PgColumn[];
   filterFields: Record<string, PgColumn>;
   sortFields: Record<string, PgColumn>;
+  filterable: readonly FilterableColumn[];
   defaultSort: string;
 };
 
@@ -48,22 +58,22 @@ function isTextColumn(col: PgColumn): boolean {
   return col.columnType === "PgText" || col.columnType === "PgVarchar";
 }
 
-function isEnumColumn(col: PgColumn): col is PgColumn & { enumValues: readonly string[] } {
-  return col.columnType === "PgEnumColumn" && Array.isArray((col as { enumValues?: unknown }).enumValues);
-}
-
-function isTimestampColumn(col: PgColumn): boolean {
-  return col.columnType === "PgTimestamp" || col.columnType === "PgTimestampString";
-}
-
-function isSortableColumn(key: string, col: PgColumn): boolean {
-  if (isTimestampColumn(col)) {
-    return true;
+function listFieldsFromColumns(
+  columns: Record<string, PgColumn>,
+  excludeKeys: string[] | undefined,
+  overrides?: Record<string, PgColumn>,
+): Record<string, PgColumn> {
+  const excluded = new Set(excludeKeys ?? []);
+  const fields: Record<string, PgColumn> = {};
+  for (const [key, col] of Object.entries(columns)) {
+    if (!excluded.has(key)) {
+      fields[key] = col;
+    }
   }
-  if (isTextColumn(col) && /title|name|slug|email/i.test(key)) {
-    return true;
+  if (overrides) {
+    Object.assign(fields, overrides);
   }
-  return false;
+  return fields;
 }
 
 function resolveIdColumn(
@@ -120,23 +130,21 @@ export function introspectPgTable<T extends PgTable>(
       .map(([, col]) => col)
       .slice(0, 6);
 
-  const filterFields: Record<string, PgColumn> = { ...opts.list?.filterFields };
-  if (!opts.list?.filterFields) {
-    for (const [key, col] of Object.entries(columns)) {
-      if (isEnumColumn(col) || col.columnType === "PgBoolean") {
-        filterFields[key] = col;
-      }
-    }
-  }
+  const filterFields = listFieldsFromColumns(
+    columns,
+    exclude.filter,
+    opts.list?.filterFields,
+  );
 
-  const sortFields: Record<string, PgColumn> = { ...opts.list?.sortFields };
-  if (!opts.list?.sortFields) {
-    for (const [key, col] of Object.entries(columns)) {
-      if (isSortableColumn(key, col)) {
-        sortFields[key] = col;
-      }
-    }
-  }
+  const sortFields = listFieldsFromColumns(
+    columns,
+    exclude.sort,
+    opts.list?.sortFields,
+  );
+
+  const filterableColumns = Object.entries(filterFields).map(([name, column]) =>
+    filterable(name, column),
+  );
 
   let defaultSort = opts.list?.defaultSort;
   if (!defaultSort) {
@@ -156,6 +164,7 @@ export function introspectPgTable<T extends PgTable>(
     searchFields,
     filterFields,
     sortFields,
+    filterable: filterableColumns,
     defaultSort,
   };
 }

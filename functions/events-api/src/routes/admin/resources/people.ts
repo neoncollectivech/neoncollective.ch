@@ -1,21 +1,12 @@
 import { defineAdminResource } from "../resource";
 import { peopleTable } from "../../../services/people.service";
-import {
-  getAdminPersonDetail,
-  verifyAdminPeopleBulk,
-} from "../providers/people-admin";
+import { verifyAdminPeopleBulk } from "../providers/people-admin";
 import { adminPeopleVerifySchema } from "../schemas";
 
 export const people = defineAdminResource({
   table: peopleTable,
-  detail: async (id) => getAdminPersonDetail(id),
   opts: {
-    operations: ["list", "update"],
-    list: {
-      filterFields: {
-        id: peopleTable.id,
-      },
-    },
+    operations: ["list", "read", "update"],
     exclude: {
       update: ["phone", "emailVerifiedAt", "phoneVerifiedAt", "updatedAt"],
     },
@@ -35,6 +26,17 @@ export const people = defineAdminResource({
         "emailVerifiedAt",
         "phoneVerifiedAt",
         "createdAt",
+      ],
+      read: [
+        "id",
+        "givenName",
+        "familyName",
+        "email",
+        "phone",
+        "emailVerifiedAt",
+        "phoneVerifiedAt",
+        "createdAt",
+        "updatedAt",
       ],
     },
   },

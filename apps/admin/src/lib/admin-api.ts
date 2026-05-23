@@ -1,10 +1,4 @@
-import type {
-  EventDetail,
-  InviteeRow,
-  OrderDetail,
-  PersonDetail,
-  TierRow,
-} from "@/lib/admin-types";
+import type { TierRow } from "@/lib/admin-types";
 import type { InviteeUpsertPayload } from "@/lib/parse-invitees-csv";
 
 import axios from "axios";
@@ -68,14 +62,80 @@ export type VerifyPeopleMeta = {
   notFound: number;
 };
 
+export type EventReadRow = EventRow & {
+  summary: string | null;
+  location: string | null;
+  imageUrls: string[];
+  eventQuota: number | null;
+  defaultInviteLinkMaxRedemptions: number;
+  createdAt: string;
+};
+
+export type OrderReadRow = OrderRow & {
+  stripePaymentIntentId: string | null;
+  inviteLinkId: string | null;
+  updatedAt: string;
+};
+
+export type PersonReadRow = PersonRow & {
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EventTierListRow = TierRow & {
+  id: string;
+  eventId: string;
+  sold: number;
+  placesRemaining: number | null;
+};
+
+export type OrderTierRow = {
+  id: string;
+  orderId: string;
+  eventTierId: string;
+  unitPriceCents: number;
+};
+
+export type AdmissionRow = {
+  id: string;
+  orderId: string;
+  eventId: string;
+  checkedInAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+};
+
+export type InviteRedemptionRow = {
+  id: string;
+  orderId: string;
+  inviteLinkId: string;
+  createdAt: string;
+};
+
+export type InviteLinkRow = {
+  id: string;
+  eventId: string;
+  inviterId: string | null;
+  maxRedemptions: number;
+  token: string;
+  createdAt: string;
+  rotatedAt: string | null;
+};
+
 export type AdminListRequestParams = {
   limit: string;
   skip: string;
   q?: string;
   eventId?: string;
+  personId?: string;
+  orderId?: string;
+  inviterId?: string;
+  inviteLinkId?: string;
+  eventTierId?: string;
   id_in?: string;
   personId_in?: string;
   sort?: string;
+  status_in?: string;
   /** Event invitees: `empty`, `has`, or latest order status (`pending`, `paid`, …). */
   orderStatus?: string;
 };
@@ -89,7 +149,7 @@ export async function listEvents(params: AdminListRequestParams) {
 }
 
 export async function getEvent(eventId: string) {
-  const res = await api.get<ItemResponse<EventDetail>>(
+  const res = await api.get<ItemResponse<EventReadRow>>(
     `/admin/events/${eventId}`,
   );
 
@@ -97,7 +157,7 @@ export async function getEvent(eventId: string) {
 }
 
 export async function createEvent(payload: unknown) {
-  const res = await api.post<ItemResponse<EventDetail>>(
+  const res = await api.post<ItemResponse<EventReadRow>>(
     "/admin/events",
     payload,
   );
@@ -106,7 +166,7 @@ export async function createEvent(payload: unknown) {
 }
 
 export async function patchEvent(eventId: string, payload: unknown) {
-  const res = await api.patch<ItemResponse<EventDetail>>(
+  const res = await api.patch<ItemResponse<EventReadRow>>(
     `/admin/events/${eventId}`,
     payload,
   );
@@ -124,7 +184,7 @@ export async function listEventInvitees(params: AdminListRequestParams) {
 }
 
 export async function getEventInvitee(inviteeId: string) {
-  const res = await api.get<ItemResponse<InviteeRow>>(
+  const res = await api.get<ItemResponse<EventInviteeListRow>>(
     `/admin/event-invitees/${inviteeId}`,
   );
 
@@ -270,7 +330,7 @@ export async function listOrders(params: AdminListRequestParams) {
 }
 
 export async function getOrder(orderId: string) {
-  const res = await api.get<ItemResponse<OrderDetail>>(
+  const res = await api.get<ItemResponse<OrderReadRow>>(
     `/admin/orders/${orderId}`,
   );
 
@@ -294,7 +354,7 @@ export async function listPeople(params: AdminListRequestParams) {
 }
 
 export async function getPerson(personId: string) {
-  const res = await api.get<ItemResponse<PersonDetail>>(
+  const res = await api.get<ItemResponse<PersonReadRow>>(
     `/admin/people/${personId}`,
   );
 
@@ -302,7 +362,7 @@ export async function getPerson(personId: string) {
 }
 
 export async function patchPerson(personId: string, payload: unknown) {
-  const res = await api.patch<ItemResponse<PersonDetail>>(
+  const res = await api.patch<ItemResponse<PersonReadRow>>(
     `/admin/people/${personId}`,
     payload,
   );
@@ -319,4 +379,49 @@ export async function verifyPeople(personIds: string[]) {
   );
 
   return res.data.meta;
+}
+
+export async function listEventTiers(params: AdminListRequestParams) {
+  const res = await api.get<ListResponse<EventTierListRow>>(
+    "/admin/event-tiers",
+    { params },
+  );
+
+  return res.data;
+}
+
+export async function listOrderTiers(params: AdminListRequestParams) {
+  const res = await api.get<ListResponse<OrderTierRow>>("/admin/order-tiers", {
+    params,
+  });
+
+  return res.data;
+}
+
+export async function listAdmissions(params: AdminListRequestParams) {
+  const res = await api.get<ListResponse<AdmissionRow>>("/admin/admissions", {
+    params,
+  });
+
+  return res.data;
+}
+
+export async function listInviteRedemptions(params: AdminListRequestParams) {
+  const res = await api.get<ListResponse<InviteRedemptionRow>>(
+    "/admin/invite-redemptions",
+    { params },
+  );
+
+  return res.data;
+}
+
+export async function listInviteLinks(params: AdminListRequestParams) {
+  const res = await api.get<ListResponse<InviteLinkRow>>(
+    "/admin/invite-links",
+    {
+      params,
+    },
+  );
+
+  return res.data;
 }

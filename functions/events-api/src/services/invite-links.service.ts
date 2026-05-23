@@ -1,4 +1,4 @@
-import { defineFilterable, introspectPgTable } from "@neon/admin-crud";
+import { introspectPgTable } from "@neon/admin-crud";
 import { and, eq } from "drizzle-orm";
 
 import { getDb } from "../db/index";
@@ -7,16 +7,17 @@ import type { EntityTx } from "./transaction";
 import { randomTokenHex, sha256Hex } from "../helpers/token";
 import { TableService } from "./base/table-service";
 
+export { inviteLinks as inviteLinksTable };
+
 export type InviteLinkTx = EntityTx;
 
-const inviteLinksFilterable = defineFilterable([] as const);
+const inviteLinksMeta = introspectPgTable(inviteLinks);
 
 export class InviteLinksService extends TableService<typeof inviteLinks> {
   constructor() {
     super({
       table: inviteLinks,
-      meta: introspectPgTable(inviteLinks),
-      filterable: inviteLinksFilterable,
+      meta: inviteLinksMeta,
     });
   }
 

@@ -4,6 +4,8 @@ import { getDb } from "../db/index";
 import { inviteRedemptions } from "../db/schema";
 import type { EntityTx } from "./transaction";
 
+export { inviteRedemptions as inviteRedemptionsTable };
+
 export class InviteRedemptionsService {
   async insertInTx(
     tx: EntityTx,

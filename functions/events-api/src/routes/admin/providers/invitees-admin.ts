@@ -1,7 +1,6 @@
 import { phoneToStoredDigits } from "../../../helpers/contact";
 import { e164FromStoredDigits, hasMinimumPersonIdentity } from "../../../helpers/profile";
 import { runTransaction, type EntityTx } from "../../../services/transaction";
-import type { ServiceContext } from "../../../services/base/types";
 import { eventsService } from "../../../services/events.service";
 import { eventInviteesService } from "../../../services/event-invitees.service";
 import {
@@ -12,8 +11,6 @@ import {
   IdentityConflictError,
   peopleService,
 } from "../../../services/people.service";
-import { inviteLinksService } from "../../../services/invite-links.service";
-import { ordersService } from "../../../services/orders.service";
 
 export class MaterializeInviteeError extends Error {
   constructor(
@@ -69,90 +66,6 @@ export type RegenerateInviteLinkResult =
     };
 
 export type EnsureInviteLinkResult = RegenerateInviteLinkResult;
-
-type InviteLinkRow = {
-  id: string;
-  inviterId: string | null;
-  token: string;
-  maxRedemptions: number;
-  rotatedAt: Date | null;
-};
-
-function formatHostInviteLink(
-  hostLink: InviteLinkRow,
-  usedByLinkId: Map<string, number>,
-) {
-  const usedRedemptions = usedByLinkId.get(hostLink.id) ?? 0;
-  const remainingRedemptions = Math.max(0, hostLink.maxRedemptions - usedRedemptions);
-  return {
-    id: hostLink.id,
-    token: hostLink.token,
-    maxRedemptions: hostLink.maxRedemptions,
-    usedRedemptions,
-    remainingRedemptions,
-    rotatedAt: hostLink.rotatedAt,
-  };
-}
-
-type InviteeRow = NonNullable<Awaited<ReturnType<typeof eventInviteesService.get>>>;
-type PersonRow = NonNullable<Awaited<ReturnType<typeof peopleService.get>>>;
-
-function formatInviteeRow(
-  r: {
-    invitee: InviteeRow;
-    person: PersonRow | null;
-  },
-  links: InviteLinkRow[],
-  usedByLinkId: Map<string, number>,
-) {
-  const person = r.person;
-  const pendingEmail = r.invitee.email;
-  const pendingPhone = r.invitee.phone;
-  const hostLink =
-    r.invitee.personId != null && r.invitee.inviterId == null
-      ? links.find((l) => l.inviterId === r.invitee.personId) ?? null
-      : null;
-  return {
-    id: r.invitee.id,
-    eventId: r.invitee.eventId,
-    personId: r.invitee.personId,
-    inviterId: r.invitee.inviterId,
-    profilePending: r.invitee.personId == null,
-    notes: r.invitee.notes,
-    revokedAt: r.invitee.revokedAt,
-    createdAt: r.invitee.createdAt,
-    person: {
-      id: person?.id ?? null,
-      givenName: person?.givenName ?? "",
-      familyName: person?.familyName ?? "",
-      email: person?.email ?? pendingEmail,
-      phone: person?.phone ?? pendingPhone,
-      phoneE164: e164FromStoredDigits(person?.phone ?? pendingPhone ?? null),
-    },
-    hostInviteLink: hostLink ? formatHostInviteLink(hostLink, usedByLinkId) : null,
-  };
-}
-
-function resolveEventId(ctx?: ServiceContext): string | undefined {
-  return ctx?.parent?.value ?? ctx?.hono?.req.param("eventId");
-}
-
-export async function getAdminInviteeDetail(id: string, ctx?: ServiceContext) {
-  const invitee = await eventInviteesService.get(id);
-  if (!invitee) {
-    return null;
-  }
-  const scopedEventId = resolveEventId(ctx);
-  if (scopedEventId && invitee.eventId !== scopedEventId) {
-    return null;
-  }
-  const eventId = invitee.eventId;
-  const person = invitee.personId ? await peopleService.get(invitee.personId) : null;
-  const links = await inviteLinksService.listByEventId(eventId);
-  const hostLinkIds = links.filter((l) => l.inviterId != null).map((l) => l.id);
-  const usedByLinkId = await ordersService.countPendingOrPaidForInviteLinkIds(hostLinkIds);
-  return formatInviteeRow({ invitee, person }, links, usedByLinkId);
-}
 
 function shouldMaterializeInvitee(inv: {
   givenName: string;

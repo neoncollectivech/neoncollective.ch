@@ -1,4 +1,5 @@
 import type { EventInviteeListRow } from "@/lib/admin-api";
+import type { EventDetail } from "@/lib/admin-types";
 import type { InviteeUpsertPayload } from "@/lib/parse-invitees-csv";
 import type { InviteeOrderStatusFilterValue } from "@/lib/invitee-order-status-filter";
 
@@ -47,11 +48,23 @@ export function EventDetailPage() {
   const inviteeSortRef = useRef("personId");
 
   const eventQuery = useQuery(adminApi.event.detail(eventId));
+  const tiersQuery = useQuery(adminApi.event.tiers(eventId));
+  const capacityQuery = useQuery(adminApi.event.capacityUsage(eventId));
   const updateMutation = useMutation(adminApi.event.update(eventId));
   const upsertMutation = useMutation(adminApi.event.upsertInvitees(eventId));
   const revokeMutation = useMutation(adminApi.event.revokeInvitee(eventId));
 
   const event = eventQuery.data;
+  const tiers = tiersQuery.data?.items ?? [];
+  const capacity = event
+    ? {
+        used: capacityQuery.data?.used ?? 0,
+        remaining:
+          event.eventQuota != null
+            ? Math.max(0, event.eventQuota - (capacityQuery.data?.used ?? 0))
+            : null,
+      }
+    : undefined;
 
   const inviteeColumns = useMemo(
     () =>
@@ -124,7 +137,11 @@ export function EventDetailPage() {
                 {editing ? (
                   <EventForm
                     key={`${event.id}-${editing}`}
-                    initialValues={eventToFormValues(event)}
+                    initialValues={eventToFormValues({
+                      ...event,
+                      status: event.status as EventDetail["status"],
+                      accessMode: event.accessMode as EventDetail["accessMode"],
+                    })}
                     isPending={updateMutation.isPending}
                     mode="update"
                     onCancel={() => setEditing(false)}
@@ -166,9 +183,9 @@ export function EventDetailPage() {
                     )}
                     {event.summary && <p>{event.summary}</p>}
                     <EventCapacityStats
-                      capacity={event.capacity}
+                      capacity={capacity}
                       eventQuota={event.eventQuota}
-                      tiers={event.tiers ?? []}
+                      tiers={tiers}
                     />
                   </div>
                 )}
@@ -182,7 +199,7 @@ export function EventDetailPage() {
                 <CardTitle>Tiers</CardTitle>
               </CardHeader>
               <CardContent>
-                <TierEditor eventId={eventId} tiers={event.tiers ?? []} />
+                <TierEditor eventId={eventId} tiers={tiers} />
               </CardContent>
             </Card>
           </TabsContent>

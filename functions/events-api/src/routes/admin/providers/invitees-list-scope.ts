@@ -1,5 +1,4 @@
 import {
-  filterable,
   introspectPgTable,
   parseListQuery,
   resolveAdminListScope,
@@ -8,8 +7,6 @@ import {
 
 import {
   buildInviteeOrderStatusWhere,
-  eventInviteesAdminSortFields,
-  eventInviteesEventIdColumn,
   eventInviteesService,
   eventInviteesTable,
   parseInviteeOrderStatusFilter,
@@ -18,9 +15,6 @@ import {
 export const ORDER_STATUS_FILTER_KEY = "orderStatus";
 
 export const inviteesListMeta = introspectPgTable(eventInviteesTable, {
-  list: {
-    sortFields: { ...eventInviteesAdminSortFields },
-  },
   fields: {
     list: [
       "id",
@@ -109,7 +103,7 @@ export function resolveInviteesAdminListScope(
         q: parsed.q,
         filters: filters as Record<string, never>,
       },
-      filterable: [filterable("eventId", eventInviteesEventIdColumn)],
+      filterable: inviteesListMeta.filterable,
       sortFields: inviteesListMeta.sortFields,
       defaultSort: eventInviteesService.listDefaultSort(),
       extraWhere: orderStatusWhere,

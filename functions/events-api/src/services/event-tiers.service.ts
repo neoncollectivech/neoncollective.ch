@@ -1,4 +1,4 @@
-import { defineFilterable, introspectPgTable } from "@neon/admin-crud";
+import { introspectPgTable } from "@neon/admin-crud";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "../db/index";
@@ -6,7 +6,9 @@ import { eventTiers } from "../db/schema";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base/table-service";
 
-const tiersFilterable = defineFilterable([] as const);
+export { eventTiers as eventTiersTable };
+
+const tiersMeta = introspectPgTable(eventTiers);
 
 export type TierTx = EntityTx;
 
@@ -36,8 +38,7 @@ export class EventTiersService extends TableService<
   constructor() {
     super({
       table: eventTiers,
-      meta: introspectPgTable(eventTiers),
-      filterable: tiersFilterable,
+      meta: tiersMeta,
     });
   }
 

@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -14,10 +15,63 @@ const DELETABLE_STATUSES = new Set(["pending", "failed"]);
 export function OrderDetailPage() {
   const navigate = useNavigate();
   const { id: orderId, isValid } = useUuidRouteParam();
-  const { data: order, isLoading } = useQuery(adminApi.order.detail(orderId));
+  const orderQuery = useQuery(adminApi.order.detail(orderId));
+  const order = orderQuery.data;
+
+  const personQuery = useQuery(adminApi.order.person(order?.personId));
+  const eventQuery = useQuery(adminApi.order.event(order?.eventId));
+  const orderTiersQuery = useQuery({
+    ...adminApi.order.tiers(orderId),
+    enabled: Boolean(orderId) && Boolean(order),
+  });
+  const eventTierIds = useMemo(
+    () => orderTiersQuery.data?.items.map((line) => line.eventTierId) ?? [],
+    [orderTiersQuery.data?.items],
+  );
+  const eventTiersQuery = useQuery(
+    adminApi.order.eventTiersForOrder(eventTierIds),
+  );
+  const admissionQuery = useQuery({
+    ...adminApi.order.admission(orderId),
+    enabled: Boolean(orderId) && Boolean(order),
+  });
+  const inviteRedemptionQuery = useQuery({
+    ...adminApi.order.inviteRedemption(orderId),
+    enabled: Boolean(orderId) && Boolean(order),
+  });
+
+  const tierLines = useMemo(() => {
+    const tierById = new Map(
+      (eventTiersQuery.data?.items ?? []).map((tier) => [tier.id, tier]),
+    );
+
+    return (orderTiersQuery.data?.items ?? [])
+      .map((line) => {
+        const tier = tierById.get(line.eventTierId);
+
+        if (!tier) {
+          return null;
+        }
+
+        return {
+          id: tier.id,
+          name: tier.name,
+          selectionMode: tier.selectionMode,
+          unitPriceCents: line.unitPriceCents,
+        };
+      })
+      .filter((line) => line != null);
+  }, [eventTiersQuery.data?.items, orderTiersQuery.data?.items]);
+
   const refundMutation = useMutation(adminApi.order.refund(orderId));
   const deleteMutation = useMutation(adminApi.order.delete(orderId));
   const canDelete = order && DELETABLE_STATUSES.has(order.status);
+
+  const isLoading =
+    orderQuery.isLoading ||
+    personQuery.isLoading ||
+    eventQuery.isLoading ||
+    orderTiersQuery.isLoading;
 
   if (!isValid) {
     return <Navigate replace to="/orders" />;
@@ -109,21 +163,29 @@ export function OrderDetailPage() {
               <CardTitle>Person</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
-              <p>
-                {order.person.givenName} {order.person.familyName}
-              </p>
-              <p className="text-muted-foreground">
-                {order.person.email ?? "—"}
-              </p>
-              {isUuid(order.person.id) && (
-                <Button
-                  asChild
-                  className="px-0 h-auto"
-                  size="sm"
-                  variant="ghost"
-                >
-                  <Link to={`/people/${order.person.id}`}>View person</Link>
-                </Button>
+              {personQuery.data ? (
+                <>
+                  <p>
+                    {personQuery.data.givenName} {personQuery.data.familyName}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {personQuery.data.email ?? "—"}
+                  </p>
+                  {isUuid(personQuery.data.id) && (
+                    <Button
+                      asChild
+                      className="px-0 h-auto"
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <Link to={`/people/${personQuery.data.id}`}>
+                        View person
+                      </Link>
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <p className="text-muted-foreground">—</p>
               )}
             </CardContent>
           </Card>
@@ -133,21 +195,23 @@ export function OrderDetailPage() {
               <CardTitle>Event & tiers</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {isUuid(order.event.id) && (
+              {eventQuery.data && isUuid(eventQuery.data.id) ? (
                 <p>
                   <Link
                     className="text-primary hover:underline"
-                    to={`/events/${order.event.id}`}
+                    to={`/events/${eventQuery.data.id}`}
                   >
-                    {order.event.title}
+                    {eventQuery.data.title}
                   </Link>
                 </p>
+              ) : (
+                <p className="text-muted-foreground">—</p>
               )}
-              {order.tiers.length === 0 ? (
+              {tierLines.length === 0 ? (
                 <p className="text-muted-foreground">No tiers recorded.</p>
               ) : (
                 <ul className="space-y-1">
-                  {order.tiers.map((tier) => (
+                  {tierLines.map((tier) => (
                     <li key={tier.id}>
                       <span className="text-muted-foreground">
                         {tier.selectionMode === "addon" ? "Add-on" : "Tier"}:
@@ -160,7 +224,7 @@ export function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          {order.admission && (
+          {admissionQuery.data && (
             <Card>
               <CardHeader>
                 <CardTitle>Admission</CardTitle>
@@ -168,15 +232,15 @@ export function OrderDetailPage() {
               <CardContent className="text-sm">
                 <p>
                   Checked in:{" "}
-                  {order.admission.checkedInAt
-                    ? new Date(order.admission.checkedInAt).toLocaleString()
+                  {admissionQuery.data.checkedInAt
+                    ? new Date(admissionQuery.data.checkedInAt).toLocaleString()
                     : "No"}
                 </p>
               </CardContent>
             </Card>
           )}
 
-          {order.inviteRedemption && (
+          {inviteRedemptionQuery.data && (
             <Card>
               <CardHeader>
                 <CardTitle>Invite redemption</CardTitle>
@@ -184,7 +248,9 @@ export function OrderDetailPage() {
               <CardContent className="text-sm">
                 <p>
                   Redeemed:{" "}
-                  {new Date(order.inviteRedemption.createdAt).toLocaleString()}
+                  {new Date(
+                    inviteRedemptionQuery.data.createdAt,
+                  ).toLocaleString()}
                 </p>
               </CardContent>
             </Card>

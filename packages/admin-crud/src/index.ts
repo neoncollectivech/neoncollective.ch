@@ -16,6 +16,7 @@ export {
   buildFilterConditions,
   defineFilterable,
   filterable,
+  filterableFromFields,
   filterMetaFromFilterable,
   inferColumnKind,
   parseFilterKey,

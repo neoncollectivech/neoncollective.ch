@@ -70,6 +70,12 @@ export function defineFilterable<const T extends readonly FilterableColumn[]>(
   return filterable;
 }
 
+export function filterableFromFields(
+  fields: Record<string, PgColumn>,
+): readonly FilterableColumn[] {
+  return Object.entries(fields).map(([name, column]) => filterable(name, column));
+}
+
 export function filterMetaFromFilterable(
   filterable: readonly FilterableColumn[],
 ): FilterMeta {

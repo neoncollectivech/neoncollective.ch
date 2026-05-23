@@ -1,8 +1,4 @@
-import {
-  defineFilterable,
-  introspectPgTable,
-  type ResolvedListScope,
-} from "@neon/admin-crud";
+import { introspectPgTable, type ResolvedListScope } from "@neon/admin-crud";
 import { and, asc, count, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 
 import { normalizeEmailTypo, phoneDigitsLookupVariants } from "../helpers/contact";
@@ -18,17 +14,6 @@ export type EventInviteesTx = EntityTx;
 
 /** Admin CRUD parent column for nested invitee routes. */
 export const eventInviteesEventIdColumn = eventInvitees.eventId;
-
-/** Columns allowed for admin invitee list sorting. */
-export const eventInviteesAdminSortFields = {
-  id: eventInvitees.id,
-  personId: eventInvitees.personId,
-  email: eventInvitees.email,
-  phone: eventInvitees.phone,
-  notes: eventInvitees.notes,
-  revokedAt: eventInvitees.revokedAt,
-  createdAt: eventInvitees.createdAt,
-} as const;
 
 export type InviteeContactLookup = {
   email: string | null;
@@ -60,7 +45,7 @@ function contactMatchSql(contact: InviteeContactLookup): SQL | null {
   return orClauses(parts);
 }
 
-const inviteesFilterable = defineFilterable([] as const);
+const inviteesMeta = introspectPgTable(eventInvitees);
 
 export const INVITEE_ORDER_STATUS_FILTERS = [
   "empty",
@@ -147,8 +132,7 @@ export class EventInviteesService extends TableService<
   constructor() {
     super({
       table: eventInvitees,
-      meta: introspectPgTable(eventInvitees),
-      filterable: inviteesFilterable,
+      meta: inviteesMeta,
     });
   }
 

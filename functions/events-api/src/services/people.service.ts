@@ -2,11 +2,9 @@ import {
   BadRequestError,
   ConflictError,
   NotFoundError,
-  defineFilterable,
-  filterable,
   introspectPgTable,
   parseListQuery,
-  type InferFilterParams,
+  type FilterParams,
   type ListQuery,
 } from "@neon/admin-crud";
 import { and, eq, ilike, inArray, ne, or } from "drizzle-orm";
@@ -40,9 +38,7 @@ import { orClauses } from "./base/sql-utils";
 import { TableService } from "./base/table-service";
 import type { ServiceContext } from "./base/types";
 
-const peopleFilterable = defineFilterable([filterable("id", people.id)] as const);
-
-export type PeopleListFilters = InferFilterParams<typeof peopleFilterable>;
+export type PeopleListFilters = FilterParams;
 
 const peopleMeta = introspectPgTable(people, {
   exclude: {
@@ -113,7 +109,6 @@ export class PeopleService extends TableService<
     super({
       table: people,
       meta: peopleMeta,
-      filterable: peopleFilterable,
       defaultSort: "-createdAt",
     });
   }

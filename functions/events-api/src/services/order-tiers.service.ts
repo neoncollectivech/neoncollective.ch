@@ -4,6 +4,8 @@ import { getDb } from "../db/index";
 import { orderTiers } from "../db/schema";
 import type { EntityTx } from "./transaction";
 
+export { orderTiers as orderTiersTable };
+
 export type OrderTierLine = typeof orderTiers.$inferSelect;
 
 export class OrderTiersService {

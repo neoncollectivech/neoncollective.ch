@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -35,8 +35,46 @@ export function PersonDetailPage() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PersonEditForm | null>(null);
 
-  const { data: person, isLoading } = useQuery(
-    adminApi.person.detail(personId),
+  const personQuery = useQuery(adminApi.person.detail(personId));
+  const ordersQuery = useQuery(adminApi.person.orders(personId));
+  const inviteesQuery = useQuery(adminApi.person.invitees(personId));
+  const person = personQuery.data;
+
+  const eventIds = useMemo(() => {
+    const ids = new Set<string>();
+
+    for (const order of ordersQuery.data?.items ?? []) {
+      ids.add(order.eventId);
+    }
+    for (const invitee of inviteesQuery.data?.items ?? []) {
+      ids.add(invitee.eventId);
+    }
+
+    return [...ids];
+  }, [inviteesQuery.data?.items, ordersQuery.data?.items]);
+
+  const eventsQuery = useQuery(adminApi.person.eventsByIds(eventIds));
+
+  const orders = useMemo(
+    () =>
+      (ordersQuery.data?.items ?? []).map((order) => ({
+        ...order,
+        eventTitle:
+          eventsQuery.data?.get(order.eventId)?.title ?? order.eventId,
+      })),
+    [eventsQuery.data, ordersQuery.data?.items],
+  );
+
+  const invitees = useMemo(
+    () =>
+      (inviteesQuery.data?.items ?? []).map((invitee) => ({
+        id: invitee.id,
+        eventId: invitee.eventId,
+        revokedAt: invitee.revokedAt,
+        eventTitle:
+          eventsQuery.data?.get(invitee.eventId)?.title ?? invitee.eventId,
+      })),
+    [eventsQuery.data, inviteesQuery.data?.items],
   );
 
   useEffect(() => {
@@ -48,10 +86,10 @@ export function PersonDetailPage() {
   const updateMutation = useMutation(adminApi.person.update(personId));
   const verifyMutation = useMutation(adminApi.people.verify());
 
-  const ordersSort = useClientTableSort(person?.orders ?? [], {
+  const ordersSort = useClientTableSort(orders, {
     defaultField: "eventTitle",
   });
-  const inviteesSort = useClientTableSort(person?.invitees ?? [], {
+  const inviteesSort = useClientTableSort(invitees, {
     defaultField: "eventTitle",
     getValue: (row, field) => {
       if (field === "status") {
@@ -64,6 +102,12 @@ export function PersonDetailPage() {
         | undefined;
     },
   });
+
+  const isLoading =
+    personQuery.isLoading ||
+    ordersQuery.isLoading ||
+    inviteesQuery.isLoading ||
+    (eventIds.length > 0 && eventsQuery.isLoading);
 
   if (!isValid) {
     return <Navigate replace to="/people" />;
@@ -175,7 +219,7 @@ export function PersonDetailPage() {
               <CardTitle>Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              {person.orders.length === 0 ? (
+              {orders.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No orders.</p>
               ) : (
                 <Table>
@@ -242,7 +286,7 @@ export function PersonDetailPage() {
               <CardTitle>Invitees</CardTitle>
             </CardHeader>
             <CardContent>
-              {person.invitees.length === 0 ? (
+              {invitees.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No invitees.</p>
               ) : (
                 <Table>

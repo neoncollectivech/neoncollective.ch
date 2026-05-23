@@ -19,6 +19,7 @@ export type EventCapacitySnapshot = {
   remaining: number | null;
 };
 
+/** Flat event read row from CRUD `GET /admin/events/:id`. */
 export type EventDetail = {
   id: string;
   slug: string;
@@ -31,8 +32,7 @@ export type EventDetail = {
   accessMode: AccessMode;
   eventQuota: number | null;
   defaultInviteLinkMaxRedemptions: number;
-  capacity?: EventCapacitySnapshot;
-  tiers?: TierRow[];
+  createdAt: string;
 };
 
 export type TierSelectionMode = "exclusive" | "addon";
@@ -70,29 +70,6 @@ export type InviteLinkSummary = {
   rotatedAt: string | null;
 };
 
-export type AdminInviteLinkSummary = {
-  id: string;
-  maxRedemptions: number;
-  rotatedAt: string | null;
-};
-
-export type InviteeRow = {
-  id: string;
-  personId: string | null;
-  inviterId: string | null;
-  profilePending?: boolean;
-  notes: string | null;
-  revokedAt: string | null;
-  hostInviteLink: InviteLinkSummary | null;
-  person: {
-    id?: string | null;
-    givenName: string;
-    familyName: string;
-    email: string | null;
-    phone: string | null;
-  };
-};
-
 export type InviteeUpsertForm = {
   givenName: string;
   familyName: string;
@@ -105,6 +82,7 @@ export type InviteeEditForm = {
   notes: string;
 };
 
+/** Flat person read row from CRUD `GET /admin/people/:id`. */
 export type PersonDetail = {
   id: string;
   givenName: string;
@@ -114,46 +92,5 @@ export type PersonDetail = {
   emailVerifiedAt: string | null;
   phoneVerifiedAt: string | null;
   createdAt: string;
-  orders: {
-    id: string;
-    eventId: string;
-    status: string;
-    amountCents: number;
-    createdAt: string;
-    eventTitle: string;
-  }[];
-  invitees: {
-    id: string;
-    eventId: string;
-    revokedAt: string | null;
-    eventTitle: string;
-  }[];
-};
-
-export type OrderTierLine = {
-  id: string;
-  name: string;
-  selectionMode: TierSelectionMode;
-  unitPriceCents: number;
-};
-
-export type OrderDetail = {
-  id: string;
-  eventId: string;
-  status: string;
-  amountCents: number;
-  locale: string;
-  stripePaymentIntentId: string | null;
-  createdAt: string;
-  person: {
-    id: string;
-    givenName: string;
-    familyName: string;
-    email: string | null;
-    phone: string | null;
-  };
-  tiers: OrderTierLine[];
-  event: { id: string; slug: string; title: string };
-  admission: { id: string; checkedInAt: string | null } | null;
-  inviteRedemption: { id: string; createdAt: string } | null;
+  updatedAt: string;
 };

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { FormField } from "@/components/form-field";
@@ -44,9 +44,30 @@ export function InviteeLinkActions({
   const [maxRedemptionsInput, setMaxRedemptionsInput] = useState("");
   const [regenerateMaxInput, setRegenerateMaxInput] = useState("");
 
-  const { data: invitee, isLoading } = useQuery(
-    adminApi.event.inviteeDetail(inviteeId),
-  );
+  const linkQuery = useQuery(adminApi.inviteLinks.forHost(eventId, personId));
+  const usedQuery = useQuery({
+    ...adminApi.inviteLinks.usedRedemptions(linkQuery.data?.id),
+    enabled: Boolean(linkQuery.data?.id),
+  });
+
+  const link = useMemo(() => {
+    const row = linkQuery.data;
+
+    if (!row) {
+      return null;
+    }
+
+    const usedRedemptions = usedQuery.data ?? 0;
+
+    return {
+      id: row.id,
+      token: row.token,
+      maxRedemptions: row.maxRedemptions,
+      usedRedemptions,
+      remainingRedemptions: Math.max(0, row.maxRedemptions - usedRedemptions),
+      rotatedAt: row.rotatedAt,
+    };
+  }, [linkQuery.data, usedQuery.data]);
 
   const ensureMutation = useMutation(adminApi.event.ensureInviteeLink(eventId));
   const patchMutation = useMutation(adminApi.event.patchInviteLink(eventId));
@@ -70,27 +91,9 @@ export function InviteeLinkActions({
     );
   }
 
-  if (isLoading) {
+  if (linkQuery.isLoading || usedQuery.isFetching) {
     return <span className="text-xs text-muted-foreground">Loading…</span>;
   }
-
-  if (!invitee) {
-    return <span className="text-muted-foreground text-xs">—</span>;
-  }
-
-  if (invitee.profilePending) {
-    return (
-      <span
-        className="text-xs text-muted-foreground"
-        title="Person profile must be linked first"
-      >
-        Profile pending
-      </span>
-    );
-  }
-
-  const link = invitee.hostInviteLink;
-  const canDelete = link != null && link.usedRedemptions === 0;
 
   if (!link) {
     return (
@@ -111,6 +114,8 @@ export function InviteeLinkActions({
       </Button>
     );
   }
+
+  const canDelete = link.usedRedemptions === 0;
 
   const openEdit = () => {
     setMaxRedemptionsInput(String(link.maxRedemptions));

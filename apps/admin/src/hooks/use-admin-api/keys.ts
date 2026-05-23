@@ -23,4 +23,29 @@ export const adminKeys = {
       ["admin", "event-invitees", "list", params] as const,
     detail: (id: string) => ["admin", "event-invitees", id] as const,
   },
+  eventTiers: {
+    all: ["admin", "event-tiers"] as const,
+    list: (params?: Record<string, string>) =>
+      ["admin", "event-tiers", "list", params] as const,
+  },
+  orderTiers: {
+    all: ["admin", "order-tiers"] as const,
+    list: (params?: Record<string, string>) =>
+      ["admin", "order-tiers", "list", params] as const,
+  },
+  admissions: {
+    all: ["admin", "admissions"] as const,
+    list: (params?: Record<string, string>) =>
+      ["admin", "admissions", "list", params] as const,
+  },
+  inviteRedemptions: {
+    all: ["admin", "invite-redemptions"] as const,
+    list: (params?: Record<string, string>) =>
+      ["admin", "invite-redemptions", "list", params] as const,
+  },
+  inviteLinks: {
+    all: ["admin", "invite-links"] as const,
+    list: (params?: Record<string, string>) =>
+      ["admin", "invite-links", "list", params] as const,
+  },
 } as const;

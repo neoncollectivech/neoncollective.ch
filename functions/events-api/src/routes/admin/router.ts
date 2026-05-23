@@ -8,8 +8,13 @@ import { InviteMechanismDisabledError } from "../../services/events.service";
 import { createCrudRouter } from "./create-crud-router";
 import { adminRoute } from "./mount";
 import { createInviteesProvider } from "./providers/invitees";
+import { admissionsResource } from "./resources/admissions";
 import { eventInviteesResource } from "./resources/event-invitees";
+import { eventTiersResource } from "./resources/event-tiers";
 import { events, orders, people } from "./resources/index";
+import { inviteLinksResource } from "./resources/invite-links";
+import { inviteRedemptionsResource } from "./resources/invite-redemptions";
+import { orderTiersResource } from "./resources/order-tiers";
 
 const adminAuth = [requireAdminSession];
 
@@ -30,6 +35,11 @@ export function createAdminRouter(): Hono<AdminEnv> {
   adminRoute(admin, "/people", createCrudRouter(people), ...adminAuth);
   adminRoute(admin, "/orders", createCrudRouter(orders), ...adminAuth);
   adminRoute(admin, "/event-invitees", createCrudRouter(eventInviteesResource), ...adminAuth);
+  adminRoute(admin, "/event-tiers", createCrudRouter(eventTiersResource), ...adminAuth);
+  adminRoute(admin, "/order-tiers", createCrudRouter(orderTiersResource), ...adminAuth);
+  adminRoute(admin, "/admissions", createCrudRouter(admissionsResource), ...adminAuth);
+  adminRoute(admin, "/invite-redemptions", createCrudRouter(inviteRedemptionsResource), ...adminAuth);
+  adminRoute(admin, "/invite-links", createCrudRouter(inviteLinksResource), ...adminAuth);
 
   const eventScoped = new Hono();
   eventScoped.route("/", createInviteesProvider());

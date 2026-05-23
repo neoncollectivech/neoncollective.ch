@@ -1,9 +1,7 @@
 import {
-  defineFilterable,
-  filterable,
   introspectPgTable,
   parseListQuery,
-  type InferFilterParams,
+  type FilterParams,
   type ListQuery,
 } from "@neon/admin-crud";
 import { and, eq, ilike, inArray } from "drizzle-orm";
@@ -49,14 +47,7 @@ export type CatalogListParams = {
   inviteEventId: string | null;
 };
 
-const eventsFilterable = defineFilterable([
-  filterable("id", events.id),
-  filterable("status", events.status),
-  filterable("accessMode", events.accessMode),
-  filterable("startsAt", events.startsAt),
-] as const);
-
-export type EventsListFilters = InferFilterParams<typeof eventsFilterable>;
+export type EventsListFilters = FilterParams;
 
 const eventsMeta = introspectPgTable(events, {
   exclude: { create: ["status"] },
@@ -92,7 +83,6 @@ export class EventsService extends TableService<
     super({
       table: events,
       meta: eventsMeta,
-      filterable: eventsFilterable,
       defaultSort: "-startsAt",
     });
   }

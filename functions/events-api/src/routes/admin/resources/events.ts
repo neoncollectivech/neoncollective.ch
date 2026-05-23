@@ -6,7 +6,6 @@ import { admissionsService } from "../../../services/admissions.service";
 import { eventTiersService } from "../../../services/event-tiers.service";
 import { eventsService, eventsTable } from "../../../services/events.service";
 import { orderTiersService } from "../../../services/order-tiers.service";
-import { getAdminEventDetail } from "../providers/events-admin";
 import { defineAdminResource } from "../resource";
 import { adminEventTiersPutSchema } from "../schemas";
 import { jsonReasonFailure } from "../../shared/respond";
@@ -62,17 +61,8 @@ function eventTiersExtension(): Hono {
 
 export const events = defineAdminResource({
   table: eventsTable,
-  detail: async (id) => getAdminEventDetail(id),
   opts: {
-    operations: ["list", "create", "update"],
-    list: {
-      filterFields: {
-        id: eventsTable.id,
-        status: eventsTable.status,
-        accessMode: eventsTable.accessMode,
-        startsAt: eventsTable.startsAt,
-      },
-    },
+    operations: ["list", "read", "create", "update"],
     schemas: {
       jsonbStringArrays: ["imageUrls"],
     },
@@ -87,6 +77,20 @@ export const events = defineAdminResource({
         "status",
         "accessMode",
         "startsAt",
+        "createdAt",
+      ],
+      read: [
+        "id",
+        "slug",
+        "title",
+        "summary",
+        "location",
+        "imageUrls",
+        "startsAt",
+        "status",
+        "accessMode",
+        "eventQuota",
+        "defaultInviteLinkMaxRedemptions",
         "createdAt",
       ],
     },
