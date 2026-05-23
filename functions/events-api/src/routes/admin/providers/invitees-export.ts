@@ -1,4 +1,4 @@
-import type { AdminCrudContext } from "@neon/admin-crud";
+import type { ResourceContext } from "@neon/resource-api";
 import { stringify } from "csv/sync";
 
 import { MAX_INVITEE_EXPORT_ROWS } from "../../../config/admin-invitees";
@@ -8,10 +8,6 @@ import {
   resolveLoginContact,
 } from "../../../helpers/public-login-url";
 import { eventInviteesService } from "../../../services/event-invitees.service";
-
-type InviteeRow = Awaited<
-  ReturnType<typeof eventInviteesService.selectAllForAdminScope>
->[number];
 import {
   InviteMechanismDisabledError,
   eventsService,
@@ -19,7 +15,9 @@ import {
 import { ordersService } from "../../../services/orders.service";
 import { peopleService } from "../../../services/people.service";
 
-import { resolveInviteesAdminListScope } from "./invitees-list-scope";
+type InviteeRow = Awaited<
+  ReturnType<typeof eventInviteesService.selectAllForAdminScope>
+>[number];
 
 const EXPORT_COLUMNS = [
   "givenName",
@@ -83,7 +81,7 @@ function mapExportRow(
   };
 }
 
-export async function exportEventInviteesCsv(c: AdminCrudContext) {
+export async function exportEventInviteesCsv(c: ResourceContext) {
   const eventId = c.req.param("eventId")?.trim();
 
   if (!eventId) {
@@ -100,7 +98,9 @@ export async function exportEventInviteesCsv(c: AdminCrudContext) {
   }
 
   const raw = c.req.query() as Record<string, string | string[] | undefined>;
-  const { scope } = resolveInviteesAdminListScope(raw, { eventId });
+  const { scope } = await eventInviteesService.resolveAdminListScopeFromRaw(raw, {
+    eventId,
+  });
 
   const total = await eventInviteesService.countForAdminScope(scope);
 

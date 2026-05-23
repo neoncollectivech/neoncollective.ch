@@ -1,16 +1,15 @@
-import type { AdminCrudContext } from "@neon/admin-crud";
-import type { SQL } from "drizzle-orm";
-import type { PgColumn } from "drizzle-orm/pg-core";
+import type { ResourceContext } from "@neon/resource-api";
+import type { ServiceContext as BaseServiceContext, ServiceParent } from "@neon/resource-api";
 
-export type ServiceParent = {
-  param: string;
-  column: PgColumn;
-  value: string;
+import type { AdminSession } from "../../auth/require-admin-session";
+
+export type { ServiceParent };
+
+export type ServiceContext = BaseServiceContext & {
+  hono?: ResourceContext;
+  adminSession?: AdminSession;
 };
 
-export type ServiceContext = {
-  parent?: ServiceParent;
-  hono?: AdminCrudContext;
-};
-
-export type ListWhereHook = (ctx?: ServiceContext) => SQL | undefined | Promise<SQL | undefined>;
+export type ListWhereHook = (
+  ctx?: ServiceContext,
+) => import("drizzle-orm").SQL | undefined | Promise<import("drizzle-orm").SQL | undefined>;

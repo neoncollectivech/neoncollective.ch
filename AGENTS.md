@@ -22,7 +22,7 @@ neo-neoncollective.ch/
 ├── .nvmrc # Node 22
 ├── packages/
 │   ├── server-kit/ # @neon/server-kit: logger, Hono middleware/CORS, Resend shell, dev serve
-│   └── admin-crud/ # @neon/admin-crud: introspect, list scope, providers (bridge-first admin HTTP)
+│   └── resource-api/ # @neon/resource-api: TableService, introspect, list scope, HTTP router/bridge
 ├── apps/
 │   ├── admin/ # @neon/admin: Vite SPA, Shadcn UI, Better Auth; lib/admin-list-services/, admin-api.ts
 │   └── web/ # @neon/web: Next.js static site
@@ -213,7 +213,7 @@ pnpm deploy:gcp --all
 
 - **Config (`src/config/`)**: static tunables only; no import side effects/clients/DB. Modules include registration, Stripe PI defaults, e2e, sms, contact/profile regex, email templates; import via `../config/<module>`.
 - **Routes (`src/routes/`)**: HTTP + orchestration (`runTransaction`, table services, `routes/shared/format-order-tiers.ts`, `routes/admin/providers/*`); never import `drizzle-orm`, `getDb`, `db/schema`; use `services/db.ts` (`isDatabaseConfigured`) and service-exported table refs; map failures with `jsonReasonFailure()` in `routes/shared/respond.ts`.
-- **Services (`src/services/`)**: one-table `*.service.ts` exporting `*AdminMeta` + `tableServiceToBridge`-ready singleton; rare `*.view.service.ts` only after `db/views.ts` gate; `services/transaction.ts` is canonical `runTransaction` + `EntityTx` and only allowed non-table/view `getDb().transaction` location (plus `services/db.ts`, `services/admin/crud-mount.ts`); forbidden: `services/compose/`, `*-flow.service.ts`, multi-table Drizzle in table services; service-to-service calls only for admin list where helpers; custom admin list logic via `parseListQuery` / `applyListFilters` / `listExecution: "custom"` on the service — never separate `*-list.ts` providers for CRUD tables.
+- **Services (`src/services/`)**: one-table `*.service.ts` exporting `*ResourceMeta` + `tableServiceToBridge`-ready singleton extending `@neon/resource-api` `TableService`; rare `*.view.service.ts` only after `db/views.ts` gate; `services/transaction.ts` is canonical `runTransaction` + `EntityTx` and only allowed non-table/view `getDb().transaction` location (plus `services/db.ts`); forbidden: `services/compose/`, `*-flow.service.ts`, multi-table Drizzle in table services; service-to-service calls only for admin list where helpers; custom admin list logic via `parseListQuery` / `applyListFilters` / `listExecution: "custom"` on the service — never separate `*-list.ts` providers for CRUD tables.
 - **Helpers (`src/helpers/`)**: stateless/outbound IO (contact, OTP, Stripe SDK, email, SMS), never HTTP/Hono/Drizzle; order-tier formatting only in `order-tier-labels.ts`; line loading in `routes/shared/format-order-tiers.ts` + table services.
 
 #### Drizzle migrations (events-api)
@@ -271,37 +271,62 @@ functions/stripe-api/
 
 Admin table behavior has **one source of truth per table**. Do not define parallel `fields.list` / introspect config in resources, providers, or the SPA.
 
+**URLs unchanged:** generated CRUD at `/admin/{resource}`; control actions nested (e.g. `POST /admin/orders/:id/refund`); event-scoped ops at `/admin/events/:eventId/invitees/*`; auth at `/admin/auth/*`.
+
 ```
-*AdminMeta (export from services/*.service.ts)
-  → TableService (constructor meta + list/read logic)
+*ResourceMeta (export from services/*.service.ts)
+  → TableService (extends @neon/resource-api; constructor meta + list/read logic)
   → tableServiceToBridge(svc)
-  → defineAdminResource({ meta, service, table, opts })
-  → createCrudRouter (list/read via bridge; mutations via bridge or opts)
+  → defineResource({ meta, service, table, opts })   // routes/admin/resources/
+  → composeResourceRouter({ resource, control?, mapCtx })  // routes/admin/router.ts
   → SPA: createAdminListClient + createAdminListService (registry)
 ```
+
+**Code split:** `routes/admin/resources/` (generated CRUD only) · `routes/admin/control/` (nested actions) · `routes/admin/providers/` (event-scoped invitees, export, upsert).
 
 **Frontend:** `@neon/admin` (Vite + React Router + TanStack Query + dark Shadcn UI), no SSR; local proxy `/api` + `/admin` → `events-api:8082`.
 
 **Layers:** `lib/admin-api.ts` (HTTP + row types), `lib/admin-list-services/` (paginated list pages), `hooks/use-admin-api/` (detail/mutations only — not duplicate list factories for list pages).
 
-**Auth:** Better Auth at `/admin/auth/*` (not `/api/auth`; CDN must route `/neo-events-api/admin/*`), Google OAuth only, `databaseHooks` + session guard enforce `@neonclub.ch`; env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
+**Auth:** Better Auth at `/admin/auth/*` (not `/api/auth`; CDN must route `/neo-events-api/admin/*`), Google OAuth only, `databaseHooks` + session guard enforce `@neonclub.ch`; `AdminSession` type from `require-admin-session.ts`; optional `adminSession` on `ServiceContext` for control handlers; env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
 
 **Router:** `functions/events-api/src/routes/admin/router.ts`, mounted at `/admin` via `createAppRouter()`, protected by `requireAdminSession` (never browser `ADMIN_API_KEY`).
 
 ---
 
+### Service layer — shared kernel (MUST)
+
+`@neon/resource-api` is an **HTTP adapter only**. Domain services in `functions/events-api/src/services/` remain the **only DB/table access layer** for **all** routes — checkout, webhooks, registrations, public `/events`, admin control, and admin generated HTTP.
+
+| Layer | Location | Consumers |
+|-------|----------|-----------|
+| `TableService` + list pipeline | `@neon/resource-api` | Extended by domain services (`services/base/table-service.ts` injects `getDb`) |
+| Domain service singleton | `events-api/src/services/*.service.ts` | **All** routes |
+| `*ResourceMeta` | Same service file | Admin HTTP list/read projection only |
+| `tableServiceToBridge`, `createResourceRouter`, `composeResourceRouter` | `@neon/resource-api` | **`routes/admin/**` only** |
+| Route orchestration | `routes/checkout/`, `routes/webhooks/`, `routes/admin/control/`, … | Multi-step flows, Stripe, guards, `runTransaction` |
+
+**MUST:** domain services stay in `events-api`; bridge/router imports only from `routes/admin/**`; `ResourceMeta` is admin projection only; multi-table flows stay in routes; package has no domain logic.
+
+**FORBIDDEN:** business logic reachable only via admin HTTP; routes importing Drizzle/schema directly; participant routes importing resource HTTP router modules; duplicating table queries when a service method exists.
+
+**Call-order:** checkout → `ordersService.createPendingOrderInTx`; admin list → bridge → `ordersService.list`; admin control → `routes/admin/control/orders.ts`; public events → `eventsService.listPublishedPublicCatalogRows`.
+
+---
+
 ### Backend — meta single source of truth (MUST)
 
-1. **One `introspectPgTable(...)` per table** in `functions/events-api/src/services/<table>.service.ts`, exported as `*AdminMeta` (e.g. `ordersAdminMeta`, `eventInviteesAdminMeta`).
-2. **TableService constructor** MUST use that meta: `super(table, { meta: ordersAdminMeta, ... })`.
+1. **One `introspectTable(...)` per table** in `functions/events-api/src/services/<table>.service.ts`, exported as `*ResourceMeta` (e.g. `ordersResourceMeta`, `eventInviteesResourceMeta`).
+2. **TableService constructor** MUST use that meta: `super({ table, meta: ordersResourceMeta, ... })`.
 3. **Admin resources** (`routes/admin/resources/*.ts`) MUST:
-   - `import { *AdminMeta, *Service, *Table } from "../../../services/..."`
-   - pass `meta: *AdminMeta` and `service: tableServiceToBridge(*Service)`
-   - keep only resource-specific config in `opts`: `operations`, `exclude` overrides, `schemas`, `hooks`, `parent`, `actions`, `extensions`
+   - `import { *ResourceMeta, *Service, *Table } from "../../../services/..."`
+   - pass `meta: *ResourceMeta` and `service: tableServiceToBridge(*Service)`
+   - keep only resource-specific config in `opts`: `operations`, `exclude` overrides, `schemas`, `hooks`, `parent`
+   - **NEVER** put control actions in resources — use `routes/admin/control/`
 4. **NEVER** duplicate `opts.fields.list` / `opts.fields.read` in resources — list/read projections live only in service meta.
-5. **NEVER** call `introspectPgTable` in resources, list providers, or export handlers for tables that already have `*AdminMeta` on the service.
+5. **NEVER** call `introspectTable` in resources, list providers, or export handlers for tables that already have `*ResourceMeta` on the service.
 
-`create-crud-router.ts` resolves schemas via `def.meta` or `resolveResourceMeta(def)` — not a second introspect from orphaned `opts.fields`.
+`createResourceRouter` resolves schemas via `def.meta` or `resolveResourceMeta(def)` — not a second introspect from orphaned `opts.fields`.
 
 ---
 
@@ -310,20 +335,24 @@ Admin table behavior has **one source of truth per table**. Do not define parall
 All standard admin resources MUST wire HTTP list/read/mutations through the bridge:
 
 ```typescript
-export const orders = defineAdminResource({
+// routes/admin/resources/orders.ts — generated CRUD only
+export const orders = defineResource({
   table: ordersTable,
-  meta: ordersAdminMeta,
+  meta: ordersResourceMeta,
   service: tableServiceToBridge(ordersService),
   opts: { operations: ["list", "read"] },
-  actions: [/* side effects only */],
-  extensions: () => [/* refund, etc. */],
 });
 ```
 
-- **Bridge:** `services/base/table-service-bridge.ts` — `tableServiceToBridge(svc)` maps `list`, `count`, `get` → `getForAdmin`, bulk mutations, optional `parseListQuery`, `filterMeta`.
-- **Read projection:** `TableService.getForAdmin()` (or bridge `get`) MUST return rows projected with `meta.project.read` — never raw full DB rows on `GET /:id`.
-- **When `service` is set:** `createCrudRouter` skips `crudProvider` list/read; mutations use `mountServiceMutations` with bridge + `buildArkTypeSchemas(meta, ...)`.
-- **FORBIDDEN for new work:** standalone `list:` / `detail:` handlers on resources for tables that have a `TableService`; duplicate `CrudService` list paths; `crudProvider`-only resources without `service` (legacy fallback only — do not add new ones).
+```typescript
+// routes/admin/router.ts
+composeResourceRouter({ resource: orders, control: createOrdersControlRouter(), mapCtx })
+```
+
+- **Bridge:** `@neon/resource-api` `tableServiceToBridge(svc)` maps `list`, `count`, `get` → `getForAdmin`, bulk mutations, optional `parseListQuery`, `filterMeta`.
+- **Read projection:** `TableService.getForAdmin()` MUST return rows projected with `meta.project.read`.
+- **Generated routes:** `createResourceRouter` requires `service` bridge; mutations use bridge + `buildArkTypeSchemas(meta, ...)`.
+- **FORBIDDEN:** standalone `list:` / `detail:` on resources for tables with `TableService`; `crudProvider` / `CrudService` (removed).
 
 **Wired tables (all use bridge today):** orders, events, people, event-invitees, event-tiers, admissions, invite-links, order-tiers, invite-redemptions.
 
@@ -348,17 +377,17 @@ Non-trivial list behavior belongs in the service, not `routes/admin/providers/*-
 
 ---
 
-### Backend — `@neon/admin-crud` (allowed vs removed)
+### Backend — `@neon/resource-api` (allowed vs removed)
 
-**Use:** `parseListQuery`, `resolveAdminListScope`, `runAdminListFromScope`, `listMetaFromScope`, `buildFilterConditions`, filter suffix operators (`_in`, `_gte`, …), `bulkProvider`, `actionProvider`, `detailProvider`, `listProvider` (when no service), `introspectPgTable`, `buildArkTypeSchemas`, `crudProvider` (legacy fallback only).
+**Use:** `parseListQuery`, `resolveAdminListScope`, `runAdminListFromScope`, `listMetaFromScope`, `buildFilterConditions`, filter suffix operators (`_in`, `_gte`, …), `bulkProvider`, `actionProvider`, `detailProvider`, `listProvider` (when no service), `introspectTable`, `buildArkTypeSchemas`, `TableService`, `tableServiceToBridge`, `defineResource`, `createResourceRouter`, `composeResourceRouter`.
 
-**List pipeline:** `runAdminList` delegates to `resolveAdminListScope` + `runAdminListFromScope` — do not reintroduce duplicate sort/filter parsing.
+**List pipeline:** `runAdminListFromScope` after `resolveAdminListScope` — do not reintroduce duplicate sort/filter parsing.
 
-**Removed — NEVER reintroduce:** `registerAdminCrud`, `registerAdminRoute`, `customListMeta` (`joined-list.ts`), `useAdminListPagination` (admin SPA).
+**Removed — NEVER reintroduce:** `registerAdminCrud`, `registerAdminRoute`, `customListMeta` (`joined-list.ts`), `useAdminListPagination` (admin SPA), `CrudService`, `crudProvider`, `@neon/admin-crud`.
 
 **Response shape:** `limit`/`skip` query params; list `meta` is `{ total, limit, skip }`. Admin SPA uses UI `page`/`pageSize` and converts to `limit`/`skip` at the HTTP boundary only.
 
-**Drizzle boundary** (`functions/events-api/.eslintrc.json`): `routes/` and `helpers/` cannot import Drizzle/`db/schema`; multi-step writes = route `runTransaction` + service `*InTx`; admin CRUD `getDb` allowed only in `services/admin/crud-mount.ts`.
+**Drizzle boundary** (`functions/events-api/.eslintrc.json`): `routes/` and `helpers/` cannot import Drizzle/`db/schema`; multi-step writes = route `runTransaction` + service `*InTx`; non-admin routes cannot import `@neon/resource-api` router/bridge modules or `routes/admin/**`.
 
 **Other backend rules (unchanged):** Refund flow `POST /admin/orders/:id/refund` → `202 { pending: true }`; webhook updates DB. Call order: table service → route orchestration → helpers. Never `new EventsService()` at call sites.
 
@@ -370,7 +399,7 @@ Non-trivial list behavior belongs in the service, not `routes/admin/providers/*-
 
 **List HTTP:** `createAdminListClient<TRow>(path)` in `lib/admin-list-services/create-admin-list-client.ts` — one client per `/admin/{resource}` list endpoint in `admin-api.ts`.
 
-**Row types** in `admin-api.ts` MUST include a comment tying each to backend meta, e.g. `/** Mirrors ordersAdminMeta.project.list. */` — field names MUST match service list projection (no drift).
+**Row types** in `admin-api.ts` MUST include a comment tying each to backend meta, e.g. `/** Mirrors ordersResourceMeta.project.list. */` — field names MUST match service list projection (no drift).
 
 **Paginated list pages** MUST use `createAdminListService` from `lib/admin-list-services/registry.ts`:
 
@@ -408,7 +437,7 @@ When a list or detail table shows related entities (event title, person name, or
 
 **Examples:** Orders list: `load: [eventFkService, personFkService]`. Event invitees: `load: [personFkService, orderFkService]`, `scope: { eventId }`.
 
-**Backend:** FK batching uses `@neon/admin-crud` list filters on service `filterable` columns (`id_in`, `eventId`, `personId_in`, …) — add filterable fields in meta/service, not one-off list endpoints.
+**Backend:** FK batching uses `@neon/resource-api` list filters on service `filterable` columns (`id_in`, `eventId`, `personId_in`, …) — add filterable fields in meta/service, not one-off list endpoints.
 
 **Mutations:** Invalidate `adminKeys.{service}.all` (or list prefix) when related rows change.
 

@@ -1,14 +1,31 @@
+import { introspectTable } from "@neon/resource-api";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { orderTiers } from "../db/schema";
 import type { EntityTx } from "./transaction";
+import { TableService } from "./base/table-service";
 
 export { orderTiers as orderTiersTable };
 
+export const orderTiersResourceMeta = introspectTable(orderTiers, {
+  fields: {
+    list: ["id", "orderId", "eventTierId", "unitPriceCents"],
+  },
+  list: { defaultSort: "eventTierId" },
+});
+
 export type OrderTierLine = typeof orderTiers.$inferSelect;
 
-export class OrderTiersService {
+export class OrderTiersService extends TableService<typeof orderTiers> {
+  constructor() {
+    super({
+      table: orderTiers,
+      meta: orderTiersResourceMeta,
+      defaultSort: "eventTierId",
+    });
+  }
+
   async listForOrder(orderId: string, tx?: EntityTx): Promise<OrderTierLine[]> {
     const executor = tx ?? getDb();
     return executor

@@ -3,7 +3,7 @@ import { type, type Type } from "arktype";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 
-import type { AdminCrudContext } from "./types";
+import type { ResourceContext } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const validate = arktypeValidator as (
@@ -14,11 +14,11 @@ const validate = arktypeValidator as (
 export type BulkServiceBridge = {
   createBulk?: (
     items: Record<string, unknown>[],
-    ctx: AdminCrudContext,
+    ctx: ResourceContext,
   ) => Promise<Record<string, unknown>[]>;
   updateBulk?: (
     updates: { id: string; data: Record<string, unknown> }[],
-    ctx: AdminCrudContext,
+    ctx: ResourceContext,
   ) => Promise<Record<string, unknown>[]>;
 };
 
@@ -55,7 +55,7 @@ export function bulkProvider(opts: BulkProviderOptions): Hono {
       "/bulk",
       ...middleware,
       validate("json", schema),
-      async (c: AdminCrudContext) => {
+      async (c: ResourceContext) => {
         const body = schema.assert(await c.req.json()) as { items: Record<string, unknown>[] };
         const items = await opts.service.createBulk!(body.items, c);
         return c.json({ items }, 201);
@@ -69,7 +69,7 @@ export function bulkProvider(opts: BulkProviderOptions): Hono {
       "/bulk",
       ...middleware,
       validate("json", schema),
-      async (c: AdminCrudContext) => {
+      async (c: ResourceContext) => {
         const body = (await c.req.json()) as { items: Record<string, unknown>[] };
         const updates = (body.items ?? []).map((row) => {
           const { id, ...data } = row;

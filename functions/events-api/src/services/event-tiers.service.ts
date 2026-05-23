@@ -1,14 +1,42 @@
-import { introspectPgTable } from "@neon/admin-crud";
+import {
+  introspectTable,
+  listMetaFromScope,
+  runAdminListFromScope,
+  type ListQuery,
+  type ListResult,
+} from "@neon/resource-api";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { eventTiers } from "../db/schema";
+import { enrichTiersWithCapacityStats } from "../routes/shared/tier-capacity";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base/table-service";
+import type { ServiceContext } from "./base/types";
+import { eventsService } from "./events.service";
 
 export { eventTiers as eventTiersTable };
 
-const tiersMeta = introspectPgTable(eventTiers);
+export const eventTierListFields = [
+  "id",
+  "eventId",
+  "name",
+  "description",
+  "priceCents",
+  "currency",
+  "quota",
+  "sortOrder",
+  "active",
+  "selectionMode",
+] as const;
+
+export const eventTiersResourceMeta = introspectTable(eventTiers, {
+  fields: {
+    list: [...eventTierListFields],
+    read: [...eventTierListFields],
+  },
+  list: { defaultSort: "sortOrder" },
+});
 
 export type TierTx = EntityTx;
 
@@ -31,15 +59,116 @@ function isUuid(value: string | null | undefined): value is string {
   return Boolean(value && UUID_RE.test(value));
 }
 
+export type EventTierRow = typeof eventTiers.$inferSelect;
+
+export type EventTierListRow = Pick<
+  EventTierRow,
+  (typeof eventTierListFields)[number]
+>;
+
+export type EventTierListItem = EventTierListRow & {
+  sold: number;
+  placesRemaining: number | null;
+};
+
+function parseSelectionMode(value: unknown): EventTierRow["selectionMode"] {
+  return value === "addon" ? "addon" : "exclusive";
+}
+
+function projectEventTierListRow(row: Record<string, unknown>): EventTierListRow {
+  const quotaRaw = row.quota;
+
+  return {
+    id: String(row.id),
+    eventId: String(row.eventId),
+    name: String(row.name),
+    description: String(row.description ?? ""),
+    priceCents: Number(row.priceCents),
+    currency: String(row.currency),
+    quota:
+      quotaRaw === null || quotaRaw === undefined ? null : Number(quotaRaw),
+    sortOrder: Number(row.sortOrder),
+    active: Boolean(row.active),
+    selectionMode: parseSelectionMode(row.selectionMode),
+  };
+}
+
 export class EventTiersService extends TableService<
   typeof eventTiers,
-  typeof eventTiers.$inferSelect
+  typeof eventTiers.$inferSelect,
+  Record<string, unknown>,
+  Record<string, unknown>,
+  Record<string, string | string[] | undefined>,
+  EventTierListItem
 > {
   constructor() {
     super({
       table: eventTiers,
-      meta: tiersMeta,
+      meta: eventTiersResourceMeta,
+      defaultSort: "sortOrder",
     });
+  }
+
+  protected listExecution(): "custom" {
+    return "custom";
+  }
+
+  protected async executeCustomList(
+    query: ListQuery<Record<string, string | string[] | undefined>>,
+    ctx?: ServiceContext,
+  ): Promise<ListResult<EventTierListItem>> {
+    const eventId =
+      typeof query.filters.eventId === "string" ? query.filters.eventId : undefined;
+
+    if (!eventId) {
+      return {
+        items: [],
+        meta: { total: 0, limit: query.limit, skip: query.skip },
+      };
+    }
+
+    const event = await eventsService.get(eventId);
+    if (!event) {
+      return {
+        items: [],
+        meta: { total: 0, limit: query.limit, skip: query.skip },
+      };
+    }
+
+    const scope = await this.resolveListScope(query, ctx);
+    const db = this.getDb();
+    const { rows, total } = await runAdminListFromScope({
+      db,
+      table: this.table,
+      scope,
+    });
+    const listRows = rows.map(projectEventTierListRow);
+    const { tiers } = await enrichTiersWithCapacityStats(
+      eventId,
+      event.eventQuota,
+      listRows,
+    );
+    const tierById = new Map(tiers.map((tier) => [tier.id, tier]));
+
+    return {
+      items: listRows.map((row): EventTierListItem => {
+        const enriched = tierById.get(row.id);
+
+        return {
+          ...row,
+          sold: enriched?.sold ?? 0,
+          placesRemaining: enriched?.placesRemaining ?? null,
+        };
+      }),
+      meta: listMetaFromScope(scope, total),
+    };
+  }
+
+  protected async executeCustomCount(
+    query: ListQuery<Record<string, string | string[] | undefined>>,
+    ctx?: ServiceContext,
+  ): Promise<number> {
+    return this.countFromTable(query, ctx);
   }
 
   async findExclusiveTierIdAmong(

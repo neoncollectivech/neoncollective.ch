@@ -1,52 +1,15 @@
-import { eventsService } from "../../../services/events.service";
 import {
+  eventInviteesResourceMeta,
   eventInviteesService,
   eventInviteesTable,
 } from "../../../services/event-invitees.service";
-import { listAdminEventInvitees } from "../providers/invitees-list";
-import { defineAdminResource } from "../resource";
+import { defineResource, tableServiceToBridge } from "@neon/resource-api";
 
-export const eventInviteesResource = defineAdminResource({
+export const eventInviteesResource = defineResource({
   table: eventInviteesTable,
-  list: listAdminEventInvitees,
+  meta: eventInviteesResourceMeta,
+  service: tableServiceToBridge(eventInviteesService),
   opts: {
     operations: ["list", "read", "update"],
-    list: {
-      defaultSort: "-createdAt",
-    },
-    fields: {
-      list: [
-        "id",
-        "eventId",
-        "personId",
-        "inviterId",
-        "email",
-        "phone",
-        "notes",
-        "revokedAt",
-        "createdAt",
-      ],
-      read: [
-        "id",
-        "eventId",
-        "personId",
-        "inviterId",
-        "email",
-        "phone",
-        "notes",
-        "revokedAt",
-        "createdAt",
-      ],
-      update: ["notes"],
-    },
-    hooks: {
-      beforeUpdate: async (id, data) => {
-        const row = await eventInviteesService.get(id);
-        if (row) {
-          await eventsService.requireInviteOnly(row.eventId);
-        }
-        return data;
-      },
-    },
   },
 });

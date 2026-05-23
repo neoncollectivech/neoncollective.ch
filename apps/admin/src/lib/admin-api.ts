@@ -3,8 +3,10 @@ import type { InviteeUpsertPayload } from "@/lib/parse-invitees-csv";
 
 import axios from "axios";
 
-import { api, type ItemResponse, type ListResponse } from "@/lib/api-client";
+import { createAdminListClient } from "@/lib/admin-list-services/create-admin-list-client";
+import { api, type ItemResponse } from "@/lib/api-client";
 
+/** Mirrors `eventsResourceMeta.project.list`. */
 export type EventRow = {
   id: string;
   slug: string;
@@ -14,6 +16,7 @@ export type EventRow = {
   startsAt: string | null;
 };
 
+/** Mirrors `ordersResourceMeta.project.list`. */
 export type OrderRow = {
   id: string;
   eventId: string;
@@ -24,6 +27,7 @@ export type OrderRow = {
   createdAt: string;
 };
 
+/** Mirrors `eventInviteesResourceMeta.project.list`. */
 export type EventInviteeListRow = {
   id: string;
   eventId: string;
@@ -36,6 +40,7 @@ export type EventInviteeListRow = {
   createdAt: string;
 };
 
+/** Mirrors `peopleResourceMeta.project.list`. */
 export type PersonRow = {
   id: string;
   givenName: string;
@@ -140,12 +145,29 @@ export type AdminListRequestParams = {
   orderStatus?: string;
 };
 
-export async function listEvents(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<EventRow>>("/admin/events", {
-    params,
-  });
+// --- Resource CRUD (generated list/read/create/update via createResourceRouter) ---
 
-  return res.data;
+const listEventsClient = createAdminListClient<EventRow>("/admin/events");
+const listEventInviteesClient = createAdminListClient<EventInviteeListRow>(
+  "/admin/event-invitees",
+);
+const listOrdersClient = createAdminListClient<OrderRow>("/admin/orders");
+const listPeopleClient = createAdminListClient<PersonRow>("/admin/people");
+const listEventTiersClient =
+  createAdminListClient<EventTierListRow>("/admin/event-tiers");
+const listOrderTiersClient =
+  createAdminListClient<OrderTierRow>("/admin/order-tiers");
+const listAdmissionsClient =
+  createAdminListClient<AdmissionRow>("/admin/admissions");
+const listInviteRedemptionsClient = createAdminListClient<InviteRedemptionRow>(
+  "/admin/invite-redemptions",
+);
+const listInviteLinksClient = createAdminListClient<InviteLinkRow>(
+  "/admin/invite-links",
+);
+
+export async function listEvents(params: AdminListRequestParams) {
+  return listEventsClient(params);
 }
 
 export async function getEvent(eventId: string) {
@@ -175,12 +197,7 @@ export async function patchEvent(eventId: string, payload: unknown) {
 }
 
 export async function listEventInvitees(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<EventInviteeListRow>>(
-    "/admin/event-invitees",
-    { params },
-  );
-
-  return res.data;
+  return listEventInviteesClient(params);
 }
 
 export async function getEventInvitee(inviteeId: string) {
@@ -245,6 +262,8 @@ export async function exportEventInviteesCsv(
     throw new Error(message);
   }
 }
+
+// --- Control actions (routes/admin/control + providers; not generated CRUD) ---
 
 export async function upsertEventInvitees(
   eventId: string,
@@ -322,11 +341,7 @@ export async function putEventTiers(
 }
 
 export async function listOrders(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<OrderRow>>("/admin/orders", {
-    params,
-  });
-
-  return res.data;
+  return listOrdersClient(params);
 }
 
 export async function getOrder(orderId: string) {
@@ -346,11 +361,7 @@ export async function deleteOrder(orderId: string) {
 }
 
 export async function listPeople(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<PersonRow>>("/admin/people", {
-    params,
-  });
-
-  return res.data;
+  return listPeopleClient(params);
 }
 
 export async function getPerson(personId: string) {
@@ -382,46 +393,21 @@ export async function verifyPeople(personIds: string[]) {
 }
 
 export async function listEventTiers(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<EventTierListRow>>(
-    "/admin/event-tiers",
-    { params },
-  );
-
-  return res.data;
+  return listEventTiersClient(params);
 }
 
 export async function listOrderTiers(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<OrderTierRow>>("/admin/order-tiers", {
-    params,
-  });
-
-  return res.data;
+  return listOrderTiersClient(params);
 }
 
 export async function listAdmissions(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<AdmissionRow>>("/admin/admissions", {
-    params,
-  });
-
-  return res.data;
+  return listAdmissionsClient(params);
 }
 
 export async function listInviteRedemptions(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<InviteRedemptionRow>>(
-    "/admin/invite-redemptions",
-    { params },
-  );
-
-  return res.data;
+  return listInviteRedemptionsClient(params);
 }
 
 export async function listInviteLinks(params: AdminListRequestParams) {
-  const res = await api.get<ListResponse<InviteLinkRow>>(
-    "/admin/invite-links",
-    {
-      params,
-    },
-  );
-
-  return res.data;
+  return listInviteLinksClient(params);
 }

@@ -1,36 +1,15 @@
-import { inviteLinksTable } from "../../../services/invite-links.service";
-import { defineAdminResource } from "../resource";
+import {
+  inviteLinksResourceMeta,
+  inviteLinksService,
+  inviteLinksTable,
+} from "../../../services/invite-links.service";
+import { defineResource, tableServiceToBridge } from "@neon/resource-api";
 
-export const inviteLinksResource = defineAdminResource({
+export const inviteLinksResource = defineResource({
   table: inviteLinksTable,
+  meta: inviteLinksResourceMeta,
+  service: tableServiceToBridge(inviteLinksService),
   opts: {
     operations: ["list", "read"],
-    list: {
-      defaultSort: "-createdAt",
-    },
-    exclude: {
-      list: ["tokenHash"],
-      read: ["tokenHash"],
-    },
-    fields: {
-      list: [
-        "id",
-        "eventId",
-        "inviterId",
-        "maxRedemptions",
-        "token",
-        "createdAt",
-        "rotatedAt",
-      ],
-      read: [
-        "id",
-        "eventId",
-        "inviterId",
-        "maxRedemptions",
-        "token",
-        "createdAt",
-        "rotatedAt",
-      ],
-    },
   },
 });

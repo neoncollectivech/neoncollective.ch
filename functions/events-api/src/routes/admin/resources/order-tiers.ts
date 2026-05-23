@@ -1,15 +1,15 @@
-import { orderTiersTable } from "../../../services/order-tiers.service";
-import { defineAdminResource } from "../resource";
+import {
+  orderTiersResourceMeta,
+  orderTiersService,
+  orderTiersTable,
+} from "../../../services/order-tiers.service";
+import { defineResource, tableServiceToBridge } from "@neon/resource-api";
 
-export const orderTiersResource = defineAdminResource({
+export const orderTiersResource = defineResource({
   table: orderTiersTable,
+  meta: orderTiersResourceMeta,
+  service: tableServiceToBridge(orderTiersService),
   opts: {
     operations: ["list"],
-    list: {
-      defaultSort: "eventTierId",
-    },
-    fields: {
-      list: ["id", "orderId", "eventTierId", "unitPriceCents"],
-    },
   },
 });

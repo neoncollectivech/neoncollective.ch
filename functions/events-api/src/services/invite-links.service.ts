@@ -1,4 +1,4 @@
-import { introspectPgTable } from "@neon/admin-crud";
+import { introspectTable } from "@neon/resource-api";
 import { and, eq } from "drizzle-orm";
 
 import { getDb } from "../db/index";
@@ -11,13 +11,39 @@ export { inviteLinks as inviteLinksTable };
 
 export type InviteLinkTx = EntityTx;
 
-const inviteLinksMeta = introspectPgTable(inviteLinks);
+export const inviteLinksResourceMeta = introspectTable(inviteLinks, {
+  exclude: {
+    list: ["tokenHash"],
+    read: ["tokenHash"],
+  },
+  fields: {
+    list: [
+      "id",
+      "eventId",
+      "inviterId",
+      "maxRedemptions",
+      "token",
+      "createdAt",
+      "rotatedAt",
+    ],
+    read: [
+      "id",
+      "eventId",
+      "inviterId",
+      "maxRedemptions",
+      "token",
+      "createdAt",
+      "rotatedAt",
+    ],
+  },
+  list: { defaultSort: "-createdAt" },
+});
 
 export class InviteLinksService extends TableService<typeof inviteLinks> {
   constructor() {
     super({
       table: inviteLinks,
-      meta: inviteLinksMeta,
+      meta: inviteLinksResourceMeta,
     });
   }
 

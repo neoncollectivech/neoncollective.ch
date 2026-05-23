@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { introspectPgTable } from "@neon/admin-crud";
+import { introspectTable } from "@neon/resource-api";
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index";
@@ -10,7 +10,18 @@ import { TableService } from "./base/table-service";
 
 export { admissions as admissionsTable };
 
-const admissionsMeta = introspectPgTable(admissions);
+export const admissionsResourceMeta = introspectTable(admissions, {
+  fields: {
+    list: [
+      "id",
+      "orderId",
+      "eventId",
+      "checkedInAt",
+      "revokedAt",
+      "createdAt",
+    ],
+  },
+});
 
 export type AdmissionTx = EntityTx;
 
@@ -22,7 +33,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
   constructor() {
     super({
       table: admissions,
-      meta: admissionsMeta,
+      meta: admissionsResourceMeta,
     });
   }
 

@@ -2,11 +2,11 @@ import {
   BadRequestError,
   ConflictError,
   NotFoundError,
-  introspectPgTable,
+  introspectTable,
   parseListQuery,
   type FilterParams,
   type ListQuery,
-} from "@neon/admin-crud";
+} from "@neon/resource-api";
 import { and, eq, ilike, inArray, ne, or } from "drizzle-orm";
 
 import {
@@ -40,7 +40,7 @@ import type { ServiceContext } from "./base/types";
 
 export type PeopleListFilters = FilterParams;
 
-const peopleMeta = introspectPgTable(people, {
+export const peopleResourceMeta = introspectTable(people, {
   exclude: {
     update: ["phone", "emailVerifiedAt", "phoneVerifiedAt", "updatedAt"],
   },
@@ -55,6 +55,17 @@ const peopleMeta = introspectPgTable(people, {
       "phoneVerifiedAt",
       "createdAt",
     ],
+    read: [
+      "id",
+      "givenName",
+      "familyName",
+      "email",
+      "phone",
+      "emailVerifiedAt",
+      "phoneVerifiedAt",
+      "createdAt",
+      "updatedAt",
+    ],
   },
   list: {
     searchFields: [
@@ -63,6 +74,7 @@ const peopleMeta = introspectPgTable(people, {
       people.familyName,
       people.phone,
     ],
+    defaultSort: "-createdAt",
   },
 });
 
@@ -108,7 +120,7 @@ export class PeopleService extends TableService<
   constructor() {
     super({
       table: people,
-      meta: peopleMeta,
+      meta: peopleResourceMeta,
       defaultSort: "-createdAt",
     });
   }

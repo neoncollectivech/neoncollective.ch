@@ -1,9 +1,16 @@
 export { AbstractService } from "./abstract-service";
-export { AbstractTableService } from "./abstract-table-service";
-export type { AdminListMeta, BulkUpdateItem, ListQuery, ListResult } from "@neon/admin-crud";
-export { customListMeta } from "./joined-list";
-export { BulkLimitError } from "./errors";
-export { mapCtx, parentSqlFromCtx } from "./map-ctx";
+export {
+  AbstractTableService,
+  type BulkUpdateItem,
+  type ListQuery,
+  type ListResult,
+  type AdminListMeta,
+  tableServiceToBridge,
+  type TableServiceBridge,
+} from "@neon/resource-api";
+export { BulkLimitError } from "@neon/resource-api";
+export { mapCtx } from "./map-ctx";
+export { parentSqlFromCtx } from "@neon/resource-api";
 export { orClauses } from "./sql-utils";
 export { TableService, type TableServiceConfig } from "./table-service";
 export type { ServiceContext, ServiceParent } from "./types";

@@ -1,4 +1,9 @@
-import { introspectPgTable, type ResolvedListScope } from "@neon/admin-crud";
+import {
+  introspectTable,
+  parseListQuery,
+  type ListQuery,
+  type ResolvedListScope,
+} from "@neon/resource-api";
 import { and, asc, count, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 
 import { normalizeEmailTypo, phoneDigitsLookupVariants } from "../helpers/contact";
@@ -8,7 +13,9 @@ import { eventInvitees, orders } from "../db/schema";
 export { eventInvitees as eventInviteesTable };
 import { orClauses } from "./base/sql-utils";
 import { TableService } from "./base/table-service";
+import type { ServiceContext } from "./base/types";
 import type { EntityTx } from "./transaction";
+import { eventsService } from "./events.service";
 
 export type EventInviteesTx = EntityTx;
 
@@ -45,7 +52,50 @@ function contactMatchSql(contact: InviteeContactLookup): SQL | null {
   return orClauses(parts);
 }
 
-const inviteesMeta = introspectPgTable(eventInvitees);
+export const eventInviteesResourceMeta = introspectTable(eventInvitees, {
+  fields: {
+    list: [
+      "id",
+      "eventId",
+      "personId",
+      "inviterId",
+      "email",
+      "phone",
+      "notes",
+      "revokedAt",
+      "createdAt",
+    ],
+    read: [
+      "id",
+      "eventId",
+      "personId",
+      "inviterId",
+      "email",
+      "phone",
+      "notes",
+      "revokedAt",
+      "createdAt",
+    ],
+    update: ["notes"],
+  },
+  list: { defaultSort: "-createdAt" },
+});
+
+export const ORDER_STATUS_FILTER_KEY = "orderStatus";
+
+export type EventInviteesListFilters = Record<string, string | string[] | undefined>;
+
+function adminQueryParam(
+  raw: string | string[] | undefined,
+): string | undefined {
+  if (typeof raw === "string") {
+    return raw;
+  }
+  if (Array.isArray(raw)) {
+    return raw[0];
+  }
+  return undefined;
+}
 
 export const INVITEE_ORDER_STATUS_FILTERS = [
   "empty",
@@ -127,13 +177,72 @@ export class EventInviteesService extends TableService<
   typeof eventInvitees.$inferSelect,
   Record<string, unknown>,
   Record<string, unknown>,
-  Record<string, never>
+  EventInviteesListFilters
 > {
   constructor() {
     super({
       table: eventInvitees,
-      meta: inviteesMeta,
+      meta: eventInviteesResourceMeta,
+      defaultSort: "-createdAt",
     });
+  }
+
+  parseListQuery(
+    raw: Record<string, string | string[] | undefined>,
+  ): ListQuery<EventInviteesListFilters> {
+    const orderStatus = adminQueryParam(raw[ORDER_STATUS_FILTER_KEY]);
+    const listRaw = { ...raw };
+    delete listRaw[ORDER_STATUS_FILTER_KEY];
+    const parsed = parseListQuery<EventInviteesListFilters>(listRaw);
+    if (orderStatus) {
+      parsed.filters = {
+        ...parsed.filters,
+        [ORDER_STATUS_FILTER_KEY]: orderStatus,
+      };
+    }
+    return parsed;
+  }
+
+  async resolveAdminListScopeFromRaw(
+    raw: Record<string, string | string[] | undefined>,
+    options?: { eventId?: string },
+  ): Promise<{
+    scope: ResolvedListScope;
+    eventId: string | undefined;
+    parsed: ListQuery<EventInviteesListFilters>;
+  }> {
+    const rawQuery =
+      options?.eventId !== undefined ? { ...raw, eventId: options.eventId } : raw;
+    const parsed = this.parseListQuery(rawQuery);
+    const eventId = adminQueryParam(parsed.filters.eventId)?.trim();
+    const scope = await this.resolveListScope(parsed);
+    return { scope, eventId, parsed };
+  }
+
+  protected override async applyListFilters(
+    query: ListQuery<EventInviteesListFilters>,
+    _ctx?: ServiceContext,
+  ): Promise<SQL[]> {
+    const eventId = adminQueryParam(query.filters.eventId)?.trim();
+    const orderStatus = parseInviteeOrderStatusFilter(
+      query.filters[ORDER_STATUS_FILTER_KEY],
+    );
+    if (!eventId || !orderStatus) {
+      return [];
+    }
+    return [buildInviteeOrderStatusWhere(eventId, orderStatus)];
+  }
+
+  protected override async beforeUpdate(
+    id: string,
+    data: Record<string, unknown>,
+    ctx?: ServiceContext,
+  ): Promise<Record<string, unknown>> {
+    const row = await this.get(id, ctx);
+    if (row) {
+      await eventsService.requireInviteOnly(row.eventId);
+    }
+    return data;
   }
 
   listDefaultSort(): string {

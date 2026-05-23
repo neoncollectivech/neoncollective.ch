@@ -1,4 +1,4 @@
-import { actionProvider } from "@neon/admin-crud";
+import { actionProvider } from "@neon/resource-api";
 import { Hono } from "hono";
 
 import { InviteMechanismDisabledError } from "../../../services/events.service";

@@ -1,8 +1,8 @@
 import {
-  introspectPgTable,
+  introspectTable,
   parseListQuery,
   type FilterParams,
-} from "@neon/admin-crud";
+} from "@neon/resource-api";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index";
@@ -16,7 +16,32 @@ export type OrdersListFilters = FilterParams;
 
 export type OrderTx = EntityTx;
 
-const ordersMeta = introspectPgTable(orders);
+export const ordersResourceMeta = introspectTable(orders, {
+  fields: {
+    list: [
+      "id",
+      "eventId",
+      "personId",
+      "status",
+      "amountCents",
+      "locale",
+      "createdAt",
+    ],
+    read: [
+      "id",
+      "eventId",
+      "personId",
+      "status",
+      "amountCents",
+      "locale",
+      "stripePaymentIntentId",
+      "inviteLinkId",
+      "createdAt",
+      "updatedAt",
+    ],
+  },
+  list: { defaultSort: "-createdAt" },
+});
 
 export class OrdersService extends TableService<
   typeof orders,
@@ -28,7 +53,8 @@ export class OrdersService extends TableService<
   constructor() {
     super({
       table: orders,
-      meta: ordersMeta,
+      meta: ordersResourceMeta,
+      defaultSort: "-createdAt",
     });
   }
 

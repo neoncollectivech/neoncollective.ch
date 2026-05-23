@@ -2,7 +2,7 @@ import { type, type Type } from "arktype";
 
 import { inferColumnKind } from "./filter-helpers";
 import type { FilterableColumn } from "./filter-types";
-import type { AdminTableMeta } from "./introspect";
+import type { ResourceMeta } from "./introspect";
 import { adminListQuerySchema } from "./schemas";
 
 export type SchemaFieldOverrides = Record<string, string>;
@@ -80,7 +80,7 @@ export type BuiltArkTypeSchemas = {
 };
 
 export function buildArkTypeSchemas(
-  meta: AdminTableMeta,
+  meta: ResourceMeta,
   opts: BuildArkTypeSchemasOptions = {},
 ): BuiltArkTypeSchemas {
   const jsonbArrays = opts.jsonbStringArrays ?? [];

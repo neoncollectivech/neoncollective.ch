@@ -1,31 +1,15 @@
-import { eventTiersTable } from "../../../services/event-tiers.service";
-import { listAdminEventTiers } from "../providers/event-tiers-list";
-import { defineAdminResource } from "../resource";
+import {
+  eventTiersResourceMeta,
+  eventTiersService,
+  eventTiersTable,
+} from "../../../services/event-tiers.service";
+import { defineResource, tableServiceToBridge } from "@neon/resource-api";
 
-const tierFields = [
-  "id",
-  "eventId",
-  "name",
-  "description",
-  "priceCents",
-  "currency",
-  "quota",
-  "sortOrder",
-  "active",
-  "selectionMode",
-] as const;
-
-export const eventTiersResource = defineAdminResource({
+export const eventTiersResource = defineResource({
   table: eventTiersTable,
-  list: listAdminEventTiers,
+  meta: eventTiersResourceMeta,
+  service: tableServiceToBridge(eventTiersService),
   opts: {
     operations: ["list", "read"],
-    list: {
-      defaultSort: "sortOrder",
-    },
-    fields: {
-      list: [...tierFields],
-      read: [...tierFields],
-    },
   },
 });

@@ -1,5 +1,5 @@
 {
-  "name": "@neon/admin-crud",
+  "name": "@neon/resource-api",
   "version": "0.0.1",
   "private": true,
   "type": "module",

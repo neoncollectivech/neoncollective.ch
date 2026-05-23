@@ -1,11 +1,13 @@
-import type { AdminCrudContext } from "@neon/admin-crud";
-import { eq } from "drizzle-orm";
+import type { ResourceContext } from "@neon/resource-api";
+import type { PgColumn } from "drizzle-orm/pg-core";
+import type { Context } from "hono";
 
+import type { AdminEnv, AdminSession } from "../../auth/require-admin-session";
 import type { ServiceContext } from "./types";
 
 export function mapCtx(
-  c: AdminCrudContext,
-  parent?: { param: string; column: import("drizzle-orm/pg-core").PgColumn },
+  c: Context<AdminEnv> | ResourceContext,
+  parent?: { param: string; column: PgColumn },
 ): ServiceContext {
   const ctx: ServiceContext = { hono: c };
   if (parent) {
@@ -14,12 +16,9 @@ export function mapCtx(
       ctx.parent = { param: parent.param, column: parent.column, value };
     }
   }
-  return ctx;
-}
-
-export function parentSqlFromCtx(ctx?: ServiceContext): import("drizzle-orm").SQL | undefined {
-  if (!ctx?.parent) {
-    return undefined;
+  const adminSession = "get" in c ? (c as Context<AdminEnv>).get("adminSession") : undefined;
+  if (adminSession) {
+    ctx.adminSession = adminSession as AdminSession;
   }
-  return eq(ctx.parent.column, ctx.parent.value);
+  return ctx;
 }

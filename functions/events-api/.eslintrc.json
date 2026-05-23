@@ -72,6 +72,41 @@
       }
     },
     {
+      "files": [
+        "src/routes/checkout/**/*.ts",
+        "src/routes/registrations/**/*.ts",
+        "src/routes/events/**/*.ts",
+        "src/routes/webhooks.ts",
+        "src/routes/check-in.ts",
+        "src/routes/invites.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@neon/resource-api",
+                "importNames": [
+                  "createResourceRouter",
+                  "composeResourceRouter",
+                  "tableServiceToBridge",
+                  "defineResource"
+                ],
+                "message": "Resource HTTP adapter is admin-only — call domain services directly."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["**/routes/admin/**"],
+                "message": "Non-admin routes must not import admin route modules."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/services/**/*.ts"],
       "rules": {
         "no-restricted-imports": [

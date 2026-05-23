@@ -1,12 +1,29 @@
+import { introspectTable } from "@neon/resource-api";
 import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { inviteRedemptions } from "../db/schema";
 import type { EntityTx } from "./transaction";
+import { TableService } from "./base/table-service";
 
 export { inviteRedemptions as inviteRedemptionsTable };
 
-export class InviteRedemptionsService {
+export const inviteRedemptionsResourceMeta = introspectTable(inviteRedemptions, {
+  fields: {
+    list: ["id", "orderId", "inviteLinkId", "createdAt"],
+  },
+  list: { defaultSort: "-createdAt" },
+});
+
+export class InviteRedemptionsService extends TableService<typeof inviteRedemptions> {
+  constructor() {
+    super({
+      table: inviteRedemptions,
+      meta: inviteRedemptionsResourceMeta,
+      defaultSort: "-createdAt",
+    });
+  }
+
   async insertInTx(
     tx: EntityTx,
     params: { inviteLinkId: string; orderId: string },

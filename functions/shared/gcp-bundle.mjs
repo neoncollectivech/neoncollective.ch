@@ -6,7 +6,7 @@ const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../.."
 
 const WORKSPACE_DIR = {
   "@neon/server-kit": "server-kit",
-  "@neon/admin-crud": "admin-crud",
+  "@neon/resource-api": "resource-api",
 };
 
 /** npm deps for deploy/package.json (function deps + workspace package deps, not workspace names). */

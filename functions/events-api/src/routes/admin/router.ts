@@ -1,11 +1,14 @@
-import { AdminApiError } from "@neon/admin-crud";
+import { composeResourceRouter, createResourceRouter, ResourceApiError } from "@neon/resource-api";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import type { AdminEnv } from "../../auth/require-admin-session";
 import { requireAdminSession } from "../../auth/require-admin-session";
+import { mapCtx } from "../../services/base/map-ctx";
 import { InviteMechanismDisabledError } from "../../services/events.service";
-import { createCrudRouter } from "./create-crud-router";
+import { createEventsControlRouter } from "./control/events";
+import { createOrdersControlRouter } from "./control/orders";
+import { createPeopleControlRouter } from "./control/people";
 import { adminRoute } from "./mount";
 import { createInviteesProvider } from "./providers/invitees";
 import { admissionsResource } from "./resources/admissions";
@@ -17,6 +20,19 @@ import { inviteRedemptionsResource } from "./resources/invite-redemptions";
 import { orderTiersResource } from "./resources/order-tiers";
 
 const adminAuth = [requireAdminSession];
+const resourceRouterOpts = { mapCtx };
+
+function mountResource(
+  admin: Hono<AdminEnv>,
+  path: string,
+  resource: Parameters<typeof composeResourceRouter>[0]["resource"],
+  control?: Hono,
+): void {
+  const router = control
+    ? composeResourceRouter({ resource, control, mapCtx })
+    : createResourceRouter(resource, resourceRouterOpts);
+  adminRoute(admin, path, router, ...adminAuth);
+}
 
 export function createAdminRouter(): Hono<AdminEnv> {
   const admin = new Hono<AdminEnv>();
@@ -25,21 +41,21 @@ export function createAdminRouter(): Hono<AdminEnv> {
     if (err instanceof InviteMechanismDisabledError) {
       return c.json({ error: err.message }, 403);
     }
-    if (err instanceof AdminApiError) {
+    if (err instanceof ResourceApiError) {
       return c.json({ error: err.message }, err.statusCode as ContentfulStatusCode);
     }
     throw err;
   });
 
-  adminRoute(admin, "/events", createCrudRouter(events), ...adminAuth);
-  adminRoute(admin, "/people", createCrudRouter(people), ...adminAuth);
-  adminRoute(admin, "/orders", createCrudRouter(orders), ...adminAuth);
-  adminRoute(admin, "/event-invitees", createCrudRouter(eventInviteesResource), ...adminAuth);
-  adminRoute(admin, "/event-tiers", createCrudRouter(eventTiersResource), ...adminAuth);
-  adminRoute(admin, "/order-tiers", createCrudRouter(orderTiersResource), ...adminAuth);
-  adminRoute(admin, "/admissions", createCrudRouter(admissionsResource), ...adminAuth);
-  adminRoute(admin, "/invite-redemptions", createCrudRouter(inviteRedemptionsResource), ...adminAuth);
-  adminRoute(admin, "/invite-links", createCrudRouter(inviteLinksResource), ...adminAuth);
+  mountResource(admin, "/events", events, createEventsControlRouter());
+  mountResource(admin, "/people", people, createPeopleControlRouter());
+  mountResource(admin, "/orders", orders, createOrdersControlRouter());
+  mountResource(admin, "/event-invitees", eventInviteesResource);
+  mountResource(admin, "/event-tiers", eventTiersResource);
+  mountResource(admin, "/order-tiers", orderTiersResource);
+  mountResource(admin, "/admissions", admissionsResource);
+  mountResource(admin, "/invite-redemptions", inviteRedemptionsResource);
+  mountResource(admin, "/invite-links", inviteLinksResource);
 
   const eventScoped = new Hono();
   eventScoped.route("/", createInviteesProvider());

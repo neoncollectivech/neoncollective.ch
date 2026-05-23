@@ -1,4 +1,4 @@
-import type { ListQuery, ListResult } from "@neon/admin-crud";
+import type { ListQuery, ListResult } from "@neon/resource-api";
 
 import type { ServiceContext } from "./types";
 

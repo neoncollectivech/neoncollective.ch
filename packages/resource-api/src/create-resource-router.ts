@@ -1,24 +1,23 @@
 import { arktypeValidator } from "@hono/arktype-validator";
-import {
-  actionProvider,
-  bulkProvider,
-  buildArkTypeSchemas,
-  crudProvider,
-  detailProvider,
-  introspectPgTable,
-  listProvider,
-  NotFoundError,
-  parseListQuery,
-  type CrudOperation,
-} from "@neon/admin-crud";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
+import type { PgColumn } from "drizzle-orm/pg-core";
 
-import { getAdminCrudDb } from "../../services/admin/crud-mount";
-import { mapCtx } from "../../services/base/map-ctx";
-import { resolveAdminResource, type AdminResource } from "./resource";
-import type { AdminServiceBridge } from "./service-bridge";
-import { toBulkBridge } from "./service-bridge";
+import { actionProvider } from "./action-provider";
+import { buildArkTypeSchemas } from "./arktype-from-columns";
+import { bulkProvider } from "./bulk-provider";
+import { detailProvider } from "./detail-provider";
+import { introspectTable, type ResourceMeta } from "./introspect";
+import { listProvider } from "./list-provider";
+import { NotFoundError } from "./errors";
+import { parseListQuery } from "./list-scope";
+import { resolveResource, type Resource, type ResourceDef } from "./resource";
+import {
+  toBulkBridge,
+  type MapCtxFn,
+  type ServiceBridge,
+} from "./table-service-bridge";
+import type { ResourceContext, ResourceOperation } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const validate = arktypeValidator as (
@@ -26,14 +25,28 @@ const validate = arktypeValidator as (
   schema: unknown,
 ) => MiddlewareHandler;
 
-const DEFAULT_OPS: CrudOperation[] = ["list", "read", "create", "update", "delete"];
+const DEFAULT_OPS: ResourceOperation[] = ["list", "read", "create", "update", "delete"];
+
+export type CreateResourceRouterOptions = {
+  mapCtx: MapCtxFn;
+};
+
+function resolveResourceMeta(def: ResourceDef): ResourceMeta {
+  if (def.meta) {
+    return def.meta;
+  }
+  if (def.table) {
+    return introspectTable(def.table, def.opts);
+  }
+  throw new Error("Resource requires meta or table for schema resolution.");
+}
 
 function resolveTableOperations(
-  optsOps: CrudOperation[] | undefined,
+  optsOps: ResourceOperation[] | undefined,
   hasService: boolean,
   hasListOverride: boolean,
   hasDetailOverride: boolean,
-): CrudOperation[] {
+): ResourceOperation[] {
   const base = optsOps ?? DEFAULT_OPS;
   return base.filter((op) => {
     if ((hasService || hasListOverride) && op === "list") {
@@ -48,9 +61,10 @@ function resolveTableOperations(
 
 function mountServiceListDetail(
   router: Hono,
-  svc: AdminServiceBridge,
-  parent: { param: string; column: import("drizzle-orm/pg-core").PgColumn } | undefined,
+  svc: ServiceBridge,
+  parent: { param: string; column: PgColumn } | undefined,
   noMiddleware: MiddlewareHandler[],
+  mapCtx: MapCtxFn,
 ): void {
   router.route(
     "/",
@@ -77,15 +91,17 @@ function mountServiceListDetail(
 
 function mountServiceMutations(
   router: Hono,
-  svc: AdminServiceBridge,
-  def: ReturnType<typeof resolveAdminResource>,
-  operations: CrudOperation[],
+  svc: ServiceBridge,
+  def: ResourceDef,
+  operations: ResourceOperation[],
   noMiddleware: MiddlewareHandler[],
+  mapCtx: MapCtxFn,
 ): void {
   if (!def.table) {
     return;
   }
-  const builtSchemas = buildArkTypeSchemas(introspectPgTable(def.table, def.opts), def.opts?.schemas);
+  const meta = def.meta ?? def.service?.meta ?? resolveResourceMeta(def);
+  const builtSchemas = buildArkTypeSchemas(meta, def.opts?.schemas);
   const parent = def.opts?.parent;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,7 +112,7 @@ function mountServiceMutations(
       "/",
       ...noMiddleware,
       validate("json", builtSchemas.create),
-      async (c: import("@neon/admin-crud").AdminCrudContext) => {
+      async (c: ResourceContext) => {
         const body = (await c.req.json()) as Record<string, unknown>;
         const item = await svc.create!(body, mapCtx(c, parent));
         return c.json({ item }, 201);
@@ -109,15 +125,16 @@ function mountServiceMutations(
       "/:id",
       ...noMiddleware,
       validate("json", builtSchemas.update),
-      async (c: import("@neon/admin-crud").AdminCrudContext) => {
+      async (c: ResourceContext) => {
         const id = c.req.param("id")!;
         const body = (await c.req.json()) as Record<string, unknown>;
         try {
           await svc.update!(id, body, mapCtx(c, parent));
+          const ctx = mapCtx(c, parent);
           const item = svc.getDetail
-            ? await svc.getDetail(id, mapCtx(c, parent))
+            ? await svc.getDetail(id, ctx)
             : svc.get
-              ? await svc.get(id, mapCtx(c, parent))
+              ? await svc.get(id, ctx)
               : null;
           if (!item) {
             return c.json({ error: "Not found." }, 404);
@@ -134,7 +151,7 @@ function mountServiceMutations(
   }
 
   if (operations.includes("delete") && svc.delete) {
-    routes.delete("/:id", ...noMiddleware, async (c: import("@neon/admin-crud").AdminCrudContext) => {
+    routes.delete("/:id", ...noMiddleware, async (c: ResourceContext) => {
       const id = c.req.param("id")!;
       try {
         await svc.delete!(id, mapCtx(c, parent));
@@ -157,14 +174,17 @@ function mountServiceMutations(
         createSchema: builtSchemas.create,
         updateSchema: builtSchemas.update,
         middleware: noMiddleware,
-        service: toBulkBridge(svc),
+        service: toBulkBridge(svc, mapCtx),
       }),
     );
   }
 }
 
-export function createCrudRouter(resource: AdminResource): Hono {
-  const def = resolveAdminResource(resource);
+export function createResourceRouter(
+  resource: Resource,
+  options: CreateResourceRouterOptions,
+): Hono {
+  const def = resolveResource(resource);
   const hasTable = def.table !== undefined;
   const hasService = def.service !== undefined;
   const hasListOverride = hasService || def.list !== undefined;
@@ -172,41 +192,27 @@ export function createCrudRouter(resource: AdminResource): Hono {
 
   if (!hasTable && !hasService && (!hasListOverride || !hasDetailOverride)) {
     throw new Error(
-      "Admin resource without table must define service or both list and detail overrides.",
+      "Resource without table must define service or both list and detail overrides.",
+    );
+  }
+
+  if (!hasService) {
+    throw new Error(
+      "Resource requires a service bridge — crudProvider fallback was removed.",
     );
   }
 
   const router = new Hono();
   const noMiddleware: never[] = [];
   const parent = def.opts?.parent;
+  const { mapCtx } = options;
 
-  if (hasService && def.service) {
-    mountServiceListDetail(router, def.service, parent, noMiddleware);
+  if (def.service) {
+    mountServiceListDetail(router, def.service, parent, noMiddleware, mapCtx);
     if (hasTable) {
-      const operations = resolveTableOperations(
-        def.opts?.operations,
-        true,
-        true,
-        true,
-      );
-      mountServiceMutations(router, def.service, def, operations, noMiddleware);
+      const operations = resolveTableOperations(def.opts?.operations, true, true, true);
+      mountServiceMutations(router, def.service, def, operations, noMiddleware, mapCtx);
     }
-  } else if (hasTable && def.table) {
-    const operations = resolveTableOperations(
-      def.opts?.operations,
-      false,
-      hasListOverride,
-      hasDetailOverride,
-    );
-    router.route(
-      "/",
-      crudProvider(def.table, {
-        ...def.opts,
-        getDb: getAdminCrudDb,
-        operations,
-        middleware: noMiddleware,
-      }),
-    );
   }
 
   if (!hasService && hasListOverride && def.list) {
@@ -227,5 +233,19 @@ export function createCrudRouter(resource: AdminResource): Hono {
     }
   }
 
+  return router;
+}
+
+export type ComposeResourceRouterOptions = CreateResourceRouterOptions & {
+  resource: Resource;
+  control?: Hono;
+};
+
+export function composeResourceRouter(options: ComposeResourceRouterOptions): Hono {
+  const router = new Hono();
+  router.route("/", createResourceRouter(options.resource, { mapCtx: options.mapCtx }));
+  if (options.control) {
+    router.route("/", options.control);
+  }
   return router;
 }

@@ -267,9 +267,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.0
         version: 1.19.9(hono@4.11.9)
-      '@neon/admin-crud':
+      '@neon/resource-api':
         specifier: workspace:*
-        version: link:../../packages/admin-crud
+        version: link:../../packages/resource-api
       '@neon/server-kit':
         specifier: workspace:*
         version: link:../../packages/server-kit
@@ -369,7 +369,19 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
-  packages/admin-crud:
+  packages/eslint-config:
+    dependencies:
+      '@typescript-eslint/eslint-plugin':
+        specifier: 7.2.0
+        version: 7.2.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: 7.2.0
+        version: 7.2.0(eslint@8.57.1)(typescript@5.9.3)
+      eslint:
+        specifier: ^8.57.0
+        version: 8.57.1
+
+  packages/resource-api:
     devDependencies:
       '@hono/arktype-validator':
         specifier: ^2.0.0
@@ -398,18 +410,6 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
-
-  packages/eslint-config:
-    dependencies:
-      '@typescript-eslint/eslint-plugin':
-        specifier: 7.2.0
-        version: 7.2.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
-      '@typescript-eslint/parser':
-        specifier: 7.2.0
-        version: 7.2.0(eslint@8.57.1)(typescript@5.9.3)
-      eslint:
-        specifier: ^8.57.0
-        version: 8.57.1
 
   packages/server-kit:
     dependencies:

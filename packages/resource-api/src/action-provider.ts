@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { Type } from "arktype";
 import type { MiddlewareHandler } from "hono";
 
-import type { AdminCrudContext } from "./types";
+import type { ResourceContext } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const validate = arktypeValidator as (
@@ -16,7 +16,7 @@ export type ActionMethod = "get" | "post" | "put" | "patch" | "delete";
 export type ActionDefinition = {
   method: ActionMethod;
   path: string;
-  handler: (c: AdminCrudContext) => Promise<Response> | Response;
+  handler: (c: ResourceContext) => Promise<Response> | Response;
   schema?: Type;
 };
 
@@ -33,7 +33,7 @@ export function actionProvider(
     if (action.schema) {
       handlers.push(validate("json", action.schema));
     }
-    handlers.push(async (c: AdminCrudContext) => action.handler(c));
+    handlers.push(async (c: ResourceContext) => action.handler(c));
 
     switch (action.method) {
       case "get":

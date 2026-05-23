@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 
 import type { AdminListMeta } from "./schemas";
-import type { AdminCrudContext } from "./types";
+import type { ResourceContext } from "./types";
 
 export type ListProviderResult = {
   items: unknown[];
@@ -10,7 +10,7 @@ export type ListProviderResult = {
 };
 
 export type ListProviderHandler = (
-  c: AdminCrudContext,
+  c: ResourceContext,
 ) => Promise<ListProviderResult>;
 
 export function listProvider(
@@ -20,7 +20,7 @@ export function listProvider(
   const app = new Hono();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const routes = app as any;
-  routes.get("/", ...middleware, async (c: AdminCrudContext) => {
+  routes.get("/", ...middleware, async (c: ResourceContext) => {
     const { items, meta } = await handler(c);
     return c.json({ items, meta });
   });

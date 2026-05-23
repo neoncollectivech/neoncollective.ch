@@ -2,9 +2,12 @@ import type { MiddlewareHandler } from "hono";
 
 import { auth, isNeonclubAdminEmail, type AuthSession } from "./auth";
 
+/** Better Auth session for an authenticated @neonclub.ch admin. */
+export type AdminSession = AuthSession;
+
 export type AdminEnv = {
   Variables: {
-    adminSession: AuthSession;
+    adminSession: AdminSession;
   };
 };
 

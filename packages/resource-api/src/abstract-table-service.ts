@@ -1,8 +1,8 @@
-import type { BulkUpdateItem, ListQuery, ListResult } from "@neon/admin-crud";
+import type { BulkUpdateItem, ListQuery, ListResult } from "./list-scope";
 import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 
-import type { ServiceContext } from "./types";
+import type { ServiceContext } from "./service-context";
 
 export abstract class AbstractTableService<
   TTable extends PgTable,
@@ -27,4 +27,3 @@ export abstract class AbstractTableService<
   abstract updateBulk(updates: BulkUpdateItem<TUpdate>[], ctx?: ServiceContext): Promise<TRow[]>;
   abstract delete(id: string, ctx?: ServiceContext): Promise<void>;
 }
-

@@ -9,18 +9,15 @@ import {
   createEvent,
   ensureInviteeLink,
   getEvent,
-  getEventInvitee,
   getOrder,
   getPerson,
   listEventInvitees,
-  listEvents,
   listEventTiers,
   listInviteLinks,
   listInviteRedemptions,
   listAdmissions,
   listOrderTiers,
   listOrders,
-  listPeople,
   patchEvent,
   patchEventInvitee,
   patchInviteLink,
@@ -36,12 +33,12 @@ import {
 } from "@/lib/admin-api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { queryClient } from "@/lib/query-client";
+import { toIdInParam } from "@/lib/admin-list";
 import {
-  buildAdminListQueryKey,
-  pageToLimitSkip,
-  toIdInParam,
-} from "@/lib/admin-list";
-import { relatedListParams } from "@/lib/admin-related-list";
+  relatedListFirst,
+  relatedListParams,
+  relatedListTotal,
+} from "@/lib/admin-related-list";
 
 import { adminKeys } from "./keys";
 
@@ -84,24 +81,6 @@ async function invalidatePeople(personId?: string) {
 
 export const adminApi = {
   keys: adminKeys,
-  events: {
-    list: (pagination: { page: number; pageSize: number; sort: string }) =>
-      queryOptions({
-        queryKey: adminKeys.events.list(
-          buildAdminListQueryKey(
-            pagination.page,
-            pagination.pageSize,
-            undefined,
-            pagination.sort,
-          ),
-        ),
-        queryFn: () =>
-          listEvents({
-            ...pageToLimitSkip(pagination.page, pagination.pageSize),
-            sort: pagination.sort,
-          }),
-      }),
-  },
   event: {
     detail: (eventId: string) =>
       queryOptions({
@@ -134,49 +113,6 @@ export const adminApi = {
           return { used: res.meta.total };
         },
         enabled: Boolean(eventId),
-      }),
-    invitees: (
-      eventId: string,
-      pagination: {
-        page: number;
-        pageSize: number;
-        sort: string;
-        orderStatus?: string;
-      },
-    ) =>
-      queryOptions({
-        queryKey: [
-          ...adminKeys.eventInvitees.list(
-            buildAdminListQueryKey(
-              pagination.page,
-              pagination.pageSize,
-              {
-                eventId,
-                ...(pagination.orderStatus
-                  ? { orderStatus: pagination.orderStatus }
-                  : {}),
-              },
-              pagination.sort,
-            ),
-          ),
-          pagination.orderStatus,
-        ],
-        queryFn: () =>
-          listEventInvitees({
-            ...pageToLimitSkip(pagination.page, pagination.pageSize),
-            eventId,
-            sort: pagination.sort,
-            ...(pagination.orderStatus
-              ? { orderStatus: pagination.orderStatus }
-              : {}),
-          }),
-        enabled: Boolean(eventId),
-      }),
-    inviteeDetail: (inviteeId: string) =>
-      queryOptions({
-        queryKey: adminKeys.eventInvitees.detail(inviteeId),
-        queryFn: () => getEventInvitee(inviteeId),
-        enabled: Boolean(inviteeId),
       }),
     create: () =>
       mutationOptions({
@@ -297,24 +233,6 @@ export const adminApi = {
           toast.error(getApiErrorMessage(err, "Failed to save tiers")),
       }),
   },
-  orders: {
-    list: (pagination: { page: number; pageSize: number; sort: string }) =>
-      queryOptions({
-        queryKey: adminKeys.orders.list(
-          buildAdminListQueryKey(
-            pagination.page,
-            pagination.pageSize,
-            undefined,
-            pagination.sort,
-          ),
-        ),
-        queryFn: () =>
-          listOrders({
-            ...pageToLimitSkip(pagination.page, pagination.pageSize),
-            sort: pagination.sort,
-          }),
-      }),
-  },
   order: {
     detail: (orderId: string) =>
       queryOptions({
@@ -358,11 +276,8 @@ export const adminApi = {
     admission: (orderId: string) =>
       queryOptions({
         queryKey: adminKeys.admissions.list(relatedListParams({ orderId })),
-        queryFn: async () => {
-          const res = await listAdmissions(relatedListParams({ orderId }));
-
-          return res.items[0] ?? null;
-        },
+        queryFn: () =>
+          relatedListFirst(listAdmissions, relatedListParams({ orderId })),
         enabled: Boolean(orderId),
       }),
     inviteRedemption: (orderId: string) =>
@@ -370,13 +285,11 @@ export const adminApi = {
         queryKey: adminKeys.inviteRedemptions.list(
           relatedListParams({ orderId }),
         ),
-        queryFn: async () => {
-          const res = await listInviteRedemptions(
+        queryFn: () =>
+          relatedListFirst(
+            listInviteRedemptions,
             relatedListParams({ orderId }),
-          );
-
-          return res.items[0] ?? null;
-        },
+          ),
         enabled: Boolean(orderId),
       }),
     refund: (boundOrderId?: string) =>
@@ -397,26 +310,6 @@ export const adminApi = {
       }),
   },
   people: {
-    list: (
-      pagination: { page: number; pageSize: number; sort: string },
-      search: string,
-    ) =>
-      queryOptions({
-        queryKey: adminKeys.people.list(
-          buildAdminListQueryKey(
-            pagination.page,
-            pagination.pageSize,
-            { q: search },
-            pagination.sort,
-          ),
-        ),
-        queryFn: () =>
-          listPeople({
-            ...pageToLimitSkip(pagination.page, pagination.pageSize),
-            sort: pagination.sort,
-            ...(search ? { q: search } : {}),
-          }),
-      }),
     verify: () =>
       mutationOptions({
         mutationFn: verifyPeople,
@@ -454,16 +347,6 @@ export const adminApi = {
           ),
         enabled: Boolean(personId),
       }),
-    eventsByIds: (eventIds: string[]) =>
-      queryOptions({
-        queryKey: adminKeys.events.list(
-          relatedListParams({ id_in: toIdInParam(eventIds) }),
-        ),
-        queryFn: () =>
-          listEvents(relatedListParams({ id_in: toIdInParam(eventIds) })),
-        enabled: eventIds.length > 0,
-        select: (data) => new Map(data.items.map((event) => [event.id, event])),
-      }),
     update: (personId: string) =>
       mutationOptions({
         mutationFn: (payload: unknown) => patchPerson(personId, payload),
@@ -486,16 +369,14 @@ export const adminApi = {
           ),
           inviterId ?? null,
         ],
-        queryFn: async () => {
-          const res = await listInviteLinks(
+        queryFn: () =>
+          relatedListFirst(
+            listInviteLinks,
             relatedListParams({
               eventId,
               ...(inviterId ? { inviterId } : {}),
             }),
-          );
-
-          return res.items[0] ?? null;
-        },
+          ),
         enabled: Boolean(eventId && inviterId),
       }),
     usedRedemptions: (inviteLinkId: string | undefined) =>
@@ -506,16 +387,14 @@ export const adminApi = {
             status_in: "pending,paid",
           }),
         ),
-        queryFn: async () => {
-          const res = await listOrders(
+        queryFn: () =>
+          relatedListTotal(
+            listOrders,
             relatedListParams({
               inviteLinkId: inviteLinkId!,
               status_in: "pending,paid",
             }),
-          );
-
-          return res.meta.total;
-        },
+          ),
         enabled: Boolean(inviteLinkId),
       }),
   },

@@ -1,9 +1,9 @@
 import {
-  introspectPgTable,
+  introspectTable,
   parseListQuery,
   type FilterParams,
   type ListQuery,
-} from "@neon/admin-crud";
+} from "@neon/resource-api";
 import { and, eq, ilike, inArray } from "drizzle-orm";
 
 import { events } from "../db/schema";
@@ -49,7 +49,7 @@ export type CatalogListParams = {
 
 export type EventsListFilters = FilterParams;
 
-const eventsMeta = introspectPgTable(events, {
+export const eventsResourceMeta = introspectTable(events, {
   exclude: { create: ["status"] },
   fields: {
     list: [
@@ -59,6 +59,20 @@ const eventsMeta = introspectPgTable(events, {
       "status",
       "accessMode",
       "startsAt",
+      "createdAt",
+    ],
+    read: [
+      "id",
+      "slug",
+      "title",
+      "summary",
+      "location",
+      "imageUrls",
+      "startsAt",
+      "status",
+      "accessMode",
+      "eventQuota",
+      "defaultInviteLinkMaxRedemptions",
       "createdAt",
     ],
   },
@@ -82,7 +96,7 @@ export class EventsService extends TableService<
   constructor() {
     super({
       table: events,
-      meta: eventsMeta,
+      meta: eventsResourceMeta,
       defaultSort: "-startsAt",
     });
   }

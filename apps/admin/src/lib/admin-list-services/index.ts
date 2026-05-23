@@ -1,24 +1,37 @@
-/**
- * Admin list services — one file per paginated CRUD resource.
- *
- * To add a new admin table:
- * 1. Add `<resource>.ts` with `defineAdminListService` + `listQuery` (admin-api + adminKeys).
- * 2. Export from this barrel.
- * 3. Add `columns/<resource>-columns.tsx` and use `<AdminDataTable service={...} />`.
- */
-export { eventsListService } from "./events";
+// Row types mirror backend admin meta `project.list` field names.
+export type {
+  EventRow,
+  OrderRow,
+  PersonRow,
+  EventInviteeListRow,
+  EventReadRow,
+  OrderReadRow,
+  PersonReadRow,
+  EventTierListRow,
+  OrderTierRow,
+  AdmissionRow,
+  InviteRedemptionRow,
+  InviteLinkRow,
+  AdminListRequestParams,
+} from "@/lib/admin-api";
+
 export {
+  eventsListService,
+  ordersListService,
+  peopleListService,
   eventInviteesListService,
-  type EventInviteesListFilters,
+  type PeopleListFilters,
   type EventInviteesListScope,
-} from "./event-invitees";
-export { ordersListService } from "./orders";
-export { peopleListService, type PeopleListFilters } from "./people";
+  type EventInviteesListFilters,
+} from "./registry";
+
+export { createAdminListService } from "./create";
+export { createAdminListClient } from "./create-admin-list-client";
+
 export {
   defineAdminListService,
-  type AdminListQueryOptions,
   type AdminListServiceDefinition,
-  type InferListFilters,
   type InferListRow,
   type InferListScope,
+  type InferListFilters,
 } from "./types";

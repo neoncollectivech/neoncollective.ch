@@ -37,7 +37,7 @@ export type IntrospectOptions = {
   };
 };
 
-export type AdminTableMeta = {
+export type ResourceMeta = {
   tableName: string;
   columns: Record<string, PgColumn>;
   idColumn: PgColumn;
@@ -90,15 +90,15 @@ function resolveIdColumn(
   }
   const fallback = columns.id;
   if (!fallback) {
-    throw new Error("introspectPgTable: table has no primary key column");
+    throw new Error("introspectTable: table has no primary key column");
   }
   return fallback;
 }
 
-export function introspectPgTable<T extends PgTable>(
+export function introspectTable<T extends PgTable>(
   table: T,
   opts: IntrospectOptions = {},
-): AdminTableMeta {
+): ResourceMeta {
   const columns = getTableColumns(table);
   const tableName = getTableName(table);
   const idColumn = resolveIdColumn(columns, opts.idColumn);
