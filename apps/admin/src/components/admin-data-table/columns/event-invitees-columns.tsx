@@ -3,6 +3,7 @@ import type { AdminColumnDef } from "@/components/admin-data-table/types";
 
 import {
   adminActionsColumn,
+  adminDateColumn,
   adminFkColumn,
   adminTextColumn,
 } from "@/components/admin-data-table/column-helpers";
@@ -23,6 +24,7 @@ export function eventInviteesColumns(
   opts: EventInviteesColumnsOptions,
 ): AdminColumnDef<EventInviteeListRow>[] {
   return [
+    adminDateColumn("createdAt", { header: "Date & time", sortable: true }),
     adminFkColumn("personId", {
       header: "Person",
       fk: personFkService,

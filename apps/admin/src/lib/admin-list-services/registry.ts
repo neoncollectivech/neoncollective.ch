@@ -64,7 +64,7 @@ export const eventInviteesListService = createAdminListService<
   EventInviteesListScope,
   EventInviteesListFilters
 >({
-  defaultSort: { field: "personId", direction: "asc" },
+  defaultSort: { field: "createdAt", direction: "desc" },
   keys: adminKeys.eventInvitees,
   listFn: listEventInvitees,
   buildQueryParams: ({ scope, filters }) => ({
