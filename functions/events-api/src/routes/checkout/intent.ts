@@ -16,6 +16,7 @@ import {
 import { getTierSoldQty } from "../shared/tier-capacity";
 import { findInviteLinkByRawToken } from "../shared/invite-links-orchestration";
 import { isSessionProfileComplete } from "../registrations/profile";
+import { eventInviteesService } from "../../services/event-invitees.service";
 import { IdentityConflictError, peopleService } from "../../services/people.service";
 import { fulfillPaidOrderInTx } from "./fulfill-paid-order";
 import { eventsService } from "../../services/events.service";
@@ -383,6 +384,14 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
 
       if (personId !== session.personId) {
         return checkoutFailure("profile_mismatch");
+      }
+
+      const checkoutPerson = await peopleService.getInTx(tx, personId);
+      if (checkoutPerson) {
+        await eventInviteesService.syncEventInviteesToPersonInTx(tx, personId, {
+          email: checkoutPerson.email?.trim().toLowerCase() ?? null,
+          phone: checkoutPerson.phone ?? null,
+        });
       }
 
       const existingOrder = await ordersService.findPendingOrPaidForPersonOnEventInTx(

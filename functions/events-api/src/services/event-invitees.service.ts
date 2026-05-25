@@ -28,6 +28,14 @@ export type InviteeContactLookup = {
   phoneE164?: string | null;
 };
 
+/** Guest checkout cannot link an existing invitee contact to a different person. */
+export class GuestInviteeLinkConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GuestInviteeLinkConflictError";
+  }
+}
+
 function phoneDigitsVariants(contact: InviteeContactLookup): string[] {
   if (contact.phoneE164?.trim()) {
     return phoneDigitsLookupVariants(contact.phoneE164.trim());
@@ -311,6 +319,21 @@ export class EventInviteesService extends TableService<
       .where(and(isNull(eventInvitees.personId), contactMatch));
   }
 
+  async syncEventInviteesToPersonInTx(
+    tx: EventInviteesTx,
+    personId: string,
+    fields: { email: string | null; phone: string | null },
+  ): Promise<void> {
+    const contactMatch = this.contactMatchFromPersonFields(fields);
+    if (!contactMatch) {
+      return;
+    }
+    await tx
+      .update(eventInvitees)
+      .set({ personId })
+      .where(and(isNull(eventInvitees.personId), contactMatch));
+  }
+
   async findLinkedPersonIdByEmail(email: string): Promise<string | undefined> {
     const em = normalizeEmailTypo(email.trim()).toLowerCase();
     const db = getDb();
@@ -476,6 +499,69 @@ export class EventInviteesService extends TableService<
       })
       .returning({ id: eventInvitees.id });
     return inserted!.id;
+  }
+
+  /**
+   * Links an orphan (or contact-matched) invitee row, or inserts a guest row.
+   * Avoids unique violations on event_invitees_event_phone_unique / _email_unique.
+   */
+  async linkOrCreateGuestInviteeFromCheckoutInTx(
+    tx: EventInviteesTx,
+    params: {
+      eventId: string;
+      personId: string;
+      inviterId: string;
+      email: string | null;
+      phone: string | null;
+    },
+  ): Promise<void> {
+    const { eventId, personId, inviterId } = params;
+    const normalizedEmail = params.email?.trim().toLowerCase() ?? null;
+    const storedPhone = params.phone?.trim() ?? null;
+
+    if (await this.hasActiveInviteeForPersonOnEventInTx(tx, eventId, personId)) {
+      return;
+    }
+
+    const contact: InviteeContactLookup = {
+      email: normalizedEmail,
+      phoneDigits: storedPhone,
+      phoneE164: storedPhone ? `+${storedPhone}` : null,
+    };
+
+    const matches = await this.findActiveInviteesByContactOnEvent(eventId, contact, tx);
+    if (matches.length > 1) {
+      throw new GuestInviteeLinkConflictError(
+        "Multiple event invitees match checkout contact on this event.",
+      );
+    }
+
+    const existing = matches[0];
+    if (existing) {
+      if (existing.personId != null && existing.personId !== personId) {
+        throw new GuestInviteeLinkConflictError(
+          "Event invitee contact is already linked to a different person.",
+        );
+      }
+      await tx
+        .update(eventInvitees)
+        .set({
+          personId,
+          inviterId,
+          ...(normalizedEmail && !existing.email ? { email: normalizedEmail } : {}),
+          ...(storedPhone && !existing.phone ? { phone: storedPhone } : {}),
+        })
+        .where(eq(eventInvitees.id, existing.id));
+      return;
+    }
+
+    await this.createGuestFromCheckoutInTx(tx, {
+      eventId,
+      personId,
+      inviterId,
+      email: normalizedEmail,
+      phone: storedPhone,
+    });
   }
 
   async listActiveByEventId(eventId: string): Promise<(typeof eventInvitees.$inferSelect)[]> {

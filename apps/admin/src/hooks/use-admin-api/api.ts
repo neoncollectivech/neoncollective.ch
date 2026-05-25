@@ -258,20 +258,22 @@ export const adminApi = {
         queryFn: () => listOrderTiers(relatedListParams({ orderId })),
         enabled: Boolean(orderId),
       }),
-    eventTiersForOrder: (eventTierIds: string[]) =>
+    eventTiersForOrder: (eventTierIds: string[], eventId: string | undefined) =>
       queryOptions({
         queryKey: adminKeys.eventTiers.list(
           relatedListParams({
+            eventId,
             id_in: toIdInParam(eventTierIds),
           }),
         ),
         queryFn: () =>
           listEventTiers(
             relatedListParams({
+              eventId,
               id_in: toIdInParam(eventTierIds),
             }),
           ),
-        enabled: eventTierIds.length > 0,
+        enabled: eventTierIds.length > 0 && Boolean(eventId),
       }),
     admission: (orderId: string) =>
       queryOptions({

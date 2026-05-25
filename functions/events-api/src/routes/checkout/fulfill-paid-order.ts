@@ -68,16 +68,7 @@ async function ensureEventInviteeFromGuestCheckoutInTx(
     return;
   }
 
-  const exists = await eventInviteesService.hasActiveInviteeForPersonOnEventInTx(
-    tx,
-    order.eventId,
-    order.personId,
-  );
-  if (exists) {
-    return;
-  }
-
-  await eventInviteesService.createGuestFromCheckoutInTx(tx, {
+  await eventInviteesService.linkOrCreateGuestInviteeFromCheckoutInTx(tx, {
     eventId: order.eventId,
     personId: order.personId,
     inviterId,
@@ -152,6 +143,13 @@ export async function fulfillPaidOrderInTx(
   }
 
   const person = await peopleService.getInTx(tx, order.personId);
+
+  if (person) {
+    await eventInviteesService.syncEventInviteesToPersonInTx(tx, order.personId, {
+      email: person.email?.trim().toLowerCase() ?? null,
+      phone: person.phone ?? null,
+    });
+  }
 
   await ordersService.markPaidInTx(tx, order.id);
 

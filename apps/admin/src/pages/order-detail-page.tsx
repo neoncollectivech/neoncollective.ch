@@ -29,7 +29,7 @@ export function OrderDetailPage() {
     [orderTiersQuery.data?.items],
   );
   const eventTiersQuery = useQuery(
-    adminApi.order.eventTiersForOrder(eventTierIds),
+    adminApi.order.eventTiersForOrder(eventTierIds, order?.eventId),
   );
   const admissionQuery = useQuery({
     ...adminApi.order.admission(orderId),

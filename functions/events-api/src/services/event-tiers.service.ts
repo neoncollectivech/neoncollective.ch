@@ -117,18 +117,13 @@ export class EventTiersService extends TableService<
     query: ListQuery<Record<string, string | string[] | undefined>>,
     ctx?: ServiceContext,
   ): Promise<ListResult<EventTierListItem>> {
-    const eventId =
+    const eventIdFilter =
       typeof query.filters.eventId === "string" ? query.filters.eventId : undefined;
+    const idInRaw = query.filters.id_in;
+    const hasIdIn =
+      typeof idInRaw === "string" && idInRaw.trim().length > 0;
 
-    if (!eventId) {
-      return {
-        items: [],
-        meta: { total: 0, limit: query.limit, skip: query.skip },
-      };
-    }
-
-    const event = await eventsService.get(eventId);
-    if (!event) {
+    if (!eventIdFilter && !hasIdIn) {
       return {
         items: [],
         meta: { total: 0, limit: query.limit, skip: query.skip },
@@ -143,6 +138,27 @@ export class EventTiersService extends TableService<
       scope,
     });
     const listRows = rows.map(projectEventTierListRow);
+
+    if (listRows.length === 0) {
+      return {
+        items: [],
+        meta: listMetaFromScope(scope, total),
+      };
+    }
+
+    const eventId = eventIdFilter ?? listRows[0]!.eventId;
+    const event = await eventsService.get(eventId);
+    if (!event) {
+      return {
+        items: listRows.map((row) => ({
+          ...row,
+          sold: 0,
+          placesRemaining: null,
+        })),
+        meta: listMetaFromScope(scope, total),
+      };
+    }
+
     const { tiers } = await enrichTiersWithCapacityStats(
       eventId,
       event.eventQuota,
