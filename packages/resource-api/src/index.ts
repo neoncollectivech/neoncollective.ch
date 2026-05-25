@@ -73,7 +73,7 @@ export type {
   ResourceProviderOptions,
 } from "./types";
 export type { Hono } from "./types";
-export { pickFields, pickWritable, projectRow } from "./row-utils";
+export { pickFields, pickTableColumns, pickWritable, projectRow } from "./row-utils";
 export {
   parentSqlFromCtx,
   type ServiceContext,

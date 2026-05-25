@@ -27,6 +27,25 @@ export function pickWritable(
   return out;
 }
 
+const TABLE_UPDATE_DENY = new Set(["id", "createdAt"]);
+
+/** Keep only real table columns after `beforeUpdate` (allows excluded writable fields like `phone`). */
+export function pickTableColumns(
+  data: Record<string, unknown>,
+  columnKeys: string[],
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of columnKeys) {
+    if (TABLE_UPDATE_DENY.has(key)) {
+      continue;
+    }
+    if (key in data && data[key] !== undefined) {
+      out[key] = data[key];
+    }
+  }
+  return out;
+}
+
 export function projectRow(
   row: Record<string, unknown>,
   fields: string[] | "*" | undefined,

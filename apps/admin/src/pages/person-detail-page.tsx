@@ -34,8 +34,12 @@ export function PersonDetailPage() {
   const person = personQuery.data;
 
   useEffect(() => {
-    if (person && editing) {
-      setForm(personToEditForm(person));
+    if (!editing) {
+      setForm(null);
+      return;
+    }
+    if (person) {
+      setForm((prev) => prev ?? personToEditForm(person));
     }
   }, [person, editing]);
 

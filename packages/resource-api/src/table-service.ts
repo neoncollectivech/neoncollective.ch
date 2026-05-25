@@ -16,7 +16,7 @@ import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { AbstractTableService } from "./abstract-table-service";
 import { BulkLimitError } from "./errors";
 import { parentSqlFromCtx } from "./service-context";
-import { pickWritable, projectRow } from "./row-utils";
+import { pickTableColumns, pickWritable, projectRow } from "./row-utils";
 import type { ServiceContext } from "./service-context";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -280,9 +280,12 @@ export class TableService<
     if (!existing) {
       throw new NotFoundError();
     }
-    let payload = pickWritable(data as Record<string, unknown>, this.#writableUpdate) as TUpdate;
-    payload = await this.beforeUpdate(id, payload, ctx);
-    if (Object.keys(payload as object).length === 0) {
+    const prepared = await this.beforeUpdate(id, data, ctx);
+    const payload = pickTableColumns(
+      prepared as Record<string, unknown>,
+      Object.keys(this.#meta.columns),
+    );
+    if (Object.keys(payload).length === 0) {
       throw new BadRequestError("No fields to update.");
     }
     const db = this.getDb();
@@ -310,7 +313,10 @@ export class TableService<
     return db.transaction(async (tx: AnyDb) => {
       const rows: TRow[] = [];
       for (const { id, data } of prepared) {
-        const payload = pickWritable(data as Record<string, unknown>, this.#writableUpdate);
+        const payload = pickTableColumns(
+          data as Record<string, unknown>,
+          Object.keys(this.#meta.columns),
+        );
         if (Object.keys(payload).length === 0) {
           continue;
         }
