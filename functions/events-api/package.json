@@ -11,6 +11,7 @@
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:local": "dotenv -e .env.local -- drizzle-kit migrate",
+    "db:repair-migrations": "tsx src/scripts/repair-migration-journal.ts",
     "db:repair-migrations:local": "dotenv -e .env.local -- tsx src/scripts/repair-migration-journal.ts",
     "db:push": "drizzle-kit push",
     "db:push:local": "dotenv -e .env.local -- drizzle-kit push",
