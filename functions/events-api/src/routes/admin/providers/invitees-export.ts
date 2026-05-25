@@ -1,5 +1,5 @@
 import type { ResourceContext } from "@neon/resource-api";
-import { stringify } from "csv/sync";
+import { stringify } from "csv-stringify/sync";
 
 import { MAX_INVITEE_EXPORT_ROWS } from "../../../config/admin-invitees";
 import { e164FromStoredDigits } from "../../../helpers/profile";

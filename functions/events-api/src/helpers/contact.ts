@@ -1,4 +1,4 @@
-import { parsePhoneNumber } from "libphonenumber-js";
+import { parsePhoneNumber } from "libphonenumber-js/min";
 
 import { EMAIL_RE } from "../config/contact";
 

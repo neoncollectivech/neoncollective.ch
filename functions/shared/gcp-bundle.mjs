@@ -47,7 +47,7 @@ export function gcpTsupOptions(slug) {
     bundle: true,
     splitting: false,
     sourcemap: false,
-    minify: false,
+    minify: true,
     clean: true,
     dts: false,
     external: tsupExternals(slug),
