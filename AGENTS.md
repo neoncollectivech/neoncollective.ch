@@ -75,6 +75,27 @@ Prefer guard clauses/early exits over nested `if` trees so happy path reads stra
 
 Apply this style across `functions/`, `packages/`, and non-trivial client logic.
 
+## Idempotency (webhooks and event-driven work)
+
+**Default:** every webhook handler, async job, and “run after external event” path must be **idempotent by design** — not bolted on later. Assume **at-least-once delivery** (Stripe retries, duplicate tabs, replayed confirm calls).
+
+**MUST:**
+
+- **Stable idempotency key** per upstream event (e.g. Stripe `event.id` in `stripe_events_processed`, or business key like `orderId` + transition).
+- **Claim-then-work in one transaction** when deduping: if work fails, roll back the claim so retries can succeed; never **commit** a processed marker and skip downstream effects (returning HTTP 200 while leaving `pending` / half-written rows).
+- **Same handler, same outcome:** a retry after partial failure must converge (repair path for already-`paid` orders must still run admission, invitee link, redemptions, etc. — see `repairPaidOrderFulfillmentInTx` in `fulfill-paid-order.ts`).
+- **Upsert / link-before-insert** when unique indexes exist (e.g. `event_invitees` phone/email per event) — blind `INSERT` in fulfillment is forbidden.
+- **Two entrypoints, one implementation:** browser confirm and Stripe webhook must call the same fulfillment helper (`fulfillPaidOrderInTx`), both safe in either order.
+
+**HTTP / retries:**
+
+- Return **5xx** only when the handler should retry; return **2xx** when the event is fully handled **or** permanently irrelevant (unknown type).
+- Returning **2xx after skipping work** (e.g. “order not pending”) without fixing state strands paid money in Stripe with a stuck DB row — log, repair, or fail loudly.
+
+**Client-side:** TanStack `confirmPoll` retries are not a substitute for server idempotency; the API must tolerate duplicate `POST /checkout/confirm`.
+
+Apply to all `functions/**` webhooks, checkout fulfillment, refunds, SMS/email side effects, and any future queue consumers.
+
 ## TypeScript (strict typing)
 
 - Prefer schema-derived types (`typeof table.$inferSelect`, `Pick<…, listFields>`), explicit projection helpers, and generics over type assertions.
@@ -189,6 +210,7 @@ Cloud Run functions (GCF Gen 2), each as its own workspace.
 - **ArkType** via `@hono/arktype-validator` (not Zod).
 - **@neon/server-kit**: shared Pino logger, Hono request logging + JSON `onError`, CORS helpers, Resend bootstrap + `renderNeonEmailHtml`, `serveDevApp`; no business logic.
 - **@google-cloud/functions-framework** entrypoint; Hono bridge via `getRequestListener` (`@hono/node-server`).
+- **Idempotency:** see [Idempotency (webhooks and event-driven work)](#idempotency-webhooks-and-event-driven-work); Stripe webhooks use `stripe_events_processed` + shared `fulfillPaidOrderInTx`.
 
 ### Deploying (tsup + gcloud)
 

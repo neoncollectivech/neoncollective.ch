@@ -8,7 +8,10 @@ import { admissionsService } from "../services/admissions.service";
 import { inviteRedemptionsService } from "../services/invite-redemptions.service";
 import { ordersService } from "../services/orders.service";
 import { stripeEventsProcessedService } from "../services/stripe-events-processed.service";
-import { fulfillPaidOrderInTx } from "./checkout/fulfill-paid-order";
+import {
+  fulfillPaidOrder,
+  type FulfillPaidOrderResult,
+} from "./checkout/fulfill-paid-order";
 import { sendPostCheckoutParticipantAccessEmail } from "./registrations/session";
 import { runTransaction } from "../services/transaction";
 
@@ -17,6 +20,10 @@ const log = createLogger("stripe-webhook");
 function orderIdFromPaymentIntent(pi: Stripe.PaymentIntent): string | null {
   const orderId = pi.metadata?.orderId;
   return typeof orderId === "string" && orderId.trim() ? orderId.trim() : null;
+}
+
+function isFulfillmentComplete(order: { status: string } | null): boolean {
+  return order?.status === "paid";
 }
 
 async function handlePaymentIntentSucceeded(
@@ -29,27 +36,44 @@ async function handlePaymentIntentSucceeded(
     return { ok: true };
   }
 
-  let postCheckoutEmail: Awaited<ReturnType<typeof fulfillPaidOrderInTx>> = null;
+  let result: FulfillPaidOrderResult;
   try {
-    postCheckoutEmail = await runTransaction((tx) =>
-      fulfillPaidOrderInTx(tx, {
-        orderId,
-        source: "webhook",
-        stripeEventId: event.id,
-      }),
-    );
+    result = await fulfillPaidOrder({
+      orderId,
+      source: "webhook",
+      stripeEventId: event.id,
+      paymentIntentStatus: pi.status,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Webhook processing failed";
     log.error({ err: e, orderId }, msg);
     return { ok: false, status: 500, error: msg };
   }
 
-  if (postCheckoutEmail) {
+  if (result.kind === "failed") {
+    log.error({ orderId, reason: result.reason }, "Checkout fulfillment failed");
+    return { ok: false, status: 500, error: result.reason };
+  }
+
+  if (result.kind === "send_email") {
     try {
-      await sendPostCheckoutParticipantAccessEmail(postCheckoutEmail);
+      await sendPostCheckoutParticipantAccessEmail(result.job);
     } catch (e) {
       log.error({ err: e, orderId }, "Post-checkout access email failed");
     }
+  }
+
+  const order = await ordersService.get(orderId);
+  if (!isFulfillmentComplete(order)) {
+    log.error(
+      { orderId, orderStatus: order?.status, resultKind: result.kind },
+      "payment_intent.succeeded but order not paid after fulfillment",
+    );
+    return {
+      ok: false,
+      status: 500,
+      error: "Fulfillment incomplete — order not paid.",
+    };
   }
 
   return { ok: true };

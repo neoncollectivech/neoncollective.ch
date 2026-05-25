@@ -73,6 +73,10 @@ const CHECKOUT_CONFIRM_ERRORS: Record<
     error: "Payment is not complete yet. Wait a moment and try again.",
   },
   payment_mismatch: { status: 500, error: "Payment does not match this order." },
+  checkout_fulfillment_failed: {
+    status: 500,
+    error: "Payment succeeded but checkout could not be completed. Try again shortly.",
+  },
 };
 
 export function createCheckoutRouter(): Hono {

@@ -12,7 +12,8 @@ export type ConfirmPaidCheckoutFailureReason =
   | "payment_not_started"
   | "stripe_unavailable"
   | "payment_incomplete"
-  | "payment_mismatch";
+  | "payment_mismatch"
+  | "checkout_fulfillment_failed";
 
 export async function confirmPaidCheckout(params: {
   orderId: string;
@@ -28,10 +29,10 @@ export async function confirmPaidCheckout(params: {
   if (order.personId !== params.personId) {
     return { ok: false, reason: "order_forbidden" };
   }
-  if (order.status === "paid") {
+  if (order.status === "paid" && order.checkoutFulfilledAt) {
     return { ok: true, alreadyPaid: true };
   }
-  if (order.status !== "pending") {
+  if (order.status !== "pending" && order.status !== "failed") {
     return { ok: false, reason: "checkout_not_confirmable" };
   }
   if (!order.stripePaymentIntentId) {
@@ -52,13 +53,24 @@ export async function confirmPaidCheckout(params: {
     return { ok: false, reason: "payment_mismatch" };
   }
 
-  const emailJob = await fulfillPaidOrder({ orderId: order.id, source: "client" });
-  if (emailJob) {
+  const result = await fulfillPaidOrder({
+    orderId: order.id,
+    source: "client",
+    paymentIntentStatus: pi.status,
+  });
+
+  if (result.kind === "failed") {
+    return { ok: false, reason: "checkout_fulfillment_failed" };
+  }
+
+  if (result.kind === "send_email") {
     try {
-      await sendPostCheckoutParticipantAccessEmail(emailJob);
+      await sendPostCheckoutParticipantAccessEmail(result.job);
     } catch {
       /* registration is confirmed; email failure is non-fatal for the client */
     }
+    return { ok: true, alreadyPaid: false };
   }
-  return { ok: true, alreadyPaid: false };
+
+  return { ok: true, alreadyPaid: true };
 }

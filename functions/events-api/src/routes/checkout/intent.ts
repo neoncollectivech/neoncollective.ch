@@ -159,6 +159,7 @@ async function resolveExistingOrderForCheckoutTx(
     await fulfillPaidOrderInTx(tx, {
       orderId: existingOrder.id,
       source: "client",
+      paymentIntentStatus: pi.status,
     });
     return { action: "blocked", reason: "payment_complete_refresh" };
   }

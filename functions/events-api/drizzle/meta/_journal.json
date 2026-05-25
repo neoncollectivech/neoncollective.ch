@@ -15,6 +15,13 @@
       "when": 1779049341005,
       "tag": "0001_productive_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779702063096,
+      "tag": "0002_small_sharon_carter",
+      "breakpoints": true
     }
   ]
 }

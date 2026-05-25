@@ -70,12 +70,15 @@ export class AdmissionsService extends TableService<typeof admissions> {
     tx: AdmissionTx,
     params: { orderId: string; eventId: string; eventTierId: string },
   ): Promise<void> {
-    await tx.insert(admissions).values({
-      publicToken: randomAdmissionToken(),
-      eventId: params.eventId,
-      eventTierId: params.eventTierId,
-      orderId: params.orderId,
-    });
+    await tx
+      .insert(admissions)
+      .values({
+        publicToken: randomAdmissionToken(),
+        eventId: params.eventId,
+        eventTierId: params.eventTierId,
+        orderId: params.orderId,
+      })
+      .onConflictDoNothing({ target: admissions.orderId });
   }
 
   async revokeForOrderInTx(tx: AdmissionTx, orderId: string): Promise<void> {

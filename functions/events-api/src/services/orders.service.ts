@@ -3,7 +3,7 @@ import {
   parseListQuery,
   type FilterParams,
 } from "@neon/resource-api";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { orders } from "../db/schema";
@@ -222,6 +222,26 @@ export class OrdersService extends TableService<
       .update(orders)
       .set({ status: "paid", updatedAt: new Date() })
       .where(eq(orders.id, orderId));
+  }
+
+  /** True when this caller set checkout_fulfilled_at (first successful fulfillment). */
+  async trySetCheckoutFulfilledAtInTx(tx: OrderTx, orderId: string): Promise<boolean> {
+    const [row] = await tx
+      .update(orders)
+      .set({ checkoutFulfilledAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), isNull(orders.checkoutFulfilledAt)))
+      .returning({ id: orders.id });
+    return Boolean(row);
+  }
+
+  /** True when this caller may send the post-checkout access email. */
+  async trySetAccessEmailSentAtInTx(tx: OrderTx, orderId: string): Promise<boolean> {
+    const [row] = await tx
+      .update(orders)
+      .set({ accessEmailSentAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), isNull(orders.accessEmailSentAt)))
+      .returning({ id: orders.id });
+    return Boolean(row);
   }
 
   async getByStripePaymentIntentId(

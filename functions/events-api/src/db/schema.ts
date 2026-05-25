@@ -176,6 +176,10 @@ export const orders = pgTable(
     inviteLinkId: uuid("invite_link_id").references(() => inviteLinks.id, {
       onDelete: "set null",
     }),
+    /** Set once when checkout side effects (paid, admission, redemption, invitee) complete. */
+    checkoutFulfilledAt: timestamp("checkout_fulfilled_at", { withTimezone: true }),
+    /** Set once when post-checkout access email is eligible to send. */
+    accessEmailSentAt: timestamp("access_email_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -224,7 +228,11 @@ export const admissions = pgTable(
     checkedInBy: text("checked_in_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("admissions_event_id_idx").on(t.eventId), index("admissions_order_id_idx").on(t.orderId)],
+  (t) => [
+    index("admissions_event_id_idx").on(t.eventId),
+    index("admissions_order_id_idx").on(t.orderId),
+    uniqueIndex("admissions_order_id_unique").on(t.orderId),
+  ],
 );
 
 export const inviteRedemptions = pgTable(
