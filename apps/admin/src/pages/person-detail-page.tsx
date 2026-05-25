@@ -36,6 +36,7 @@ export function PersonDetailPage() {
   useEffect(() => {
     if (!editing) {
       setForm(null);
+
       return;
     }
     if (person) {

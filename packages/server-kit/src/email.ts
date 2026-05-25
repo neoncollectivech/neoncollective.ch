@@ -1,6 +1,5 @@
 import { Resend } from "resend";
-import type { Logger } from "pino";
-
+import type { AppLogger } from "./app-logger";
 import { createLogger } from "./logger";
 
 export type NeonEmailLocale = "de" | "en" | "it";
@@ -70,7 +69,7 @@ export function renderNeonEmailHtml(params: {
 export type ResendMailer = {
   resend: Resend | null;
   isEmailEnabled: boolean;
-  log: Logger;
+  log: AppLogger;
   fromHeader(): string;
   /** Resend returns `{ data, error }` — branches on `error` and throws with context. */
   sendHtmlEmail(params: { to: string; subject: string; html: string }): Promise<void>;
@@ -80,13 +79,15 @@ export function createResendMailer(options: {
   /** Child logger `module` field (default `"email"`). */
   module?: string;
   missingApiKeyMessage: string;
+  resendApiKey?: string;
+  fromEmail?: string;
+  fromName?: string;
 }): ResendMailer {
   const log = createLogger(options.module ?? "email");
-  const resend = process.env.RESEND_API_KEY
-    ? new Resend(process.env.RESEND_API_KEY)
-    : null;
-  const FROM_EMAIL = process.env.FROM_EMAIL?.trim();
-  const FROM_NAME = process.env.FROM_NAME?.trim();
+  const apiKey = options.resendApiKey ?? process.env.RESEND_API_KEY;
+  const resend = apiKey ? new Resend(apiKey) : null;
+  const FROM_EMAIL = (options.fromEmail ?? process.env.FROM_EMAIL)?.trim();
+  const FROM_NAME = (options.fromName ?? process.env.FROM_NAME)?.trim();
   const isEmailEnabled = resend !== null && Boolean(FROM_EMAIL);
 
   if (!resend) {

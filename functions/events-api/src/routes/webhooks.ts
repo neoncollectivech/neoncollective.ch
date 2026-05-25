@@ -3,7 +3,8 @@ import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type Stripe from "stripe";
 
-import { stripe } from "../helpers/stripe";
+import { getEventsApiEnv } from "../config/runtime-env";
+import { getStripe } from "../helpers/stripe";
 import { admissionsService } from "../services/admissions.service";
 import { inviteRedemptionsService } from "../services/invite-redemptions.service";
 import { ordersService } from "../services/orders.service";
@@ -136,7 +137,7 @@ async function resolveOrderIdFromCharge(charge: Stripe.Charge): Promise<string |
   }
 
   try {
-    const pi = await stripe.paymentIntents.retrieve(piId);
+    const pi = await getStripe().paymentIntents.retrieve(piId);
     return orderIdFromPaymentIntent(pi);
   } catch (e) {
     log.warn({ err: e, piId, chargeId: charge.id }, "Could not resolve order for refund webhook");
@@ -195,7 +196,7 @@ async function handleStripeWebhook(
   rawBody: string,
   signature: string | undefined,
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secret = getEventsApiEnv().stripeWebhookSecret;
   if (!secret) {
     return { ok: false, status: 500, error: "STRIPE_WEBHOOK_SECRET not configured." };
   }
@@ -204,7 +205,7 @@ async function handleStripeWebhook(
   }
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+    event = getStripe().webhooks.constructEvent(rawBody, signature, secret);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Invalid signature";
     log.warn({ msg }, "Webhook signature verification failed");

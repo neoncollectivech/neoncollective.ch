@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { sha256Hex } from "@neon/server-kit";
 
 import {
   e2eClearStaleOtpForCode,
@@ -9,12 +9,12 @@ import {
   REGISTRATION_CODE_ALPHABET,
   REGISTRATION_CODE_LENGTH,
 } from "../config/registration";
-import { sha256Hex } from "./token";
 
 const ALPHABET_LEN = REGISTRATION_CODE_ALPHABET.length;
 
 export function randomRegistrationExchangeCode(): string {
-  const bytes = randomBytes(REGISTRATION_CODE_LENGTH);
+  const bytes = new Uint8Array(REGISTRATION_CODE_LENGTH);
+  crypto.getRandomValues(bytes);
   let s = "";
   for (let i = 0; i < REGISTRATION_CODE_LENGTH; i++) {
     s += REGISTRATION_CODE_ALPHABET[bytes[i]! % ALPHABET_LEN]!;
@@ -40,7 +40,7 @@ export function issueRawOtpCode(): string {
   return isE2eTestMode() ? e2eTestOtp() : randomRegistrationExchangeCode();
 }
 
-export function hashOtpCode(raw: string): string {
+export async function hashOtpCode(raw: string): Promise<string> {
   return sha256Hex(raw);
 }
 

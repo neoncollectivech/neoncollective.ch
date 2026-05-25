@@ -54,7 +54,7 @@ export async function findInviteLinkByRawToken(
   rawToken: string,
   options?: { tx?: InviteLinkLookupTx; includeInviter?: boolean },
 ): Promise<InviteLinkByTokenRow | null> {
-  const hash = sha256Hex(rawToken);
+  const hash = await sha256Hex(rawToken);
   const includeInviter = options?.includeInviter !== false;
   const link = options?.tx
     ? await inviteLinksService.findByTokenHashInTx(options.tx, hash)
@@ -192,7 +192,7 @@ export async function ensureHostInviteLinkForPersonInTx(
     return existing.token;
   }
 
-  const { raw, tokenHash } = inviteLinksService.mintRawToken();
+  const { raw, tokenHash } = await inviteLinksService.mintRawToken();
   await inviteLinksService.insertHostLinkInTx(tx, {
     eventId,
     personId,
@@ -225,7 +225,7 @@ export async function mintOrRotateHostInviteLinkForPersonInTx(
 
   const max =
     maxRedemptions != null ? maxRedemptions : ev.defaultInviteLinkMaxRedemptions;
-  const { raw, tokenHash } = inviteLinksService.mintRawToken();
+  const { raw, tokenHash } = await inviteLinksService.mintRawToken();
 
   const existing = await inviteLinksService.findHostLinkByEventAndPersonInTx(
     tx,

@@ -1,3 +1,4 @@
+import { getEventsApiEnv } from "../config/runtime-env";
 import { DEFAULT_E2E_OTP } from "../config/e2e";
 import {
   REGISTRATION_CODE_ALPHABET,
@@ -9,14 +10,11 @@ import { sha256Hex } from "./token";
 
 /** Local E2E only — never active in production. */
 export function isE2eTestMode(): boolean {
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-  return process.env.E2E_TEST_MODE === "1";
+  return getEventsApiEnv().e2eTestMode;
 }
 
 export function e2eTestOtp(): string {
-  const raw = process.env.E2E_TEST_OTP?.trim() || DEFAULT_E2E_OTP;
+  const raw = getEventsApiEnv().e2eTestOtp || DEFAULT_E2E_OTP;
   if (raw.length !== REGISTRATION_CODE_LENGTH) {
     throw new Error(
       `E2E_TEST_OTP must be exactly ${REGISTRATION_CODE_LENGTH} characters.`,
@@ -38,7 +36,7 @@ export async function e2eClearStaleOtpForCode(
   if (!isE2eTestMode()) {
     return;
   }
-  const codeHash = sha256Hex(rawCode);
+  const codeHash = await sha256Hex(rawCode);
   await registrationExchangeCodesService.deleteByCodeHash(codeHash);
   await profileVerificationCodesService.deleteByCodeHashForE2e(codeHash, opts);
 }

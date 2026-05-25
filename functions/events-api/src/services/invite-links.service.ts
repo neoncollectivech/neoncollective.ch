@@ -244,9 +244,9 @@ export class InviteLinksService extends TableService<typeof inviteLinks> {
     await db.delete(inviteLinks).where(eq(inviteLinks.id, linkId));
   }
 
-  mintRawToken(): { raw: string; tokenHash: string } {
+  async mintRawToken(): Promise<{ raw: string; tokenHash: string }> {
     const raw = randomTokenHex(24);
-    return { raw, tokenHash: sha256Hex(raw) };
+    return { raw, tokenHash: await sha256Hex(raw) };
   }
 }
 

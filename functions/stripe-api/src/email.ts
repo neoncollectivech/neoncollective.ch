@@ -1,11 +1,26 @@
-import { createResendMailer, renderNeonEmailHtml } from "@neon/server-kit";
+import { createResendMailer, renderNeonEmailHtml, type ResendMailer } from "@neon/server-kit";
 
-const mailer = createResendMailer({
-  missingApiKeyMessage: "RESEND_API_KEY not set — magic link emails are disabled",
-});
+import { getStripeApiEnv } from "./config/runtime-env";
+
+let mailer: ResendMailer | null = null;
+
+function getMailer(): ResendMailer {
+  if (!mailer) {
+    const env = getStripeApiEnv();
+    mailer = createResendMailer({
+      missingApiKeyMessage: "RESEND_API_KEY not set — magic link emails are disabled",
+      resendApiKey: env.resendApiKey,
+      fromEmail: env.fromEmail,
+      fromName: env.fromName,
+    });
+  }
+  return mailer;
+}
 
 /** Resend is wired only when both API key and a verified `from` address are set. */
-export const isEmailEnabled = mailer.isEmailEnabled;
+export function isEmailEnabled(): boolean {
+  return getMailer().isEmailEnabled;
+}
 
 const templates = {
   de: {
@@ -40,10 +55,11 @@ export async function sendMagicLinkEmail(params: {
   locale: "de" | "en" | "it";
 }): Promise<void> {
   const t = templates[params.locale];
+  const m = getMailer();
 
-  mailer.log.debug({ to: params.to, locale: params.locale }, "Sending magic link email");
+  m.log.debug({ to: params.to, locale: params.locale }, "Sending magic link email");
 
-  await mailer.sendHtmlEmail({
+  await m.sendHtmlEmail({
     to: params.to,
     subject: t.subject,
     html: renderNeonEmailHtml({
@@ -55,4 +71,8 @@ export async function sendMagicLinkEmail(params: {
       footer: t.footer,
     }),
   });
+}
+
+export function resetStripeEmailMailer(): void {
+  mailer = null;
 }

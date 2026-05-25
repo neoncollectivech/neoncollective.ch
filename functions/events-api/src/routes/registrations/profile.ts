@@ -137,16 +137,16 @@ function toProfileResponseFromEventInviteContact(
   };
 }
 
-function contactHashForChannel(
+async function contactHashForChannel(
   channel: "email" | "phone",
   person: PersonRow,
-): string | null {
+): Promise<string | null> {
   if (channel === "email") {
     const em = person.email?.trim();
-    return em ? sha256Hex(em.toLowerCase()) : null;
+    return em ? await sha256Hex(em.toLowerCase()) : null;
   }
   const digits = person.phone?.trim();
-  return digits ? sha256Hex(digits) : null;
+  return digits ? await sha256Hex(digits) : null;
 }
 
 export async function getParticipantProfile(
@@ -321,12 +321,12 @@ export async function requestProfileVerification(params: {
     return profileFail("phone_verified");
   }
 
-  const contactHash = contactHashForChannel(params.channel, person);
+  const contactHash = await contactHashForChannel(params.channel, person);
   if (!contactHash) {
     return profileFail("invalid_contact");
   }
 
-  if (!isE2eTestMode() && params.channel === "email" && !isEmailEnabled) {
+  if (!isE2eTestMode() && params.channel === "email" && !isEmailEnabled()) {
     return profileFail("email_not_configured");
   }
   if (!isE2eTestMode() && params.channel === "phone" && !isSmsEnabled()) {
@@ -337,7 +337,7 @@ export async function requestProfileVerification(params: {
   await clearStaleOtpForCode(rawCode, {
     profileSessionId: params.session.sessionId,
   });
-  const codeHash = hashOtpCode(rawCode);
+  const codeHash = await hashOtpCode(rawCode);
   const expiresAt = new Date(Date.now() + REGISTRATION_EXCHANGE_TTL_MS);
   await profileVerificationCodesService.insert({
     sessionId: params.session.sessionId,
@@ -400,7 +400,7 @@ export async function confirmProfileVerification(params: {
   if (!normalized) {
     return profileFail("invalid_code");
   }
-  const codeHash = hashOtpCode(normalized);
+  const codeHash = await hashOtpCode(normalized);
   const inviteFlow = sessionInviteFlow(params.session);
 
   return await runTransaction(async (tx) => {
@@ -418,7 +418,7 @@ export async function confirmProfileVerification(params: {
       return profileFail("profile_not_found");
     }
 
-    const expectedHash = contactHashForChannel(codeRow.channel, personRow);
+    const expectedHash = await contactHashForChannel(codeRow.channel, personRow);
     if (!expectedHash || expectedHash !== codeRow.contactHash) {
       return profileFail("contact_changed");
     }

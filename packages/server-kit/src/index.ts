@@ -1,3 +1,10 @@
+export type { AppLogger } from "./app-logger";
+export {
+  hmacSha256Hex,
+  randomHex,
+  sha256Hex,
+  timingSafeEqualHex,
+} from "./crypto";
 export {
   allowedCorsOriginsForSite,
   createCorsFromEnv,
@@ -11,4 +18,4 @@ export {
   type ResendMailer,
 } from "./email";
 export { createHttpJsonErrorHandler, createHttpRequestLogger } from "./hono-middleware";
-export { createLogger } from "./logger";
+export { createLogger, logger } from "./logger";

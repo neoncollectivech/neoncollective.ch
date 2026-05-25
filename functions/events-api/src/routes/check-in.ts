@@ -2,6 +2,7 @@ import { arktypeValidator } from "@hono/arktype-validator";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import { getEventsApiEnv } from "../config/runtime-env";
 import { checkInSchema } from "../schemas";
 import { verifyStaffBearer } from "../helpers/staff-auth";
 import { admissionsService } from "../services/admissions.service";
@@ -18,7 +19,7 @@ export function createCheckInRouter(): Hono {
   const router = new Hono();
 
   router.post("/check-in", arktypeValidator("json", checkInSchema), async (c) => {
-    const staff = process.env.STAFF_CHECKIN_TOKEN;
+    const staff = getEventsApiEnv().staffCheckinToken;
     if (!verifyStaffBearer(c.req.header("Authorization"), staff)) {
       return c.json({ error: "Unauthorized." }, 401);
     }

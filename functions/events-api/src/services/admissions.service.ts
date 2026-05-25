@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomHex } from "@neon/server-kit";
 
 import { introspectTable } from "@neon/resource-api";
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -26,7 +26,7 @@ export const admissionsResourceMeta = introspectTable(admissions, {
 export type AdmissionTx = EntityTx;
 
 function randomAdmissionToken(): string {
-  return randomBytes(16).toString("hex");
+  return randomHex(16);
 }
 
 export class AdmissionsService extends TableService<typeof admissions> {

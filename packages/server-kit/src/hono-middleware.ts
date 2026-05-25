@@ -1,9 +1,9 @@
+import type { AppLogger } from "./app-logger";
 import type { ErrorHandler, MiddlewareHandler } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { Logger } from "pino";
 
 /** Request timing + structured log line (method, path, status, duration). */
-export function createHttpRequestLogger(log: Logger): MiddlewareHandler {
+export function createHttpRequestLogger(log: AppLogger): MiddlewareHandler {
   return async (c, next) => {
     const start = Date.now();
     await next();
@@ -16,7 +16,7 @@ export function createHttpRequestLogger(log: Logger): MiddlewareHandler {
 }
 
 /** Logs the error and returns `{ error: message }` JSON with inferred status. */
-export function createHttpJsonErrorHandler(log: Logger): ErrorHandler {
+export function createHttpJsonErrorHandler(log: AppLogger): ErrorHandler {
   return (err, c) => {
     log.error({ err, path: c.req.path, method: c.req.method }, err.message);
     const status = ("statusCode" in err ? err.statusCode : 500) as ContentfulStatusCode;

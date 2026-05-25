@@ -3,20 +3,20 @@
  * Keep in sync with apps/admin/src/lib/invite-url.ts (personLoginContact + buildPublicLoginUrl).
  */
 
+import { getEventsApiEnv } from "../config/runtime-env";
+
 function normalizeOrigin(origin: string): string {
   return origin.replace(/\/+$/, "");
 }
 
 export function publicSiteOrigin(): string {
-  const raw = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const raw = getEventsApiEnv().publicSiteUrl;
 
   return normalizeOrigin(raw.trim() || "http://localhost:3000");
 }
 
 export function publicSiteDefaultLocale(): string {
-  const raw = process.env.PUBLIC_SITE_DEFAULT_LOCALE?.trim();
-
-  return raw || "en";
+  return getEventsApiEnv().publicSiteDefaultLocale;
 }
 
 /** Email if present, otherwise E.164 phone (`+` prefix) for `?login=` prefill. */

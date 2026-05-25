@@ -158,7 +158,7 @@ export function createRegistrationsRouter(): Hono {
     arktypeValidator("json", sessionExchangeSchema),
     async (c) => {
       const ip = clientIpForRateLimit(c);
-      if (!consumeExchangeRateLimit(ip)) {
+      if (!(await consumeExchangeRateLimit(ip))) {
         return c.json({ error: "Too many attempts. Try again later." }, 429);
       }
       const body = c.req.valid("json");
@@ -257,7 +257,7 @@ export function createRegistrationsRouter(): Hono {
       }
       const body = c.req.valid("json");
       const ip = clientIpForRateLimit(c);
-      if (!consumeExchangeRateLimit(ip)) {
+      if (!(await consumeExchangeRateLimit(ip))) {
         return c.json({ error: "Too many attempts. Try again later." }, 429);
       }
       const res = await requestProfileVerification({
@@ -285,7 +285,7 @@ export function createRegistrationsRouter(): Hono {
       }
       const body = c.req.valid("json");
       const ip = clientIpForRateLimit(c);
-      if (!consumeExchangeRateLimit(ip)) {
+      if (!(await consumeExchangeRateLimit(ip))) {
         return c.json({ error: "Too many attempts. Try again later." }, 429);
       }
       const res = await confirmProfileVerification({ session, code: body.code });

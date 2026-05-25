@@ -321,3 +321,21 @@ export const registrationExchangeCodes = pgTable(
   },
   () => [],
 );
+
+/** Sliding-window rate limit attempts (shared across serverless instances). */
+export const rateLimitAttempts = pgTable(
+  "rate_limit_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    scope: text("scope").notNull(),
+    key: text("key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("rate_limit_attempts_scope_key_created_at_idx").on(
+      t.scope,
+      t.key,
+      t.createdAt,
+    ),
+  ],
+);

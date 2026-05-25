@@ -1,5 +1,6 @@
-import { randomBytes } from "node:crypto";
+import { randomHex } from "@neon/server-kit";
 
+import { getEventsApiEnv } from "../../config/runtime-env";
 import { parseContactInput } from "../../helpers/contact";
 import { runTransaction, type EntityTx } from "../../services/transaction";
 import { participantSessionsService } from "../../services/participant-sessions.service";
@@ -88,7 +89,7 @@ async function resolveRegistrationTarget(
 }
 
 function publicSiteOrigin(): string {
-  const raw = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const raw = getEventsApiEnv().publicSiteUrl;
   try {
     return new URL(raw).origin;
   } catch {
@@ -132,7 +133,7 @@ export async function insertRegistrationExchangeCode(params: {
   channel: "email" | "phone";
 }): Promise<{ codeHash: string }> {
   await clearStaleOtpForCode(params.rawCode);
-  const codeHash = hashOtpCode(params.rawCode);
+  const codeHash = await hashOtpCode(params.rawCode);
   const expiresAt = new Date(Date.now() + REGISTRATION_EXCHANGE_TTL_MS);
   await registrationExchangeCodesService.insert({
     codeHash,
@@ -169,7 +170,7 @@ export function parseEventInviteeIdFromContactHash(
 
 /** Session cookie token for event-invite guests before a `people` row exists (no DB column). */
 export function buildEventInvitePendingSessionToken(inviteeId: string): string {
-  return `r.${inviteeId}.${randomBytes(32).toString("hex")}`;
+  return `r.${inviteeId}.${randomHex(32)}`;
 }
 
 export function parseEventInviteeIdFromSessionToken(token: string): string | null {
@@ -188,9 +189,9 @@ async function insertEventInvitePendingSignInCode(params: {
 }): Promise<{ codeHash: string; sessionId: string }> {
   await clearStaleOtpForCode(params.rawCode);
   const sessionToken = buildEventInvitePendingSessionToken(params.inviteeId);
-  const tokenHash = sha256Hex(sessionToken);
+  const tokenHash = await sha256Hex(sessionToken);
   const sessionExpiresAt = new Date(Date.now() + sessionMaxAgeSec() * 1000);
-  const codeHash = hashOtpCode(params.rawCode);
+  const codeHash = await hashOtpCode(params.rawCode);
   const codeExpiresAt = new Date(Date.now() + REGISTRATION_EXCHANGE_TTL_MS);
   return runTransaction(async (tx) => {
     const sessionId = await participantSessionsService.insertInTx(tx, {
@@ -241,14 +242,14 @@ export async function sendPostCheckoutParticipantAccessEmail(params: {
   eventSlug: string;
   accessMode: "public" | "invite_only";
 }): Promise<void> {
-  if (!isEmailEnabled) {
+  if (!isEmailEnabled()) {
     log.warn(
       { orderEmail: params.email },
       "Skipping post-checkout access email — Resend not configured",
     );
     return;
   }
-  const site = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const site = getEventsApiEnv().publicSiteUrl;
   let base: string;
   try {
     base = new URL(site).origin;
@@ -286,9 +287,7 @@ export async function sendPostCheckoutParticipantAccessEmail(params: {
 }
 
 function sessionMaxAgeSec(): number {
-  const raw = process.env.PARTICIPANT_SESSION_MAX_AGE_SEC;
-  const n = raw ? parseInt(raw, 10) : 60 * 60 * 24 * 30;
-  return Number.isFinite(n) && n > 0 ? n : 60 * 60 * 24 * 30;
+  return getEventsApiEnv().participantSessionMaxAgeSec;
 }
 
 /**
@@ -303,11 +302,7 @@ export function resolveParticipantSessionCookieCrossSite(_params: {
   originHeader: string | undefined;
   requestUrl: string;
 }): boolean {
-  const raw = process.env.EVENT_SESSION_CROSS_SITE?.trim().toLowerCase();
-  if (raw === "0" || raw === "false") {
-    return false;
-  }
-  return true;
+  return getEventsApiEnv().eventSessionCrossSite;
 }
 
 export function buildSessionCookieHeader(token: string, crossSite: boolean): string {
@@ -315,7 +310,7 @@ export function buildSessionCookieHeader(token: string, crossSite: boolean): str
   if (crossSite) {
     return `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; Secure; SameSite=None`;
   }
-  const secure = process.env.NODE_ENV === "production" ? "Secure;" : "";
+  const secure = getEventsApiEnv().nodeEnv === "production" ? "Secure;" : "";
   return `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; ${secure} SameSite=Lax`;
 }
 
@@ -323,7 +318,7 @@ export function buildClearSessionCookieHeader(crossSite: boolean): string {
   if (crossSite) {
     return `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; Secure; SameSite=None`;
   }
-  const secure = process.env.NODE_ENV === "production" ? "Secure;" : "";
+  const secure = getEventsApiEnv().nodeEnv === "production" ? "Secure;" : "";
   return `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; ${secure} SameSite=Lax`;
 }
 
@@ -382,7 +377,7 @@ export async function requestRegistrationSession(params: {
   }
 
   if (parsed.kind === "email") {
-    if (!isE2eTestMode() && !isEmailEnabled) {
+    if (!isE2eTestMode() && !isEmailEnabled()) {
       return registrationFail("email_not_configured");
     }
     const email = parsed.email;
@@ -505,14 +500,14 @@ export async function exchangeRegistrationCode(params: {
   if (!normalized) {
     return registrationFail("invalid_code");
   }
-  const codeHash = hashOtpCode(normalized);
+  const codeHash = await hashOtpCode(normalized);
   return await runTransaction(async (tx) => {
     const row = await registrationExchangeCodesService.findValidByCodeHash(codeHash, tx);
     if (row) {
       await registrationExchangeCodesService.markUsedInTx(tx, row.id);
       await markRegistrationChannelVerified(tx, row.personId, row.channel);
-      const sessionToken = randomBytes(32).toString("hex");
-      const tokenHash = sha256Hex(sessionToken);
+      const sessionToken = randomHex(32);
+      const tokenHash = await sha256Hex(sessionToken);
       const expiresAt = new Date(Date.now() + sessionMaxAgeSec() * 1000);
       await participantSessionsService.insertInTx(tx, {
         tokenHash,
@@ -542,7 +537,7 @@ export async function exchangeRegistrationCode(params: {
     await profileVerificationCodesService.markUsedInTx(tx, pendingRow.id);
 
     const sessionToken = buildEventInvitePendingSessionToken(inviteeId);
-    const tokenHash = sha256Hex(sessionToken);
+    const tokenHash = await sha256Hex(sessionToken);
     const expiresAt = new Date(Date.now() + sessionMaxAgeSec() * 1000);
     await participantSessionsService.updateTokenHashAndExpiryInTx(
       tx,
@@ -577,7 +572,7 @@ export async function resolveParticipantSessionFromCookie(
     return null;
   }
   const eventInviteeId = parseEventInviteeIdFromSessionToken(raw);
-  const tokenHash = sha256Hex(raw);
+  const tokenHash = await sha256Hex(raw);
   const row = await participantSessionsService.findActiveByTokenHash(tokenHash);
   if (!row) {
     return null;
@@ -650,8 +645,8 @@ async function insertParticipantSession(params: {
   inviteLinkId: string | null;
   crossSiteCookie: boolean;
 }): Promise<{ setCookie: string; sessionId: string }> {
-  const sessionToken = randomBytes(32).toString("hex");
-  const tokenHash = sha256Hex(sessionToken);
+  const sessionToken = randomHex(32);
+  const tokenHash = await sha256Hex(sessionToken);
   const expiresAt = new Date(Date.now() + sessionMaxAgeSec() * 1000);
   const sessionId = await runTransaction((tx) =>
     participantSessionsService.insertInTx(tx, {
