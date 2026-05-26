@@ -1,6 +1,9 @@
 import { and, eq, gte, lt, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 
+import { RATE_LIMIT_ATTEMPTS_OLDER_THAN_HOURS } from "../config/maintenance";
 import { rateLimitAttempts } from "../db/schema";
+import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
 import { getDb } from "../db/index";
 
@@ -56,4 +59,23 @@ export async function consumeRateLimit(params: {
 }): Promise<boolean> {
   const db = getDb();
   return db.transaction((tx) => consumeRateLimitInTx(tx, params));
+}
+
+function rateLimitMaintenanceWhere(): SQL {
+  const cutoff = new Date(
+    Date.now() - RATE_LIMIT_ATTEMPTS_OLDER_THAN_HOURS * 60 * 60 * 1000,
+  );
+  return lt(rateLimitAttempts.createdAt, cutoff);
+}
+
+export async function countMaintenanceEligibleRateLimitAttempts(): Promise<number> {
+  return countRowsWhere(rateLimitAttempts, rateLimitMaintenanceWhere());
+}
+
+export async function purgeMaintenanceEligibleRateLimitAttempts(): Promise<number> {
+  return purgeIdTableInBatches(
+    rateLimitAttempts,
+    rateLimitAttempts.id,
+    rateLimitMaintenanceWhere(),
+  );
 }

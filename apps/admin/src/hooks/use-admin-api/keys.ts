@@ -48,4 +48,8 @@ export const adminKeys = {
     list: (params?: Record<string, string>) =>
       ["admin", "invite-links", "list", params] as const,
   },
+  maintenance: {
+    all: ["admin", "maintenance"] as const,
+    preview: ["admin", "maintenance", "preview"] as const,
+  },
 } as const;

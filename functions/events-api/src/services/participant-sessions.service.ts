@@ -1,7 +1,9 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, lt } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { participantSessions } from "../db/schema";
+import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
 
 export type ParticipantSessionRow = typeof participantSessions.$inferSelect;
@@ -93,6 +95,22 @@ export class ParticipantSessionsService {
       .update(participantSessions)
       .set({ tokenHash, expiresAt })
       .where(eq(participantSessions.id, sessionId));
+  }
+
+  private maintenanceWhere(): SQL {
+    return lt(participantSessions.expiresAt, new Date());
+  }
+
+  async countMaintenanceEligible(): Promise<number> {
+    return countRowsWhere(participantSessions, this.maintenanceWhere());
+  }
+
+  async purgeMaintenanceEligible(): Promise<number> {
+    return purgeIdTableInBatches(
+      participantSessions,
+      participantSessions.id,
+      this.maintenanceWhere(),
+    );
   }
 }
 

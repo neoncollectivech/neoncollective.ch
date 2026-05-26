@@ -1,7 +1,10 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, isNotNull, lt, or } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 
+import { MAINTENANCE_USED_CODE_RETENTION_DAYS } from "../config/maintenance";
 import { getDb } from "../db/index";
 import { profileVerificationCodes } from "../db/schema";
+import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
 
 export type ProfileVerificationRow = typeof profileVerificationCodes.$inferSelect;
@@ -86,6 +89,31 @@ export class ProfileVerificationCodesService {
       .update(profileVerificationCodes)
       .set({ usedAt: new Date() })
       .where(eq(profileVerificationCodes.id, id));
+  }
+
+  private maintenanceWhere(): SQL {
+    const usedCutoff = new Date(
+      Date.now() - MAINTENANCE_USED_CODE_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+    return or(
+      lt(profileVerificationCodes.expiresAt, new Date()),
+      and(
+        isNotNull(profileVerificationCodes.usedAt),
+        lt(profileVerificationCodes.usedAt, usedCutoff),
+      ),
+    )!;
+  }
+
+  async countMaintenanceEligible(): Promise<number> {
+    return countRowsWhere(profileVerificationCodes, this.maintenanceWhere());
+  }
+
+  async purgeMaintenanceEligible(): Promise<number> {
+    return purgeIdTableInBatches(
+      profileVerificationCodes,
+      profileVerificationCodes.id,
+      this.maintenanceWhere(),
+    );
   }
 }
 

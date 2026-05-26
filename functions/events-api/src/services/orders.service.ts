@@ -3,10 +3,13 @@ import {
   parseListQuery,
   type FilterParams,
 } from "@neon/resource-api";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 
+import { STALE_ORDERS_RETENTION_DAYS } from "../config/maintenance";
 import { getDb } from "../db/index";
 import { orders } from "../db/schema";
+import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base";
 
@@ -329,6 +332,28 @@ export class OrdersService extends TableService<
       .from(orders)
       .where(eq(orders.personId, personId))
       .orderBy(desc(orders.createdAt));
+  }
+
+  private staleOrderMaintenanceWhere(): SQL {
+    const cutoff = new Date(
+      Date.now() - STALE_ORDERS_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+    return and(
+      inArray(orders.status, ["pending", "failed"]),
+      lt(orders.createdAt, cutoff),
+    )!;
+  }
+
+  async countStaleMaintenanceEligible(): Promise<number> {
+    return countRowsWhere(orders, this.staleOrderMaintenanceWhere());
+  }
+
+  async purgeStaleMaintenanceEligible(): Promise<number> {
+    return purgeIdTableInBatches(
+      orders,
+      orders.id,
+      this.staleOrderMaintenanceWhere(),
+    );
   }
 
 }

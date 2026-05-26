@@ -12,6 +12,7 @@ import { LoginPage } from "@/pages/login-page";
 import { OrderDetailPage } from "@/pages/order-detail-page";
 import { OrdersPage } from "@/pages/orders-page";
 import { PeoplePage } from "@/pages/people-page";
+import { MaintenancePage } from "@/pages/maintenance-page";
 import { PersonDetailPage } from "@/pages/person-detail-page";
 import { queryClient } from "@/lib/query-client";
 
@@ -36,6 +37,7 @@ export function App() {
             <Route element={<OrderDetailPage />} path="orders/:id" />
             <Route element={<PeoplePage />} path="people" />
             <Route element={<PersonDetailPage />} path="people/:id" />
+            <Route element={<MaintenancePage />} path="maintenance" />
           </Route>
         </Routes>
       </BrowserRouter>

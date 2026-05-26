@@ -1,7 +1,10 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, isNotNull, lt, or } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 
+import { MAINTENANCE_USED_CODE_RETENTION_DAYS } from "../config/maintenance";
 import { getDb } from "../db/index";
 import { registrationExchangeCodes } from "../db/schema";
+import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
 
 export type RegistrationExchangeRow = typeof registrationExchangeCodes.$inferSelect;
@@ -53,6 +56,31 @@ export class RegistrationExchangeCodesService {
       .update(registrationExchangeCodes)
       .set({ usedAt: new Date() })
       .where(eq(registrationExchangeCodes.id, id));
+  }
+
+  private maintenanceWhere(): SQL {
+    const usedCutoff = new Date(
+      Date.now() - MAINTENANCE_USED_CODE_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+    return or(
+      lt(registrationExchangeCodes.expiresAt, new Date()),
+      and(
+        isNotNull(registrationExchangeCodes.usedAt),
+        lt(registrationExchangeCodes.usedAt, usedCutoff),
+      ),
+    )!;
+  }
+
+  async countMaintenanceEligible(): Promise<number> {
+    return countRowsWhere(registrationExchangeCodes, this.maintenanceWhere());
+  }
+
+  async purgeMaintenanceEligible(): Promise<number> {
+    return purgeIdTableInBatches(
+      registrationExchangeCodes,
+      registrationExchangeCodes.id,
+      this.maintenanceWhere(),
+    );
   }
 }
 

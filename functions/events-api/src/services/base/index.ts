@@ -12,5 +12,10 @@ export { BulkLimitError } from "@neon/resource-api";
 export { mapCtx } from "./map-ctx";
 export { parentSqlFromCtx } from "@neon/resource-api";
 export { orClauses } from "./sql-utils";
+export {
+  countRowsWhere,
+  purgeIdTableInBatches,
+  purgeStripeEventsInBatches,
+} from "./purge-batches";
 export { TableService, type TableServiceConfig } from "./table-service";
 export type { ServiceContext, ServiceParent } from "./types";

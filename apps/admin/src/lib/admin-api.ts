@@ -411,3 +411,39 @@ export async function listInviteRedemptions(params: AdminListRequestParams) {
 export async function listInviteLinks(params: AdminListRequestParams) {
   return listInviteLinksClient(params);
 }
+
+export type MaintenanceCategoryPreview = {
+  key: string;
+  label: string;
+  description: string;
+  count: number;
+};
+
+export type MaintenancePreview = {
+  categories: MaintenanceCategoryPreview[];
+  totalRows: number;
+};
+
+export type MaintenanceCategoryResult = {
+  key: string;
+  label: string;
+  description: string;
+  deleted: number;
+};
+
+export type MaintenanceRunResult = {
+  categories: MaintenanceCategoryResult[];
+  totalDeleted: number;
+};
+
+export async function getMaintenancePreview(): Promise<MaintenancePreview> {
+  const res = await api.get<MaintenancePreview>("/admin/maintenance");
+
+  return res.data;
+}
+
+export async function runMaintenance(): Promise<MaintenanceRunResult> {
+  const res = await api.post<MaintenanceRunResult>("/admin/maintenance");
+
+  return res.data;
+}

@@ -7,6 +7,7 @@ import { requireAdminSession } from "../../auth/require-admin-session";
 import { mapCtx } from "../../services/base/map-ctx";
 import { InviteMechanismDisabledError } from "../../services/events.service";
 import { createEventsControlRouter } from "./control/events";
+import { createMaintenanceRouter } from "./control/maintenance";
 import { createOrdersControlRouter } from "./control/orders";
 import { createPeopleControlRouter } from "./control/people";
 import { adminRoute } from "./mount";
@@ -60,6 +61,8 @@ export function createAdminRouter(): Hono<AdminEnv> {
   const eventScoped = new Hono();
   eventScoped.route("/", createInviteesProvider());
   adminRoute(admin, "/events/:eventId", eventScoped, ...adminAuth);
+
+  adminRoute(admin, "/maintenance", createMaintenanceRouter(), ...adminAuth);
 
   return admin;
 }

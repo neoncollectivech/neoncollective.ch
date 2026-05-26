@@ -30,6 +30,8 @@ import {
   revokeEventInvitee,
   upsertEventInvitees,
   verifyPeople,
+  getMaintenancePreview,
+  runMaintenance,
 } from "@/lib/admin-api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { queryClient } from "@/lib/query-client";
@@ -398,6 +400,26 @@ export const adminApi = {
             }),
           ),
         enabled: Boolean(inviteLinkId),
+      }),
+  },
+  maintenance: {
+    preview: () =>
+      queryOptions({
+        queryKey: adminKeys.maintenance.preview,
+        queryFn: () => getMaintenancePreview(),
+      }),
+    run: () =>
+      mutationOptions({
+        mutationFn: () => runMaintenance(),
+        onSuccess: (data) => {
+          toast.success(`Deleted ${data.totalDeleted} rows`);
+          void queryClient.invalidateQueries({
+            queryKey: adminKeys.maintenance.all,
+          });
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error));
+        },
       }),
   },
 };
