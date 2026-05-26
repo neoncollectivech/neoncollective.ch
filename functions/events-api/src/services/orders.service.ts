@@ -8,7 +8,7 @@ import type { SQL } from "drizzle-orm";
 
 import { STALE_ORDERS_RETENTION_DAYS } from "../config/maintenance";
 import { getDb } from "../db/index";
-import { orders } from "../db/schema";
+import { events, orders } from "../db/schema";
 import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base";
@@ -277,6 +277,18 @@ export class OrdersService extends TableService<
       .orderBy(desc(orders.createdAt))
       .limit(1);
     return row?.orderId ?? null;
+  }
+
+  /** Event slugs with at least one paid order for this person (catalog registration badges). */
+  async listPaidEventSlugsForPerson(personId: string): Promise<Set<string>> {
+    const db = getDb();
+    const rows = await db
+      .selectDistinct({ slug: events.slug })
+      .from(orders)
+      .innerJoin(events, eq(orders.eventId, events.id))
+      .where(and(eq(orders.personId, personId), eq(orders.status, "paid")));
+
+    return new Set(rows.map((r) => r.slug));
   }
 
   async deleteDeletableAdminOrder(

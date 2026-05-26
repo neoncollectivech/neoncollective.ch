@@ -193,6 +193,9 @@ function EventsIndexInner() {
                   ? formatLocaleDateTime(ev.startsAt, locale)
                   : t.indexDateTbd;
                 const metaParts = [dateLabel, locationLine].filter(Boolean);
+                const openLabel = ev.registrationConfirmed
+                  ? t.indexManage
+                  : t.indexOpen;
 
                 return (
                   <li key={ev.slug}>
@@ -237,11 +240,11 @@ function EventsIndexInner() {
                               ) : null}
                             </div>
                             <NeonLink
-                              aria-label={`${t.indexOpen}: ${ev.title}`}
+                              aria-label={`${openLabel}: ${ev.title}`}
                               className="w-full sm:w-auto sm:self-start"
                               href={detailHref}
                             >
-                              {t.indexOpen}
+                              {openLabel}
                             </NeonLink>
                           </div>
                         </div>

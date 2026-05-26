@@ -67,6 +67,8 @@ export type EventCatalogItem = {
   imageUrls: string[];
   startsAt: string | null;
   inviteOnly: boolean;
+  /** True when the session has a paid order for this event. */
+  registrationConfirmed: boolean;
 };
 
 export type ParticipantProfile = {
@@ -110,6 +112,7 @@ export async function fetchEventsCatalog(opts?: {
             : [],
           startsAt: e.startsAt ?? null,
           inviteOnly: Boolean(e.inviteOnly),
+          registrationConfirmed: Boolean(e.registrationConfirmed),
         }))
       : [];
   } catch {

@@ -35,6 +35,7 @@ export function createEventsRouter(): Hono {
         imageUrls: r.imageUrls,
         startsAt: r.startsAt?.toISOString() ?? null,
         inviteOnly: r.inviteOnly,
+        registrationConfirmed: r.registrationConfirmed,
       })),
     });
   });

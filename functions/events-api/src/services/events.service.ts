@@ -40,6 +40,7 @@ export type CatalogListRow = {
   imageUrls: string[];
   startsAt: Date | null;
   inviteOnly: boolean;
+  registrationConfirmed: boolean;
 };
 
 export type CatalogListParams = {

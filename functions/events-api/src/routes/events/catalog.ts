@@ -5,8 +5,33 @@ import {
 } from "../../services/events.service";
 import { eventInviteesService } from "../../services/event-invitees.service";
 import { eventsService } from "../../services/events.service";
+import { ordersService } from "../../services/orders.service";
 
 export type { CatalogListParams, CatalogListRow };
+
+function catalogRow(
+  row: {
+    slug: string;
+    title: string;
+    summary: string | null;
+    location: string | null;
+    imageUrls: unknown;
+    startsAt: Date | null;
+  },
+  inviteOnly: boolean,
+  registeredSlugs: Set<string>,
+): CatalogListRow {
+  return {
+    slug: row.slug,
+    title: row.title,
+    summary: row.summary ?? null,
+    location: row.location ?? null,
+    imageUrls: normalizeEventImageUrls(row.imageUrls),
+    startsAt: row.startsAt,
+    inviteOnly,
+    registrationConfirmed: registeredSlugs.has(row.slug),
+  };
+}
 
 export async function listPublishedCatalog(
   params: CatalogListParams | string | null,
@@ -16,19 +41,15 @@ export async function listPublishedCatalog(
   const inviteEventId =
     params != null && typeof params !== "string" ? params.inviteEventId : null;
 
+  const registeredSlugs = viewerPersonId
+    ? await ordersService.listPaidEventSlugsForPerson(viewerPersonId)
+    : new Set<string>();
+
   const publicRows = await eventsService.listPublishedPublicCatalogRows();
   const bySlug = new Map<string, CatalogListRow>();
 
   for (const r of publicRows) {
-    bySlug.set(r.slug, {
-      slug: r.slug,
-      title: r.title,
-      summary: r.summary ?? null,
-      location: r.location ?? null,
-      imageUrls: normalizeEventImageUrls(r.imageUrls),
-      startsAt: r.startsAt,
-      inviteOnly: false,
-    });
+    bySlug.set(r.slug, catalogRow(r, false, registeredSlugs));
   }
 
   if (viewerPersonId) {
@@ -38,30 +59,14 @@ export async function listPublishedCatalog(
       if (ev.status !== "published" || ev.accessMode !== "invite_only") {
         continue;
       }
-      bySlug.set(ev.slug, {
-        slug: ev.slug,
-        title: ev.title,
-        summary: ev.summary ?? null,
-        location: ev.location ?? null,
-        imageUrls: normalizeEventImageUrls(ev.imageUrls),
-        startsAt: ev.startsAt,
-        inviteOnly: true,
-      });
+      bySlug.set(ev.slug, catalogRow(ev, true, registeredSlugs));
     }
   }
 
   if (inviteEventId) {
     const guestEv = await eventsService.getPublishedInviteOnlyById(inviteEventId);
     if (guestEv) {
-      bySlug.set(guestEv.slug, {
-        slug: guestEv.slug,
-        title: guestEv.title,
-        summary: guestEv.summary ?? null,
-        location: guestEv.location ?? null,
-        imageUrls: normalizeEventImageUrls(guestEv.imageUrls),
-        startsAt: guestEv.startsAt,
-        inviteOnly: true,
-      });
+      bySlug.set(guestEv.slug, catalogRow(guestEv, true, registeredSlugs));
     }
   }
 
