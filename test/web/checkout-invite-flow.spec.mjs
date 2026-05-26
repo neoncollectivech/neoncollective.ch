@@ -63,7 +63,7 @@ test.describe("invite-only checkout", () => {
     });
 
     test("sees host invite link", async () => {
-      await expect(state.pageA.getByText("Invite guests")).toBeVisible();
+      await expect(state.pageA.getByText("Bring your friends")).toBeVisible();
       state.inviteUrl = await extractInviteUrlFromPage(state.pageA);
       expect(state.inviteUrl).toContain("invite=");
     });
@@ -117,7 +117,7 @@ test.describe("invite-only checkout", () => {
 
     test("pays with Stripe Payment Element and confirms registration", async () => {
       await completeEventCheckout(state.pageB, state.seed);
-      await expect(state.pageB.getByText("Invite guests")).not.toBeVisible();
+      await expect(state.pageB.getByText("Bring your friends")).not.toBeVisible();
     });
 
     test("API detail has no hostInvite", async () => {

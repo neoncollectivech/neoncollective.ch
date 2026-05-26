@@ -4,7 +4,7 @@ import { expect } from "@playwright/test";
 export async function expectHostInviteConversion(page, seed) {
   const guestName = `${seed.personBGivenName} ${seed.personBFamilyName}`;
 
-  await expect(page.getByText("Invite guests")).toBeVisible();
+  await expect(page.getByText("Bring your friends")).toBeVisible();
   await expect(
     page.getByText("Registered via your link", { exact: true }),
   ).toBeVisible();
