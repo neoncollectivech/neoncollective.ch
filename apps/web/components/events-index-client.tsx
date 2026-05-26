@@ -13,10 +13,7 @@ import { ParticipantSessionPanel } from "@/components/participant-session-panel"
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useEventUrlParams } from "@/hooks/use-event-url-params";
 import { useLocale } from "@/hooks/use-locale";
-import {
-  useProfileManageModalLabels,
-  useProfileModalLabels,
-} from "@/hooks/use-profile-modal-labels";
+import { useProfileModalLabels } from "@/hooks/use-profile-modal-labels";
 import {
   eventsApi,
   eventsKeys,
@@ -55,18 +52,15 @@ function EventsIndexInner() {
   const t = dictionary.events;
   const queryClient = useQueryClient();
   const [profileGateOpen, setProfileGateOpen] = useState(true);
-  const [profileManageOpen, setProfileManageOpen] = useState(false);
 
   const {
     profile,
     needsProfile,
     isLoading: profileLoading,
     invalidateAfterProfileComplete,
-    refetchProfile,
   } = useProfileBootstrap(inviteToken);
 
   const profileLabels = useProfileModalLabels();
-  const manageProfileLabels = useProfileManageModalLabels();
 
   const { codeHandled, codeError } = useExchangeRegistrationCode({
     code,
@@ -86,6 +80,12 @@ function EventsIndexInner() {
     }),
   );
 
+  const sessionQuery = useQuery(
+    eventsApi.participant.session({
+      enabled: codeHandled && !profileLoading && !needsProfile,
+    }),
+  );
+
   const rows = useMemo(
     () => (listQuery.data ? filterUpcoming(listQuery.data) : []),
     [listQuery.data],
@@ -97,26 +97,33 @@ function EventsIndexInner() {
 
   const showProfileGateModal =
     profileGateOpen && needsProfile && !profileLoading;
-  const showProfileManageModal = profileManageOpen && !profileLoading;
-  const profileModalOpen = showProfileGateModal || showProfileManageModal;
 
   const listLoading = !codeHandled || profileLoading || listQuery.isLoading;
+  const sessionEstablished = sessionQuery.data?.session === true;
+  const sessionBlockLoading =
+    !needsProfile && !profileLoading && codeHandled && sessionQuery.isLoading;
+
+  const welcomeLine = (() => {
+    const givenName = sessionQuery.data?.givenName?.trim();
+
+    return givenName
+      ? t.sessionWelcomeBack.replaceAll("{name}", givenName)
+      : t.sessionWelcomeBackNoName;
+  })();
 
   return (
     <>
-      {profileModalOpen ? (
+      {showProfileGateModal ? (
         <ParticipantProfileModal
           open
-          dismissable={showProfileManageModal}
+          dismissable={false}
           initialProfile={profile ?? undefined}
-          labels={showProfileManageModal ? manageProfileLabels : profileLabels}
+          labels={profileLabels}
           onComplete={async (p) => {
             writeParticipantProfileCache(queryClient, p, inviteToken);
             await invalidateAfterProfileComplete();
             setProfileGateOpen(false);
-            setProfileManageOpen(false);
           }}
-          onDismiss={() => setProfileManageOpen(false)}
         />
       ) : null}
 
@@ -139,7 +146,22 @@ function EventsIndexInner() {
           </p>
         </header>
 
-        {!needsProfile ? (
+        {!needsProfile && sessionBlockLoading ? (
+          <div className="flex justify-center py-4 mb-10 md:mb-12">
+            <Spinner color="success" size="md" />
+          </div>
+        ) : null}
+
+        {!needsProfile && !sessionBlockLoading && sessionEstablished ? (
+          <p
+            className="mb-10 md:mb-12 text-base md:text-lg font-semibold text-foreground/90 tracking-tight"
+            data-testid="events-index-welcome"
+          >
+            {welcomeLine}
+          </p>
+        ) : null}
+
+        {!needsProfile && !sessionBlockLoading && !sessionEstablished ? (
           <Card
             className="mb-10 md:mb-12 border border-foreground/10 bg-transparent"
             radius="sm"
@@ -155,11 +177,8 @@ function EventsIndexInner() {
                 sessionEstablishedQueryKeys={[
                   eventsKeys.catalog(),
                   eventsKeys.participant.profile(),
+                  eventsKeys.participant.session(),
                 ]}
-                onManageProfile={async () => {
-                  await refetchProfile();
-                  setProfileManageOpen(true);
-                }}
               />
             </CardBody>
           </Card>
