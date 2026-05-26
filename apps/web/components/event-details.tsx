@@ -40,6 +40,7 @@ import {
   type EventPayload,
   type EventTier,
   type InviteLinkConversion,
+  type RegisteredOrderTier,
 } from "@/hooks/use-events-api";
 import {
   formatLocaleDate,
@@ -48,6 +49,81 @@ import {
 
 function formatTierPrice(tier: EventTier): string {
   return `${(tier.priceCents / 100).toFixed(0)} ${tier.currency.toUpperCase()}`;
+}
+
+function formatRegisteredTierPrice(tier: RegisteredOrderTier): string {
+  return `${(tier.priceCents / 100).toFixed(0)} ${tier.currency.toUpperCase()}`;
+}
+
+function RegistrationConfirmedSummary({
+  viewerGivenName,
+  eventStartsAt,
+  tiers,
+  locale,
+  labels,
+}: {
+  viewerGivenName?: string;
+  eventStartsAt: string | null;
+  tiers: RegisteredOrderTier[];
+  locale: Locale;
+  labels: {
+    intro: string;
+    introNoName: string;
+    bodyNoTier: string;
+    addon: string;
+  };
+}) {
+  if (tiers.length === 0) {
+    return (
+      <p className="text-base text-neon/80 leading-relaxed">{labels.bodyNoTier}</p>
+    );
+  }
+
+  const when = eventStartsAt
+    ? formatLocaleDateTime(eventStartsAt, locale)
+    : null;
+  const hasName = Boolean(viewerGivenName?.trim());
+  const intro = (hasName ? labels.intro : labels.introNoName).replaceAll(
+    "{name}",
+    viewerGivenName ?? "",
+  );
+
+  return (
+    <div className="space-y-4">
+      <p className="text-base text-neon/80 leading-relaxed">{intro}</p>
+      <ul className="space-y-4" data-testid="registration-confirmed-tiers">
+        {tiers.map((tier) => {
+          const description = tier.description.trim();
+          const metaParts = [
+            when,
+            tier.priceCents > 0 ? formatRegisteredTierPrice(tier) : null,
+            tier.selectionMode === "addon" ? labels.addon : null,
+          ].filter((part): part is string => Boolean(part));
+
+          return (
+            <li
+              key={tier.id}
+              className="border-t border-foreground/10 pt-4 first:border-t-0 first:pt-0"
+            >
+              <p className="text-sm font-semibold text-foreground/85">
+                {tier.name}
+              </p>
+              {metaParts.length > 0 ? (
+                <p className="text-xs font-mono text-foreground/45 mt-1">
+                  {metaParts.join(" · ")}
+                </p>
+              ) : null}
+              {description ? (
+                <p className="text-sm text-foreground/50 leading-relaxed mt-2">
+                  {description}
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 function formatPlacesRemaining(
@@ -707,14 +783,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
   const backHref = `/${locale}/events`;
   const heroImage = ev.imageUrls?.[0];
-  const confirmationBody = ev.registeredTierName
-    ? (ev.viewerGivenName
-        ? t.registrationConfirmedBody
-        : t.registrationConfirmedBodyNoName
-      )
-        .replaceAll("{name}", ev.viewerGivenName ?? "")
-        .replaceAll("{tier}", ev.registeredTierName)
-    : t.registrationConfirmedBodyNoTier;
 
   return (
     <>
@@ -759,9 +827,46 @@ function EventDetailsInner({ slug }: { slug: string }) {
               <h2 className="text-xl font-bold tracking-tight text-foreground/90 mb-3">
                 {t.registrationConfirmedTitle}
               </h2>
-              <p className="text-base text-neon/80 leading-relaxed">
-                {confirmationBody}
-              </p>
+              {ev.registeredTiers && ev.registeredTiers.length > 0 ? (
+                <RegistrationConfirmedSummary
+                  eventStartsAt={ev.startsAt}
+                  labels={{
+                    addon: t.registrationConfirmedTierAddon,
+                    bodyNoTier: t.registrationConfirmedBodyNoTier,
+                    intro: t.registrationConfirmedIntro,
+                    introNoName: t.registrationConfirmedIntroNoName,
+                  }}
+                  locale={locale}
+                  tiers={ev.registeredTiers}
+                  viewerGivenName={ev.viewerGivenName}
+                />
+              ) : ev.registeredTierName ? (
+                <RegistrationConfirmedSummary
+                  eventStartsAt={ev.startsAt}
+                  labels={{
+                    addon: t.registrationConfirmedTierAddon,
+                    bodyNoTier: t.registrationConfirmedBodyNoTier,
+                    intro: t.registrationConfirmedIntro,
+                    introNoName: t.registrationConfirmedIntroNoName,
+                  }}
+                  locale={locale}
+                  tiers={[
+                    {
+                      id: "legacy",
+                      name: ev.registeredTierName,
+                      description: "",
+                      selectionMode: "exclusive",
+                      priceCents: 0,
+                      currency: "chf",
+                    },
+                  ]}
+                  viewerGivenName={ev.viewerGivenName}
+                />
+              ) : (
+                <p className="text-base text-neon/80 leading-relaxed">
+                  {t.registrationConfirmedBodyNoTier}
+                </p>
+              )}
               {ev.inviteOnly && ev.hostInvite ? (
                 <details open className="mt-6 group">
                   <summary className="cursor-pointer text-sm font-semibold text-foreground/70 list-none flex items-center gap-2">

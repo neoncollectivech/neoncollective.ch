@@ -20,4 +20,5 @@ export type {
   EventTier,
   InviteLinkConversion,
   ParticipantProfile,
+  RegisteredOrderTier,
 } from "@/helpers/eventsApi";

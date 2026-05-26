@@ -1,5 +1,9 @@
 import { phoneToStoredDigits } from "../../helpers/contact";
-import { formatOrderTierNames } from "../shared/format-order-tiers";
+import {
+  formatOrderTierNames,
+  listRegisteredOrderTiersForOrder,
+  type RegisteredOrderTierPayload,
+} from "../shared/format-order-tiers";
 import { eventInviteesService } from "../../services/event-invitees.service";
 import { peopleService } from "../../services/people.service";
 import {
@@ -143,13 +147,17 @@ export { getHostInviteShareForViewer };
 export async function findPaidRegistrationForViewer(
   eventId: string,
   personId: string,
-): Promise<{ tierName: string } | null> {
+): Promise<{ tierName: string; tiers: RegisteredOrderTierPayload[] } | null> {
   const orderId = await ordersService.findLatestPaidOrderIdForPersonOnEvent(eventId, personId);
   if (!orderId) {
     return null;
   }
+  const tiers = await listRegisteredOrderTiersForOrder(orderId);
+  if (tiers.length === 0) {
+    return null;
+  }
   const tierName = await formatOrderTierNames(orderId);
-  return tierName ? { tierName } : null;
+  return tierName ? { tierName, tiers } : null;
 }
 
 export async function findEventInviteeByPersonId(eventId: string, personId: string) {
@@ -197,6 +205,7 @@ export type EventDetailForViewerBody = NonNullable<
   access: "full" | "minimal";
   registrationConfirmed: boolean;
   registeredTierName?: string;
+  registeredTiers?: RegisteredOrderTierPayload[];
   viewerGivenName?: string;
   hostInvite?: {
     token: string;
@@ -291,6 +300,7 @@ export async function getPublishedEventDetailForViewer(params: {
 
   let registrationConfirmed = false;
   let registeredTierName: string | undefined;
+  let registeredTiers: RegisteredOrderTierPayload[] | undefined;
   let viewerGivenName: string | undefined;
   let hostInvite: EventDetailForViewerBody["hostInvite"];
 
@@ -299,6 +309,7 @@ export async function getPublishedEventDetailForViewer(params: {
     if (reg) {
       registrationConfirmed = true;
       registeredTierName = reg.tierName;
+      registeredTiers = reg.tiers;
     }
     if (registrationConfirmed && evRow.accessMode === "invite_only") {
       const share = await getHostInviteShareForViewer(evRow.id, session.personId);
@@ -318,6 +329,7 @@ export async function getPublishedEventDetailForViewer(params: {
     access,
     registrationConfirmed,
     ...(registeredTierName ? { registeredTierName } : {}),
+    ...(registeredTiers?.length ? { registeredTiers } : {}),
     ...(viewerGivenName ? { viewerGivenName } : {}),
     ...(hostInvite ? { hostInvite } : {}),
   };

@@ -40,6 +40,7 @@ export type EventPayload = {
   /** True when the session cookie matches a person with a paid order for this event. */
   registrationConfirmed?: boolean;
   registeredTierName?: string;
+  registeredTiers?: RegisteredOrderTier[];
   /** Host first name when registration is confirmed on invite-only events. */
   viewerGivenName?: string;
   /** Guest invite link for first-degree hosts (session + paid registration). */
@@ -48,6 +49,16 @@ export type EventPayload = {
     remaining: number;
     conversions: InviteLinkConversion[];
   };
+};
+
+/** Paid order tier lines returned on event detail when registration is confirmed. */
+export type RegisteredOrderTier = {
+  id: string;
+  name: string;
+  description: string;
+  selectionMode: TierSelectionMode;
+  priceCents: number;
+  currency: string;
 };
 
 export type InviteLinkConversion = {
@@ -158,6 +169,29 @@ export async function fetchEvent(
       eventFields.registeredTierName.trim().length > 0
         ? eventFields.registeredTierName.trim()
         : undefined,
+    registeredTiers: Array.isArray(eventFields.registeredTiers)
+      ? eventFields.registeredTiers
+          .filter(
+            (tier): tier is RegisteredOrderTier =>
+              Boolean(tier) &&
+              typeof tier === "object" &&
+              typeof (tier as RegisteredOrderTier).id === "string" &&
+              typeof (tier as RegisteredOrderTier).name === "string" &&
+              typeof (tier as RegisteredOrderTier).description === "string" &&
+              typeof (tier as RegisteredOrderTier).priceCents === "number" &&
+              typeof (tier as RegisteredOrderTier).currency === "string" &&
+              ((tier as RegisteredOrderTier).selectionMode === "exclusive" ||
+                (tier as RegisteredOrderTier).selectionMode === "addon"),
+          )
+          .map((tier) => ({
+            id: tier.id,
+            name: tier.name.trim(),
+            description: tier.description.trim(),
+            selectionMode: tier.selectionMode,
+            priceCents: tier.priceCents,
+            currency: tier.currency,
+          }))
+      : undefined,
     viewerGivenName:
       typeof eventFields.viewerGivenName === "string" &&
       eventFields.viewerGivenName.trim().length > 0
