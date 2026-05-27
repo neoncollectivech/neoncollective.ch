@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
@@ -18,12 +18,34 @@ import {
   personToEditForm,
   type PersonEditForm,
 } from "@/lib/person-form-utils";
+import type { PersonLinkCounts } from "@/lib/admin-api";
 import {
   personNeedsVerification,
   personVerificationSummary,
 } from "@/lib/person-verification";
 
+function personDeletionBlockers(links: PersonLinkCounts): string | null {
+  const parts: string[] = [];
+  if (links.orders > 0) {
+    parts.push(`${links.orders} order(s)`);
+  }
+  if (links.inviteesAsGuest > 0) {
+    parts.push(`${links.inviteesAsGuest} event invite(s)`);
+  }
+  if (links.inviteesAsHost > 0) {
+    parts.push(`${links.inviteesAsHost} host invitee record(s)`);
+  }
+  if (links.inviteLinksAsHost > 0) {
+    parts.push(`${links.inviteLinksAsHost} guest invite link(s)`);
+  }
+  if (parts.length === 0) {
+    return null;
+  }
+  return `Cannot delete: linked ${parts.join(", ")}.`;
+}
+
 export function PersonDetailPage() {
+  const navigate = useNavigate();
   const { id: personId, isValid } = useUuidRouteParam();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PersonEditForm | null>(null);
@@ -31,6 +53,9 @@ export function PersonDetailPage() {
   const personQuery = useQuery(adminApi.person.detail(personId));
   const ordersQuery = useQuery(adminApi.person.orders(personId));
   const inviteesQuery = useQuery(adminApi.person.invitees(personId));
+  const deletionEligibilityQuery = useQuery(
+    adminApi.person.deletionEligibility(personId),
+  );
   const person = personQuery.data;
 
   useEffect(() => {
@@ -46,9 +71,18 @@ export function PersonDetailPage() {
 
   const updateMutation = useMutation(adminApi.person.update(personId));
   const verifyMutation = useMutation(adminApi.people.verify());
+  const deleteMutation = useMutation(adminApi.person.delete(personId));
 
   const isLoading =
-    personQuery.isLoading || ordersQuery.isLoading || inviteesQuery.isLoading;
+    personQuery.isLoading ||
+    ordersQuery.isLoading ||
+    inviteesQuery.isLoading ||
+    deletionEligibilityQuery.isLoading;
+
+  const deletable = deletionEligibilityQuery.data?.deletable === true;
+  const deletionBlockers = deletionEligibilityQuery.data?.links
+    ? personDeletionBlockers(deletionEligibilityQuery.data.links)
+    : null;
 
   if (!isValid) {
     return <Navigate replace to="/people" />;
@@ -96,6 +130,29 @@ export function PersonDetailPage() {
                     }
                   >
                     {verifyMutation.isPending ? "Verifying…" : "Verify contact"}
+                  </Button>
+                ) : null}
+                {!editing && deletable ? (
+                  <Button
+                    disabled={deleteMutation.isPending}
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          "Delete this person? This cannot be undone.",
+                        )
+                      ) {
+                        deleteMutation.mutate(undefined, {
+                          onSuccess: () => {
+                            toast.success("Person deleted");
+                            navigate("/people");
+                          },
+                        });
+                      }
+                    }}
+                  >
+                    Delete
                   </Button>
                 ) : null}
               </div>
@@ -153,6 +210,9 @@ export function PersonDetailPage() {
                     <span className="text-muted-foreground">Created:</span>{" "}
                     {new Date(person.createdAt).toLocaleString()}
                   </p>
+                  {!editing && deletionBlockers ? (
+                    <p className="text-muted-foreground">{deletionBlockers}</p>
+                  ) : null}
                 </div>
               )}
             </CardContent>

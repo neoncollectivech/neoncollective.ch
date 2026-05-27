@@ -9,11 +9,13 @@ import {
   createEvent,
   createEventPromotionCode,
   createPerson,
+  deletePerson,
   ensureInviteeLink,
   getEvent,
   getPromotionCode,
   getOrder,
   getPerson,
+  getPersonDeletionEligibility,
   listEventInvitees,
   listEventPromotionCodes,
   listEventTiers,
@@ -416,6 +418,24 @@ export const adminApi = {
         },
         onError: (err) =>
           toast.error(getApiErrorMessage(err, "Failed to update person")),
+      }),
+    deletionEligibility: (personId: string) =>
+      queryOptions({
+        queryKey: [
+          ...adminKeys.people.detail(personId),
+          "deletion-eligibility",
+        ] as const,
+        queryFn: () => getPersonDeletionEligibility(personId),
+        enabled: Boolean(personId),
+      }),
+    delete: (personId: string) =>
+      mutationOptions({
+        mutationFn: () => deletePerson(personId),
+        onSuccess: async () => {
+          await invalidatePeople(personId);
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to delete person")),
       }),
   },
   inviteLinks: {

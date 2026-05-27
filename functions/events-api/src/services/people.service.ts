@@ -7,7 +7,7 @@ import {
   type FilterParams,
   type ListQuery,
 } from "@neon/resource-api";
-import { and, eq, ilike, inArray, ne, or } from "drizzle-orm";
+import { and, count, eq, ilike, inArray, ne, or } from "drizzle-orm";
 
 import {
   normalizeEmailTypo,
@@ -31,7 +31,7 @@ export {
   profileContactFieldsMatch,
 } from "../helpers/profile";
 import { getDb } from "../db/index";
-import { people } from "../db/schema";
+import { eventInvitees, inviteLinks, orders, people } from "../db/schema";
 
 export { people as peopleTable };
 import { orClauses } from "./base/sql-utils";
@@ -108,6 +108,18 @@ export type AdminPersonCreateInput = {
   email?: string | null;
   phoneE164?: string | null;
   markVerified?: boolean;
+};
+
+export type PersonAdminLinkCounts = {
+  orders: number;
+  inviteesAsGuest: number;
+  inviteesAsHost: number;
+  inviteLinksAsHost: number;
+};
+
+export type PersonDeletionEligibility = {
+  deletable: boolean;
+  links: PersonAdminLinkCounts;
 };
 
 function normalizeAdminEmail(raw: string | null | undefined): string | null {
@@ -307,6 +319,84 @@ export class PeopleService extends TableService<
       throw new Error("createPersonForAdmin: insert returned invalid row");
     }
     return profile;
+  }
+
+  async countPersonAdminLinks(personId: string): Promise<PersonAdminLinkCounts> {
+    const db = getDb();
+    const [[ordersRow], [guestRow], [hostInviteeRow], [linksRow]] = await Promise.all([
+      db
+        .select({ count: count() })
+        .from(orders)
+        .where(eq(orders.personId, personId)),
+      db
+        .select({ count: count() })
+        .from(eventInvitees)
+        .where(eq(eventInvitees.personId, personId)),
+      db
+        .select({ count: count() })
+        .from(eventInvitees)
+        .where(eq(eventInvitees.inviterId, personId)),
+      db
+        .select({ count: count() })
+        .from(inviteLinks)
+        .where(eq(inviteLinks.inviterId, personId)),
+    ]);
+
+    return {
+      orders: Number(ordersRow?.count ?? 0),
+      inviteesAsGuest: Number(guestRow?.count ?? 0),
+      inviteesAsHost: Number(hostInviteeRow?.count ?? 0),
+      inviteLinksAsHost: Number(linksRow?.count ?? 0),
+    };
+  }
+
+  personAdminLinksTotal(links: PersonAdminLinkCounts): number {
+    return (
+      links.orders +
+      links.inviteesAsGuest +
+      links.inviteesAsHost +
+      links.inviteLinksAsHost
+    );
+  }
+
+  async getPersonDeletionEligibilityForAdmin(
+    personId: string,
+  ): Promise<
+    | { ok: true; eligibility: PersonDeletionEligibility }
+    | { ok: false; reason: "person_not_found" }
+  > {
+    const person = await this.get(personId);
+    if (!person) {
+      return { ok: false, reason: "person_not_found" };
+    }
+    const links = await this.countPersonAdminLinks(personId);
+    return {
+      ok: true,
+      eligibility: {
+        deletable: this.personAdminLinksTotal(links) === 0,
+        links,
+      },
+    };
+  }
+
+  async deletePersonForAdmin(
+    personId: string,
+  ): Promise<
+    | { ok: true }
+    | { ok: false; reason: "person_not_found" }
+    | { ok: false; reason: "person_has_links"; links: PersonAdminLinkCounts }
+  > {
+    const person = await this.get(personId);
+    if (!person) {
+      return { ok: false, reason: "person_not_found" };
+    }
+    const links = await this.countPersonAdminLinks(personId);
+    if (this.personAdminLinksTotal(links) > 0) {
+      return { ok: false, reason: "person_has_links", links };
+    }
+    const db = getDb();
+    await db.delete(people).where(eq(people.id, personId));
+    return { ok: true };
   }
 
   async getInTx(tx: PeopleTx, id: string): Promise<typeof people.$inferSelect | null> {

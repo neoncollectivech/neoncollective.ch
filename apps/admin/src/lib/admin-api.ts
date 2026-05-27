@@ -497,6 +497,30 @@ export async function verifyPeople(personIds: string[]) {
   return res.data.meta;
 }
 
+export type PersonLinkCounts = {
+  orders: number;
+  inviteesAsGuest: number;
+  inviteesAsHost: number;
+  inviteLinksAsHost: number;
+};
+
+export type PersonDeletionEligibility = {
+  deletable: boolean;
+  links: PersonLinkCounts;
+};
+
+export async function getPersonDeletionEligibility(personId: string) {
+  const res = await api.get<ItemResponse<PersonDeletionEligibility>>(
+    `/admin/people/${personId}/deletion-eligibility`,
+  );
+
+  return res.data.item;
+}
+
+export async function deletePerson(personId: string) {
+  await api.delete(`/admin/people/${personId}`);
+}
+
 export async function listEventTiers(params: AdminListRequestParams) {
   return listEventTiersClient(params);
 }

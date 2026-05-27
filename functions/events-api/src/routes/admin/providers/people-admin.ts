@@ -3,6 +3,7 @@ import { eventInviteesService } from "../../../services/event-invitees.service";
 import {
   peopleService,
   type AdminPersonCreateInput,
+  type PersonDeletionEligibility,
 } from "../../../services/people.service";
 
 export async function createAdminPerson(
@@ -35,4 +36,27 @@ export async function verifyAdminPeopleBulk(personIds: string[]): Promise<{
   }
 
   return summary;
+}
+
+export async function getAdminPersonDeletionEligibility(
+  personId: string,
+): Promise<PersonDeletionEligibility | null> {
+  const res = await peopleService.getPersonDeletionEligibilityForAdmin(personId);
+  if (!res.ok) {
+    return null;
+  }
+  return res.eligibility;
+}
+
+export async function deleteAdminPerson(
+  personId: string,
+): Promise<
+  | { ok: true }
+  | { ok: false; reason: "person_not_found" | "person_has_links" }
+> {
+  const res = await peopleService.deletePersonForAdmin(personId);
+  if (res.ok) {
+    return { ok: true };
+  }
+  return { ok: false, reason: res.reason };
 }
