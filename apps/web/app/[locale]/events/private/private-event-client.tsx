@@ -11,7 +11,9 @@ export function PrivateEventClient() {
   const searchParams = useSearchParams();
   const { dictionary } = useDictionary();
   const locale = useLocale();
-  const slug = searchParams.get("slug")?.trim() ?? "";
+  const rawSlug = searchParams.get("slug")?.trim() ?? "";
+  const slug =
+    rawSlug.includes("?") ? rawSlug.slice(0, rawSlug.indexOf("?")).trim() : rawSlug;
   const t = dictionary.events;
 
   if (!slug) {

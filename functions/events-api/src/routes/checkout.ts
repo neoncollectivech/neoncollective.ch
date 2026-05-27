@@ -2,12 +2,20 @@ import { arktypeValidator } from "@hono/arktype-validator";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import { checkoutConfirmSchema, checkoutIntentSchema } from "../schemas";
+import {
+  checkoutConfirmSchema,
+  checkoutIntentSchema,
+  checkoutPricingPreviewSchema,
+} from "../schemas";
 import { confirmPaidCheckout, type ConfirmPaidCheckoutFailureReason } from "./checkout/confirm";
 import {
   createCheckoutIntent,
   type CreateCheckoutIntentFailureReason,
 } from "./checkout/intent";
+import {
+  previewCheckoutPricing,
+  type CheckoutPricingPreviewFailureReason,
+} from "./checkout/pricing-preview";
 import { resolveParticipantSessionFromCookie } from "./registrations/session";
 import { databaseUnavailableResponse, requireDatabase } from "./shared/guards";
 import { jsonReasonFailure } from "./shared/respond";
@@ -56,6 +64,20 @@ const CHECKOUT_INTENT_ERRORS: Record<
   invalid_promotion: { status: 400, error: "This promotion is not valid for this event." },
   promotion_exhausted: { status: 409, error: "This promotion has reached its usage limit." },
   checkout_failed: { status: 500, error: "Checkout failed." },
+};
+
+const CHECKOUT_PRICING_PREVIEW_ERRORS: Record<
+  CheckoutPricingPreviewFailureReason,
+  { status: ContentfulStatusCode; error: string }
+> = {
+  event_not_found: { status: 404, error: "Event not found." },
+  tier_required: { status: 400, error: "Select a contribution tier." },
+  tiers_required: { status: 400, error: "Select at least one tier." },
+  unknown_tier: { status: 400, error: "Unknown or inactive tier." },
+  invalid_exclusive_tier: { status: 400, error: "Invalid contribution tier." },
+  invalid_addon_tier: { status: 400, error: "Invalid add-on tier." },
+  invalid_promotion: { status: 400, error: "This promotion is not valid for this event." },
+  promotion_exhausted: { status: 409, error: "This promotion has reached its usage limit." },
 };
 
 const CHECKOUT_CONFIRM_ERRORS: Record<
@@ -116,6 +138,31 @@ export function createCheckoutRouter(): Hono {
       ...(res.clientSecret ? { clientSecret: res.clientSecret } : {}),
     });
   });
+
+  router.post(
+    "/checkout/pricing-preview",
+    arktypeValidator("json", checkoutPricingPreviewSchema),
+    async (c) => {
+      if (!requireDatabase(c)) {
+        return databaseUnavailableResponse(c);
+      }
+      const body = c.req.valid("json");
+      const res = await previewCheckoutPricing({
+        slug: body.slug,
+        exclusiveTierId: body.exclusiveTierId,
+        addonTierIds: body.addonTierIds,
+        promotionCode: body.promotionCode,
+      });
+      if (!res.ok) {
+        return jsonReasonFailure(c, res, CHECKOUT_PRICING_PREVIEW_ERRORS);
+      }
+      return c.json({
+        amountCents: res.amountCents,
+        subtotalCents: res.subtotalCents,
+        discountCents: res.discountCents,
+      });
+    },
+  );
 
   router.post("/checkout/confirm", arktypeValidator("json", checkoutConfirmSchema), async (c) => {
     if (!requireDatabase(c)) {

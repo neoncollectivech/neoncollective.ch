@@ -14,6 +14,21 @@ export const eventsKeys = {
     session: () => [...participantRoot, "session"] as const,
   },
   checkout: {
+    pricingPreview: (params: {
+      slug: string;
+      exclusiveTierId: string;
+      addonTierIds: string[];
+      promotionCode: string | null;
+    }) =>
+      [
+        ...eventsRoot,
+        "checkout",
+        "pricing-preview",
+        params.slug,
+        params.exclusiveTierId,
+        [...params.addonTierIds].sort().join(","),
+        params.promotionCode ?? "",
+      ] as const,
     confirm: (orderId: string) =>
       [...eventsRoot, "checkout", "confirm", orderId] as const,
     registration: (slug: string, inviteToken?: string) =>

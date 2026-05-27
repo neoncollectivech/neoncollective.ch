@@ -242,6 +242,26 @@ export type CheckoutIntentResponse = {
   clientSecret?: string;
 };
 
+export type CheckoutPricingPreviewResponse = {
+  amountCents: number;
+  subtotalCents: number;
+  discountCents: number;
+};
+
+export async function previewEventCheckoutPricing(body: {
+  slug: string;
+  exclusiveTierId: string;
+  addonTierIds: string[];
+  promotionCode: string | null;
+}): Promise<CheckoutPricingPreviewResponse> {
+  const { data } = await eventsClient.post<CheckoutPricingPreviewResponse>(
+    "/checkout/pricing-preview",
+    body,
+  );
+
+  return data;
+}
+
 export async function createEventCheckoutIntent(body: {
   slug: string;
   email: string | null;

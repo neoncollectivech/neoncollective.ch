@@ -19,6 +19,14 @@ export const checkoutConfirmSchema = type({
   orderId: "string",
 });
 
+/** Tier + promotion quote before creating a checkout order (no session). */
+export const checkoutPricingPreviewSchema = type({
+  slug: "string",
+  exclusiveTierId: "string",
+  addonTierIds: "string[]",
+  promotionCode: "string | null",
+});
+
 export const sessionRequestSchema = type({
   contact: "string",
   locale: "'de' | 'en' | 'it'",

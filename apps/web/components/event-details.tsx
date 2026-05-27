@@ -536,7 +536,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
     if (!accessDenied) {
       return;
     }
-    router.replace(appendToHref(`/${locale}/events`));
+    router.replace(`/${locale}/events`);
   }, [
     appendToHref,
     codeHandled,
@@ -647,7 +647,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
   useEffect(() => {
     setChargedTotalCents(null);
-  }, [selectedExclusiveId, selectedAddonIds]);
+  }, [selectedExclusiveId, selectedAddonIds, promo]);
 
   const selectedTiers = useMemo(() => {
     const tiers = eventQuery.data?.tiers ?? [];
@@ -667,10 +667,31 @@ function EventDetailsInner({ slug }: { slug: string }) {
     () => selectedTiers.reduce((sum, tier) => sum + tier.priceCents, 0),
     [selectedTiers],
   );
-  const displayTotalCents = chargedTotalCents ?? listTotalCents;
 
   const intentMutation = useMutation(eventsApi.checkout.intent());
   const checkoutLocked = Boolean(clientSecret) || intentMutation.isPending;
+
+  const pricingPreviewQuery = useQuery(
+    eventsApi.checkout.pricingPreview({
+      slug,
+      exclusiveTierId: selectedExclusiveId ?? "",
+      addonTierIds: Array.from(selectedAddonIds),
+      promotionCode: promo ?? null,
+      enabled:
+        codeHandled &&
+        Boolean(promo?.trim()) &&
+        selectedTiers.length > 0 &&
+        !checkoutLocked,
+    }),
+  );
+
+  const previewPricing = pricingPreviewQuery.data;
+  const displayTotalCents =
+    chargedTotalCents ?? previewPricing?.amountCents ?? listTotalCents;
+  const showPromoSubtotal =
+    previewPricing != null &&
+    previewPricing.discountCents > 0 &&
+    chargedTotalCents == null;
 
   const confirmingRegistration = checkoutConfirmation.isConfirming;
   const checkoutConfirmError = checkoutConfirmation.errorMessage;
@@ -1068,9 +1089,31 @@ function EventDetailsInner({ slug }: { slug: string }) {
               ) : null}
 
               {selectedTiers.length > 0 ? (
-                <p className="mt-6 text-sm font-mono text-foreground/55">
-                  {t.checkoutTotal}: CHF {(displayTotalCents / 100).toFixed(0)}
-                </p>
+                <div className="mt-6 space-y-1">
+                  {promo ? (
+                    <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
+                      {t.promoCodeLabel}: {promo}
+                    </p>
+                  ) : null}
+                  {showPromoSubtotal ? (
+                    <p className="text-xs text-foreground/45 line-through">
+                      {t.checkoutSubtotal}: CHF{" "}
+                      {(previewPricing!.subtotalCents / 100).toFixed(0)}
+                    </p>
+                  ) : null}
+                  <p className="text-sm font-mono text-foreground/55">
+                    {t.checkoutTotal}: CHF {(displayTotalCents / 100).toFixed(0)}
+                  </p>
+                  {showPromoSubtotal ? (
+                    <p className="text-xs text-neon/80">
+                      {t.promoDiscount}: CHF{" "}
+                      {(previewPricing!.discountCents / 100).toFixed(0)}
+                    </p>
+                  ) : null}
+                  {promo && pricingPreviewQuery.isError ? (
+                    <p className="text-xs text-red-400">{t.promoInvalid}</p>
+                  ) : null}
+                </div>
               ) : null}
 
               {showContactForm ? (

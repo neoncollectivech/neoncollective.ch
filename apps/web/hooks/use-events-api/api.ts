@@ -13,6 +13,7 @@ import {
   confirmEventCheckout,
   confirmProfileVerification,
   createEventCheckoutIntent,
+  previewEventCheckoutPricing,
   establishAnonymousSession,
   exchangeRegistrationSessionCode,
   fetchEvent,
@@ -119,6 +120,37 @@ export const eventsApi = {
     },
   },
   checkout: {
+    pricingPreview: (opts: {
+      slug: string;
+      exclusiveTierId: string;
+      addonTierIds: string[];
+      promotionCode: string | null;
+      enabled?: boolean;
+    }) => {
+      const enabled = opts.enabled ?? true;
+
+      return queryOptions({
+        queryKey: eventsKeys.checkout.pricingPreview({
+          slug: opts.slug,
+          exclusiveTierId: opts.exclusiveTierId,
+          addonTierIds: opts.addonTierIds,
+          promotionCode: opts.promotionCode,
+        }),
+        queryFn: () =>
+          previewEventCheckoutPricing({
+            slug: opts.slug,
+            exclusiveTierId: opts.exclusiveTierId,
+            addonTierIds: opts.addonTierIds,
+            promotionCode: opts.promotionCode,
+          }),
+        enabled:
+          enabled &&
+          Boolean(opts.slug) &&
+          Boolean(opts.promotionCode?.trim()) &&
+          (Boolean(opts.exclusiveTierId) || opts.addonTierIds.length > 0),
+        staleTime: 30_000,
+      });
+    },
     intent: () =>
       mutationOptions({
         mutationFn: createEventCheckoutIntent,

@@ -112,13 +112,20 @@ export function buildEventHref(
   resolved: ResolvedEventLinkQuery,
   existingSearch?: URLSearchParams,
 ): string {
-  const params = appendLinkQueryToSearchParams(
-    existingSearch ?? new URLSearchParams(),
-    resolved,
+  const question = basePath.indexOf("?");
+  const path = question >= 0 ? basePath.slice(0, question) : basePath;
+  const params = new URLSearchParams(
+    question >= 0 ? basePath.slice(question + 1) : "",
   );
-  const qs = params.toString();
+  if (existingSearch) {
+    for (const [key, value] of existingSearch.entries()) {
+      params.set(key, value);
+    }
+  }
+  const merged = appendLinkQueryToSearchParams(params, resolved);
+  const qs = merged.toString();
 
-  return qs ? `${basePath}?${qs}` : basePath;
+  return qs ? `${path}?${qs}` : path;
 }
 
 export function buildReturnPath(
