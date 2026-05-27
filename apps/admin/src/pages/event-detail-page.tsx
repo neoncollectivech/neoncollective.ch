@@ -13,10 +13,8 @@ import { eventInviteesColumns } from "@/components/admin-data-table/columns/even
 import { EventInviteesTableToolbar } from "@/components/event-invitees-table-toolbar";
 import { EventCapacityStats } from "@/components/event-capacity-stats";
 import { EventForm } from "@/components/event-form";
-import {
-  AddInviteeDialog,
-  EditInviteeDialog,
-} from "@/components/invitee-dialogs";
+import { EditInviteeDialog } from "@/components/invitee-dialogs";
+import { InviteExistingPeopleDialog } from "@/components/invite-existing-people-dialog";
 import { InviteeBulkImport } from "@/components/invitee-bulk-import";
 import { EventPromotionCodes } from "@/components/event-promotion-codes";
 import { TierEditor } from "@/components/tier-editor";
@@ -322,7 +320,7 @@ export function EventDetailPage() {
         </Tabs>
       )}
 
-      <AddInviteeDialog
+      <InviteExistingPeopleDialog
         eventId={eventId}
         open={addInviteeOpen}
         onOpenChange={setAddInviteeOpen}
