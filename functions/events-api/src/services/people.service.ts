@@ -102,6 +102,14 @@ export type AdminPersonUpdateInput = {
   phoneE164?: string | null;
 };
 
+export type AdminPersonCreateInput = {
+  givenName: string;
+  familyName: string;
+  email?: string | null;
+  phoneE164?: string | null;
+  markVerified?: boolean;
+};
+
 function normalizeAdminEmail(raw: string | null | undefined): string | null {
   const trimmed = raw?.trim();
   if (!trimmed) {
@@ -230,6 +238,75 @@ export class PeopleService extends TableService<
 
   async getProfileRow(id: string): Promise<PersonRow | null> {
     return toPersonRow(await this.get(id));
+  }
+
+  /** Admin manual create — fails on duplicate email/phone (does not merge). */
+  async createPersonForAdmin(input: AdminPersonCreateInput): Promise<PersonRow> {
+    const givenName = input.givenName.trim();
+    const familyName = input.familyName.trim();
+    if (!givenName || !familyName) {
+      throw new BadRequestError("Given name and family name are required.");
+    }
+
+    const email = normalizeAdminEmail(input.email);
+    let phone: string | null = null;
+    const rawPhone = input.phoneE164?.trim() ?? "";
+    if (rawPhone) {
+      const digits = phoneToStoredDigits(rawPhone);
+      if (!digits) {
+        throw new BadRequestError("Invalid phone number.");
+      }
+      phone = digits;
+    }
+
+    if (!email && !phone) {
+      throw new BadRequestError("Email or phone is required.");
+    }
+
+    const db = getDb();
+    if (email) {
+      const [conflict] = await db
+        .select({ id: people.id })
+        .from(people)
+        .where(eq(people.email, email))
+        .limit(1);
+      if (conflict) {
+        throw new ConflictError("Another person already uses this email.");
+      }
+    }
+    if (phone) {
+      const [conflict] = await db
+        .select({ id: people.id })
+        .from(people)
+        .where(eq(people.phone, phone))
+        .limit(1);
+      if (conflict) {
+        throw new ConflictError("Another person already uses this phone number.");
+      }
+    }
+
+    const now = new Date();
+    const markVerified = input.markVerified === true;
+    const emailVerifiedAt = markVerified && email ? now : null;
+    const phoneVerifiedAt = markVerified && phone ? now : null;
+
+    const [row] = await db
+      .insert(people)
+      .values({
+        givenName,
+        familyName,
+        email,
+        phone,
+        emailVerifiedAt,
+        phoneVerifiedAt,
+      })
+      .returning();
+
+    const profile = toPersonRow(row);
+    if (!profile) {
+      throw new Error("createPersonForAdmin: insert returned invalid row");
+    }
+    return profile;
   }
 
   async getInTx(tx: PeopleTx, id: string): Promise<typeof people.$inferSelect | null> {

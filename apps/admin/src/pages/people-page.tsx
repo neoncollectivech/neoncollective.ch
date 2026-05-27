@@ -4,7 +4,9 @@ import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { AddPersonDialog } from "@/components/add-person-dialog";
 import { AdminDataTable } from "@/components/admin-data-table";
+import { Button } from "@/components/ui/button";
 import { peopleColumns } from "@/components/admin-data-table/columns/people-columns";
 import { PeopleTableToolbar } from "@/components/people-table-toolbar";
 import { adminApi } from "@/hooks/use-admin-api";
@@ -24,6 +26,7 @@ function isPersonRowSelectable(person: PersonRow) {
 
 export function PeoplePage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
   const verifyMutation = useMutation(adminApi.people.verify());
 
   const rowSelection = useMemo(
@@ -52,7 +55,13 @@ export function PeoplePage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">People</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold">People</h2>
+        <Button type="button" onClick={() => setAddPersonOpen(true)}>
+          Add person
+        </Button>
+      </div>
+      <AddPersonDialog open={addPersonOpen} onOpenChange={setAddPersonOpen} />
       <AdminDataTable
         columns={columns}
         rowSelection={rowSelection}

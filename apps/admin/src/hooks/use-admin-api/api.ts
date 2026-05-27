@@ -8,6 +8,7 @@ import {
   addEventInvitee,
   createEvent,
   createEventPromotionCode,
+  createPerson,
   ensureInviteeLink,
   getEvent,
   getPromotionCode,
@@ -361,6 +362,15 @@ export const adminApi = {
       }),
   },
   people: {
+    create: () =>
+      mutationOptions({
+        mutationFn: createPerson,
+        onSuccess: async () => {
+          await invalidatePeople();
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to create person")),
+      }),
     verify: () =>
       mutationOptions({
         mutationFn: verifyPeople,

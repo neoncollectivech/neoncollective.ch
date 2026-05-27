@@ -452,6 +452,23 @@ export async function listPeople(params: AdminListRequestParams) {
   return listPeopleClient(params);
 }
 
+export type PersonCreatePayload = {
+  givenName: string;
+  familyName: string;
+  email: string | null;
+  phoneE164: string | null;
+  markVerified?: boolean;
+};
+
+export async function createPerson(payload: PersonCreatePayload) {
+  const res = await api.post<ItemResponse<PersonReadRow>>(
+    "/admin/people/create",
+    payload,
+  );
+
+  return res.data.item;
+}
+
 export async function getPerson(personId: string) {
   const res = await api.get<ItemResponse<PersonReadRow>>(
     `/admin/people/${personId}`,

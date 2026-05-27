@@ -1,8 +1,8 @@
 import { actionProvider } from "@neon/resource-api";
 import { Hono } from "hono";
 
-import { verifyAdminPeopleBulk } from "../providers/people-admin";
-import { adminPeopleVerifySchema } from "../schemas";
+import { createAdminPerson, verifyAdminPeopleBulk } from "../providers/people-admin";
+import { adminPeopleVerifySchema, adminPersonCreateSchema } from "../schemas";
 
 export function createPeopleControlRouter(): Hono {
   const control = new Hono();
@@ -11,6 +11,22 @@ export function createPeopleControlRouter(): Hono {
     "/",
     actionProvider(
       [
+        {
+          method: "post",
+          path: "/create",
+          schema: adminPersonCreateSchema,
+          handler: async (c) => {
+            const body = adminPersonCreateSchema.assert(await c.req.json());
+            const item = await createAdminPerson({
+              givenName: body.givenName,
+              familyName: body.familyName,
+              email: body.email ?? null,
+              phoneE164: body.phoneE164 ?? null,
+              markVerified: body.markVerified ?? false,
+            });
+            return c.json({ item }, 201);
+          },
+        },
         {
           method: "post",
           path: "/verify",

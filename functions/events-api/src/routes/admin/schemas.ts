@@ -12,6 +12,14 @@ export const adminPeopleVerifySchema = type({
   personIds: "string.uuid[]>=1",
 });
 
+export const adminPersonCreateSchema = type({
+  givenName: "string>0",
+  familyName: "string>0",
+  email: "string.email | null",
+  phoneE164: "string | null",
+  "markVerified?": "boolean",
+});
+
 const promotionTierOverrideSchema = type({
   eventTierId: "string.uuid",
   priceCents: "number.integer>=0",

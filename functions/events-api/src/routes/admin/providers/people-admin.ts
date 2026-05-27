@@ -1,6 +1,15 @@
 import { toPersonRow } from "../../../helpers/profile";
 import { eventInviteesService } from "../../../services/event-invitees.service";
-import { peopleService } from "../../../services/people.service";
+import {
+  peopleService,
+  type AdminPersonCreateInput,
+} from "../../../services/people.service";
+
+export async function createAdminPerson(
+  input: AdminPersonCreateInput,
+): Promise<NonNullable<ReturnType<typeof toPersonRow>>> {
+  return peopleService.createPersonForAdmin(input);
+}
 
 export async function verifyAdminPeopleBulk(personIds: string[]): Promise<{
   updated: number;

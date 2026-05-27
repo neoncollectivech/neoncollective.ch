@@ -7,6 +7,15 @@ export type PersonEditForm = {
   phoneE164: string;
 };
 
+export function emptyPersonEditForm(): PersonEditForm {
+  return {
+    givenName: "",
+    familyName: "",
+    email: "",
+    phoneE164: "",
+  };
+}
+
 export function personToEditForm(person: PersonDetail): PersonEditForm {
   return {
     givenName: person.givenName,
