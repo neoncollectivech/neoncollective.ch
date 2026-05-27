@@ -11,11 +11,18 @@ export async function refundOrder(params: { orderId: string }): Promise<
   if (!order) {
     return { ok: false, reason: "order_not_found", error: "Order not found." };
   }
-  if (order.status !== "paid" || !order.stripePaymentIntentId) {
+  if (order.status !== "paid") {
     return {
       ok: false,
       reason: "order_not_refundable",
       error: "Order cannot be refunded in its current state.",
+    };
+  }
+  if (order.amountCents === 0 || !order.stripePaymentIntentId) {
+    return {
+      ok: false,
+      reason: "order_not_refundable",
+      error: "Free orders cannot be refunded via Stripe.",
     };
   }
   try {

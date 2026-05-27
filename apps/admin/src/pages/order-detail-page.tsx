@@ -39,6 +39,9 @@ export function OrderDetailPage() {
     ...adminApi.order.inviteRedemption(orderId),
     enabled: Boolean(orderId) && Boolean(order),
   });
+  const promotionCodeQuery = useQuery(
+    adminApi.order.promotionCode(order?.promotionCodeId),
+  );
 
   const tierLines = useMemo(() => {
     const tierById = new Map(
@@ -153,6 +156,12 @@ export function OrderDetailPage() {
                 <p>
                   <span className="text-muted-foreground">Stripe PI:</span>{" "}
                   <code className="text-xs">{order.stripePaymentIntentId}</code>
+                </p>
+              )}
+              {order.promotionCodeId && (
+                <p>
+                  <span className="text-muted-foreground">Promotion:</span>{" "}
+                  {promotionCodeQuery.data?.code ?? order.promotionCodeId}
                 </p>
               )}
             </CardContent>

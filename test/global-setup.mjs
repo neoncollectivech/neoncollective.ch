@@ -21,8 +21,10 @@ function parseSeedPayload(stdout) {
       const parsed = JSON.parse(line);
       if (
         typeof parsed.slug === "string" &&
-        typeof parsed.personAPhone === "string" &&
-        typeof parsed.privateUrl === "string"
+        typeof parsed.privateUrl === "string" &&
+        typeof parsed.hostInvited?.phone === "string" &&
+        typeof parsed.guestInvited?.phone === "string" &&
+        typeof parsed.hostInvitedPromo?.phone === "string"
       ) {
         return parsed;
       }

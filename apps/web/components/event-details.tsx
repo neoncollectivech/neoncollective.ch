@@ -27,6 +27,7 @@ import { ParticipantProfileModal } from "@/components/participant-profile-modal"
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useEventUrlParams } from "@/hooks/use-event-url-params";
+import { usePersistedEventLinkQuery } from "@/hooks/use-persisted-event-link-query";
 import { useLocale } from "@/hooks/use-locale";
 import { useProfileModalLabels } from "@/hooks/use-profile-modal-labels";
 import { useStripePromise } from "@/hooks/use-stripe-promise";
@@ -75,7 +76,9 @@ function RegistrationConfirmedSummary({
 }) {
   if (tiers.length === 0) {
     return (
-      <p className="text-base text-neon/80 leading-relaxed">{labels.bodyNoTier}</p>
+      <p className="text-base text-neon/80 leading-relaxed">
+        {labels.bodyNoTier}
+      </p>
     );
   }
 
@@ -465,17 +468,18 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const { inviteToken: urlInviteToken, code: initialCode } =
-    useEventUrlParams();
+  const {
+    inviteToken: urlInviteToken,
+    code: initialCode,
+    promo,
+  } = useEventUrlParams();
+  const { appendToHref, returnPath: linkReturnPath } =
+    usePersistedEventLinkQuery();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
   const stripePromise = useStripePromise();
 
-  const detailReturnPath = useMemo(() => {
-    const qs = searchParams.toString();
-
-    return qs ? `${pathname}?${qs}` : pathname;
-  }, [pathname, searchParams]);
+  const detailReturnPath = linkReturnPath(pathname);
 
   const { codeHandled, codeError } = useExchangeRegistrationCode({
     code: initialCode,
@@ -532,15 +536,10 @@ function EventDetailsInner({ slug }: { slug: string }) {
     if (!accessDenied) {
       return;
     }
-    const path = `/${locale}/events`;
-    const qs = effectiveInviteToken
-      ? `?invite=${encodeURIComponent(effectiveInviteToken)}`
-      : "";
-
-    router.replace(`${path}${qs}`);
+    router.replace(appendToHref(`/${locale}/events`));
   }, [
+    appendToHref,
     codeHandled,
-    effectiveInviteToken,
     eventQuery.data,
     eventQuery.isLoading,
     locale,
@@ -582,6 +581,9 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
   const [checkoutReturnUrl, setCheckoutReturnUrl] = useState<string | null>(
+    null,
+  );
+  const [chargedTotalCents, setChargedTotalCents] = useState<number | null>(
     null,
   );
   const checkoutConfirmation = useCheckoutConfirmation({
@@ -643,6 +645,10 @@ function EventDetailsInner({ slug }: { slug: string }) {
     });
   }, [addonTiers]);
 
+  useEffect(() => {
+    setChargedTotalCents(null);
+  }, [selectedExclusiveId, selectedAddonIds]);
+
   const selectedTiers = useMemo(() => {
     const tiers = eventQuery.data?.tiers ?? [];
     const ids = new Set<string>();
@@ -657,12 +663,14 @@ function EventDetailsInner({ slug }: { slug: string }) {
     return tiers.filter((tier) => ids.has(tier.id));
   }, [eventQuery.data?.tiers, selectedExclusiveId, selectedAddonIds]);
 
-  const checkoutTotalCents = useMemo(
+  const listTotalCents = useMemo(
     () => selectedTiers.reduce((sum, tier) => sum + tier.priceCents, 0),
     [selectedTiers],
   );
+  const displayTotalCents = chargedTotalCents ?? listTotalCents;
 
   const intentMutation = useMutation(eventsApi.checkout.intent());
+  const checkoutLocked = Boolean(clientSecret) || intentMutation.isPending;
 
   const confirmingRegistration = checkoutConfirmation.isConfirming;
   const checkoutConfirmError = checkoutConfirmation.errorMessage;
@@ -952,7 +960,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                 <RadioGroup
                   aria-labelledby="event-checkout-heading"
                   classNames={{ wrapper: "gap-6" }}
-                  isDisabled={Boolean(clientSecret)}
+                  isDisabled={checkoutLocked}
                   value={selectedExclusiveId ?? ""}
                   onValueChange={setSelectedExclusiveId}
                 >
@@ -1022,7 +1030,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                               label: "w-full max-w-full",
                             }}
                             data-testid={`event-checkout-addon-${tier.id}`}
-                            isDisabled={Boolean(clientSecret)}
+                            isDisabled={checkoutLocked}
                             isSelected={isSelected}
                             onValueChange={(checked) => {
                               setSelectedAddonIds((prev) => {
@@ -1061,7 +1069,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
               {selectedTiers.length > 0 ? (
                 <p className="mt-6 text-sm font-mono text-foreground/55">
-                  {t.checkoutTotal}: CHF {(checkoutTotalCents / 100).toFixed(0)}
+                  {t.checkoutTotal}: CHF {(displayTotalCents / 100).toFixed(0)}
                 </p>
               ) : null}
 
@@ -1119,19 +1127,29 @@ function EventDetailsInner({ slug }: { slug: string }) {
                               ? phone.trim()
                               : null,
                           inviteToken: effectiveInviteToken ?? null,
+                          promotionCode: promo ?? null,
                           exclusiveTierId: selectedExclusiveId ?? "",
                           addonTierIds: Array.from(selectedAddonIds),
                           returnPath: detailReturnPath,
                         },
                         {
                           onSuccess: (data) => {
-                            setClientSecret(data.clientSecret);
+                            setChargedTotalCents(data.amountCents);
                             setCheckoutOrderId(data.orderId);
                             setCheckoutReturnUrl(data.returnUrl);
                             eventsApi.storage.stashCheckoutOrderId(
                               slug,
                               data.orderId,
                             );
+                            if (data.requiresPayment) {
+                              if (!data.clientSecret) {
+                                return;
+                              }
+                              setClientSecret(data.clientSecret);
+
+                              return;
+                            }
+                            startCheckoutAfterPayment(data.orderId);
                           },
                         },
                       );
@@ -1164,7 +1182,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                 </FormError>
               ) : null}
 
-              {clientSecret && selectedTiers.length > 0 ? (
+              {checkoutLocked && selectedTiers.length > 0 ? (
                 <div className="mt-6 pt-6 border-t border-foreground/10">
                   <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-1">
                     {t.checkoutOrderSummary}
@@ -1178,7 +1196,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   </ul>
                   <p className="text-sm font-mono text-foreground/55">
                     {t.checkoutTotal}: CHF{" "}
-                    {(checkoutTotalCents / 100).toFixed(0)}
+                    {(displayTotalCents / 100).toFixed(0)}
                   </p>
                 </div>
               ) : null}

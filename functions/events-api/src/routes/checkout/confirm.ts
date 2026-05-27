@@ -36,7 +36,25 @@ export async function confirmPaidCheckout(params: {
     return { ok: false, reason: "checkout_not_confirmable" };
   }
   if (!order.stripePaymentIntentId) {
-    return { ok: false, reason: "payment_not_started" };
+    if (order.amountCents !== 0) {
+      return { ok: false, reason: "payment_not_started" };
+    }
+    const freeResult = await fulfillPaidOrder({
+      orderId: order.id,
+      source: "client",
+    });
+    if (freeResult.kind === "failed") {
+      return { ok: false, reason: "checkout_fulfillment_failed" };
+    }
+    if (freeResult.kind === "send_email") {
+      try {
+        await sendPostCheckoutParticipantAccessEmail(freeResult.job);
+      } catch {
+        /* non-fatal */
+      }
+      return { ok: true, alreadyPaid: false };
+    }
+    return { ok: true, alreadyPaid: true };
   }
 
   let pi: Stripe.PaymentIntent;

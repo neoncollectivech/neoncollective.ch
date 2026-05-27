@@ -23,36 +23,112 @@ export async function expectMinimalCheckout(page, seed) {
     page.getByRole("button", { name: "Continue to payment" }),
   ).toBeVisible();
 
-  if (seed?.addonTierName) {
+  if (seed?.addon1TierName ?? seed?.addonTierName) {
     await expect(page.getByText("Add-ons", { exact: true })).toBeVisible();
     await expect(
-      page.getByRole("checkbox", { name: new RegExp(seed.addonTierName, "i") }),
+      page.getByRole("checkbox", {
+        name: new RegExp(seed.addon1TierName ?? seed.addonTierName, "i"),
+      }),
+    ).toBeVisible();
+  }
+  if (seed?.addon2TierName) {
+    await expect(
+      page.getByRole("checkbox", { name: new RegExp(seed.addon2TierName, "i") }),
     ).toBeVisible();
   }
 }
 
-/** Select one exclusive tier and the seeded add-on; assert checkout total. */
-export async function selectExclusiveAndAddon(page, seed) {
-  const exclusive = page.getByRole("radio", {
-    name: new RegExp(seed.exclusiveTierName, "i"),
-  });
-  await exclusive.waitFor({ state: "visible", timeout: 30_000 });
-  await exclusive.check();
+export async function assertCheckoutTotalChf(page, totalChf, opts = {}) {
+  const totalLabel = `Total: CHF ${totalChf}`;
+  const totals = page.getByText(totalLabel);
+  const expectedCount = opts.count;
 
-  const addon = page.getByRole("checkbox", {
-    name: new RegExp(seed.addonTierName, "i"),
-  });
-  await addon.waitFor({ state: "visible", timeout: 30_000 });
-  await addon.check();
+  if (expectedCount != null) {
+    await expect(totals).toHaveCount(expectedCount);
+    return;
+  }
 
-  await expect(
-    page.getByText(`Total: CHF ${seed.checkoutTotalChf}`),
-  ).toBeVisible();
+  // After intent, total appears in tier picker and order summary — either is fine.
+  await expect(totals.first()).toBeVisible();
+}
+
+/** Select Root (exclusive) and one or more add-ons by tier name. */
+export async function selectRootAndAddons(page, seed, addonTierNames) {
+  const rootName = seed.rootTierName ?? seed.exclusiveTierName;
+  const root = page.getByRole("radio", { name: new RegExp(rootName, "i") });
+  await root.waitFor({ state: "visible", timeout: 30_000 });
+  await root.check();
+
+  for (const addonName of addonTierNames) {
+    const addon = page.getByRole("checkbox", { name: new RegExp(addonName, "i") });
+    await addon.waitFor({ state: "visible", timeout: 30_000 });
+    await addon.check();
+  }
+}
+
+/** Select Root + Addon 1 (invite paid checkout). */
+export async function selectExclusiveAndAddon(page, seed, opts = {}) {
+  const addon1 = seed.addon1TierName ?? seed.addonTierName;
+  await selectRootAndAddons(page, seed, [addon1]);
+
+  const expectedTotal = opts.expectTotalChf ?? seed.checkoutTotalChf;
+  if (expectedTotal != null) {
+    await assertCheckoutTotalChf(page, expectedTotal);
+  }
+}
+
+/**
+ * Click Continue to payment and assert checkout intent pricing (no Stripe wait).
+ */
+export async function clickContinueAndExpectIntent(page, seed, opts = {}) {
+  const returnPath = checkoutReturnPathFromPage(page);
+  const intentResponse = page.waitForResponse(isCheckoutIntentResponse, {
+    timeout: 60_000,
+  });
+
+  await page.getByRole("button", { name: "Continue to payment" }).click();
+
+  const response = await intentResponse;
+  const body = await response.json();
+  const posted = response.request().postDataJSON();
+
+  assertCheckoutIntentRequest(posted, returnPath, seed, {
+    expectPromotionCode:
+      opts.expectPromotionCode !== undefined
+        ? opts.expectPromotionCode
+        : undefined,
+  });
+
+  if (opts.expectAmountCents != null && body.amountCents !== opts.expectAmountCents) {
+    throw new Error(
+      `Checkout intent amountCents mismatch: expected ${opts.expectAmountCents}, got ${body.amountCents}.`,
+    );
+  }
+  if (
+    opts.expectRequiresPayment != null &&
+    body.requiresPayment !== opts.expectRequiresPayment
+  ) {
+    throw new Error(
+      `Checkout intent requiresPayment mismatch: expected ${opts.expectRequiresPayment}, got ${body.requiresPayment}.`,
+    );
+  }
+
+  if (!body.orderId || !body.returnUrl) {
+    throw new Error("Checkout intent response missing orderId or returnUrl.");
+  }
+
+  if (opts.expectAmountCents === 0 || body.requiresPayment === false) {
+    assertCheckoutIntentResponse(body, returnPath);
+  } else if (!body.clientSecret) {
+    throw new Error("Paid checkout intent response missing clientSecret.");
+  }
+
+  return { body, posted, returnPath };
 }
 
 /** Invite-only dossier (private route). Required after sign-in — bare private URL redirects to /events without a session. */
-export async function openInviteOnlyDossier(page, seed, inviteToken) {
-  const url = new URL(seed.privateUrl);
+export async function openInviteOnlyDossier(page, seed, inviteToken, dossierUrl) {
+  const url = new URL(dossierUrl ?? seed.privateUrl);
   if (inviteToken) {
     url.searchParams.set("invite", inviteToken);
   }
@@ -85,7 +161,7 @@ function isCheckoutConfirmResponse(res) {
   );
 }
 
-function assertCheckoutIntentRequest(posted, returnPath, seed) {
+function assertCheckoutIntentRequest(posted, returnPath, seed, opts = {}) {
   if (posted.returnPath !== returnPath) {
     throw new Error(
       `Checkout intent returnPath mismatch: expected ${returnPath}, got ${posted.returnPath ?? "(missing)"}`,
@@ -100,13 +176,20 @@ function assertCheckoutIntentRequest(posted, returnPath, seed) {
       throw new Error("Checkout intent did not include addon tier ids.");
     }
   }
+  if (opts.expectPromotionCode !== undefined) {
+    const expected = opts.expectPromotionCode;
+    const actual = posted.promotionCode ?? null;
+    if (actual !== expected) {
+      throw new Error(
+        `Checkout intent promotionCode mismatch: expected ${expected ?? "(none)"}, got ${actual ?? "(missing)"}`,
+      );
+    }
+  }
 }
 
 function assertCheckoutIntentResponse(body, returnPath) {
-  if (!body.clientSecret || !body.orderId || !body.returnUrl) {
-    throw new Error(
-      "Checkout intent response missing clientSecret, orderId, or returnUrl.",
-    );
+  if (!body.orderId || !body.returnUrl) {
+    throw new Error("Checkout intent response missing orderId or returnUrl.");
   }
   const returnUrl = String(body.returnUrl);
   if (!returnUrl.includes(returnPath.split("?")[0])) {
@@ -114,12 +197,28 @@ function assertCheckoutIntentResponse(body, returnPath) {
       `Checkout intent returnUrl does not include dossier path: ${returnUrl}`,
     );
   }
+  if (body.requiresPayment === false) {
+    if (body.amountCents !== 0) {
+      throw new Error(
+        `Free checkout intent expected amountCents 0, got ${body.amountCents}.`,
+      );
+    }
+    if (body.clientSecret) {
+      throw new Error("Free checkout intent must not return clientSecret.");
+    }
+    return;
+  }
+  if (!body.clientSecret) {
+    throw new Error(
+      "Paid checkout intent response missing clientSecret.",
+    );
+  }
 }
 
 /**
  * Click “Continue to payment”, wait for intent + Stripe Payment Element — same as production before Pay.
  */
-export async function startCheckoutPaymentStep(page, seed) {
+export async function startCheckoutPaymentStep(page, seed, opts = {}) {
   const returnPath = checkoutReturnPathFromPage(page);
   const intentResponse = page.waitForResponse(isCheckoutIntentResponse, {
     timeout: 60_000,
@@ -131,7 +230,7 @@ export async function startCheckoutPaymentStep(page, seed) {
   const body = await response.json();
   const posted = response.request().postDataJSON();
 
-  assertCheckoutIntentRequest(posted, returnPath, seed);
+  assertCheckoutIntentRequest(posted, returnPath, seed, opts);
   assertCheckoutIntentResponse(body, returnPath);
 
   await waitForStripePaymentElement(page);
@@ -200,6 +299,63 @@ export async function submitStripePaymentAndConfirmRegistration(page, seed) {
 export async function completeEventCheckout(page, seed) {
   await startCheckoutPaymentStep(page, seed);
   await submitStripePaymentAndConfirmRegistration(page, seed);
+}
+
+/**
+ * Promo checkout with zero total: intent → confirm API → registration poll (no Stripe).
+ */
+export async function completeFreePromoCheckout(page, seed) {
+  const returnPath = checkoutReturnPathFromPage(page);
+  const intentResponse = page.waitForResponse(isCheckoutIntentResponse, {
+    timeout: 60_000,
+  });
+  const confirmResponse = page.waitForResponse(isCheckoutConfirmResponse, {
+    timeout: 90_000,
+  });
+  const registrationResponse = page.waitForResponse(
+    async (res) => {
+      if (!res.url().includes(`/events/${seed.slug}`)) {
+        return false;
+      }
+      if (res.request().method() !== "GET" || !res.ok()) {
+        return false;
+      }
+      try {
+        const json = await res.json();
+        return json.registrationConfirmed === true;
+      } catch {
+        return false;
+      }
+    },
+    { timeout: 90_000 },
+  );
+
+  await page.getByRole("button", { name: "Continue to payment" }).click();
+
+  const response = await intentResponse;
+  const body = await response.json();
+  const posted = response.request().postDataJSON();
+
+  assertCheckoutIntentRequest(posted, returnPath, seed, {
+    expectPromotionCode: seed.promoCode ?? null,
+  });
+  assertCheckoutIntentResponse(body, returnPath);
+
+  await expect(
+    page.getByText("Confirming your payment…"),
+  ).toBeVisible({ timeout: 20_000 });
+
+  const confirmRes = await confirmResponse;
+  const confirmBody = await confirmRes.json();
+  if (!confirmBody.ok) {
+    throw new Error("Checkout confirm response missing ok: true.");
+  }
+
+  await registrationResponse;
+
+  await expect(
+    page.getByRole("heading", { name: "You're registered" }),
+  ).toBeVisible({ timeout: 30_000 });
 }
 
 export async function extractInviteUrlFromPage(page) {

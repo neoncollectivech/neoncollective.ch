@@ -12,6 +12,34 @@ export const adminPeopleVerifySchema = type({
   personIds: "string.uuid[]>=1",
 });
 
+const promotionTierOverrideSchema = type({
+  eventTierId: "string.uuid",
+  priceCents: "number.integer>=0",
+});
+
+export const adminPromotionCodeCreateSchema = type({
+  code: "string>0",
+  kind: "'percent_off' | 'amount_off' | 'tier_prices'",
+  "percentBps?": "number.integer>=0",
+  "amountOffCents?": "number.integer>=0",
+  "tierOverrides?": promotionTierOverrideSchema.array(),
+  "maxRedemptions?": "number.integer>=0 | null",
+  "active?": "boolean",
+  "startsAt?": "string | null",
+  "endsAt?": "string | null",
+});
+
+export const adminPromotionCodePatchSchema = type({
+  "active?": "boolean",
+  "maxRedemptions?": "number.integer>=0 | null",
+  "startsAt?": "string | null",
+  "endsAt?": "string | null",
+  "tierOverrides?": promotionTierOverrideSchema.array(),
+  "kind?": "'percent_off' | 'amount_off' | 'tier_prices'",
+  "percentBps?": "number.integer>=0",
+  "amountOffCents?": "number.integer>=0",
+});
+
 export const adminEventTiersPutSchema = type({
   tiers: type({
     id: "string | null",

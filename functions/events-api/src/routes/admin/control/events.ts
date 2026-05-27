@@ -7,6 +7,11 @@ import { eventTiersService } from "../../../services/event-tiers.service";
 import { eventsService } from "../../../services/events.service";
 import { orderTiersService } from "../../../services/order-tiers.service";
 import { adminEventTiersPutSchema } from "../schemas";
+import {
+  createEventPromotionCodeHandler,
+  listEventPromotionCodesHandler,
+  patchEventPromotionCodeHandler,
+} from "./event-promotion-codes";
 import { jsonReasonFailure } from "../../shared/respond";
 
 const REPLACE_TIERS_ERRORS = {
@@ -56,6 +61,21 @@ export function createEventsControlRouter(): Hono {
             }
             return c.json({ tiers: res.tiers });
           },
+        },
+        {
+          method: "get",
+          path: "/:id/promotion-codes",
+          handler: listEventPromotionCodesHandler,
+        },
+        {
+          method: "post",
+          path: "/:id/promotion-codes",
+          handler: createEventPromotionCodeHandler,
+        },
+        {
+          method: "patch",
+          path: "/:id/promotion-codes/:promotionCodeId",
+          handler: patchEventPromotionCodeHandler,
         },
       ],
       [],

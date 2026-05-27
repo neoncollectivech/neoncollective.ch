@@ -26,6 +26,13 @@ export const tierSelectionModeEnum = pgEnum("tier_selection_mode", [
   "exclusive",
   "addon",
 ]);
+export const promotionKindEnum = pgEnum("promotion_kind", [
+  "percent_off",
+  "amount_off",
+  "tier_prices",
+]);
+
+import type { PromotionTierOverride } from "../helpers/promotion-code";
 
 /** Global identity: contact info normalized (email lowercased; phone digits only, no +). */
 export const people = pgTable(
@@ -159,6 +166,38 @@ export const inviteLinks = pgTable(
   ],
 );
 
+export const promotionCodes = pgTable(
+  "promotion_codes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    code: text("code").notNull(),
+    kind: promotionKindEnum("kind").notNull(),
+    percentBps: integer("percent_bps"),
+    amountOffCents: integer("amount_off_cents"),
+    tierOverrides: jsonb("tier_overrides")
+      .$type<PromotionTierOverride[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    maxRedemptions: integer("max_redemptions"),
+    active: boolean("active").notNull().default(true),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("promotion_codes_event_code_unique").on(t.eventId, t.code),
+    index("promotion_codes_event_id_idx").on(t.eventId),
+    check("promotion_codes_percent_bps_nonneg_ck", sql`${t.percentBps} IS NULL OR ${t.percentBps} >= 0`),
+    check(
+      "promotion_codes_amount_off_nonneg_ck",
+      sql`${t.amountOffCents} IS NULL OR ${t.amountOffCents} >= 0`,
+    ),
+  ],
+);
+
 export const orders = pgTable(
   "orders",
   {
@@ -176,6 +215,9 @@ export const orders = pgTable(
     inviteLinkId: uuid("invite_link_id").references(() => inviteLinks.id, {
       onDelete: "set null",
     }),
+    promotionCodeId: uuid("promotion_code_id").references(() => promotionCodes.id, {
+      onDelete: "set null",
+    }),
     /** Set once when checkout side effects (paid, admission, redemption, invitee) complete. */
     checkoutFulfilledAt: timestamp("checkout_fulfilled_at", { withTimezone: true }),
     /** Set once when post-checkout access email is eligible to send. */
@@ -187,6 +229,25 @@ export const orders = pgTable(
     index("orders_event_id_idx").on(t.eventId),
     index("orders_invite_link_id_idx").on(t.inviteLinkId),
     index("orders_person_id_idx").on(t.personId),
+    index("orders_promotion_code_id_idx").on(t.promotionCodeId),
+  ],
+);
+
+export const promotionCodeRedemptions = pgTable(
+  "promotion_code_redemptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    promotionCodeId: uuid("promotion_code_id")
+      .notNull()
+      .references(() => promotionCodes.id, { onDelete: "cascade" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("promotion_code_redemptions_order_unique").on(t.orderId),
+    index("promotion_code_redemptions_code_idx").on(t.promotionCodeId),
   ],
 );
 

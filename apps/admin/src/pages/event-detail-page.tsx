@@ -18,6 +18,7 @@ import {
   EditInviteeDialog,
 } from "@/components/invitee-dialogs";
 import { InviteeBulkImport } from "@/components/invitee-bulk-import";
+import { EventPromotionCodes } from "@/components/event-promotion-codes";
 import { TierEditor } from "@/components/tier-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -114,6 +115,7 @@ export function EventDetailPage() {
           <TabsList>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="tiers">Tiers</TabsTrigger>
+            <TabsTrigger value="promotions">Promotions</TabsTrigger>
             {event.accessMode === "invite_only" ? (
               <TabsTrigger value="invitees">Invitees</TabsTrigger>
             ) : null}
@@ -200,6 +202,22 @@ export function EventDetailPage() {
               </CardHeader>
               <CardContent>
                 <TierEditor eventId={eventId} tiers={tiers} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="promotions">
+            <Card>
+              <CardHeader>
+                <CardTitle>Promotion codes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <EventPromotionCodes
+                  eventId={eventId}
+                  eventSlug={event.slug}
+                  inviteOnly={event.accessMode === "invite_only"}
+                  tiers={tiers}
+                />
               </CardContent>
             </Card>
           </TabsContent>

@@ -12,6 +12,7 @@ import { ParticipantProfileModal } from "@/components/participant-profile-modal"
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useEventUrlParams } from "@/hooks/use-event-url-params";
+import { usePersistedEventLinkQuery } from "@/hooks/use-persisted-event-link-query";
 import { useLocale } from "@/hooks/use-locale";
 import { useProfileModalLabels } from "@/hooks/use-profile-modal-labels";
 import {
@@ -48,6 +49,8 @@ function filterUpcoming(events: EventCatalogItem[]): EventCatalogItem[] {
 function EventsIndexInner() {
   const locale = useLocale();
   const { inviteToken, code } = useEventUrlParams();
+  const { appendToHref, returnPath: eventReturnPath } =
+    usePersistedEventLinkQuery();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
   const queryClient = useQueryClient();
@@ -173,7 +176,7 @@ function EventsIndexInner() {
               <ParticipantSessionPanel
                 embedded
                 codeExchangePending={!codeHandled}
-                returnPath={`/${locale}/events`}
+                returnPath={eventReturnPath(`/${locale}/events`)}
                 sessionEstablishedQueryKeys={[
                   eventsKeys.catalog(),
                   eventsKeys.participant.profile(),
@@ -201,13 +204,9 @@ function EventsIndexInner() {
                 const thumb = ev.imageUrls[0];
                 const summaryLine = ev.summary?.trim();
                 const locationLine = ev.location?.trim();
-                const detailHref = ev.inviteOnly
-                  ? `${eventDetailHref(locale, ev.slug, true)}${
-                      inviteToken
-                        ? `&invite=${encodeURIComponent(inviteToken)}`
-                        : ""
-                    }`
-                  : eventDetailHref(locale, ev.slug, false);
+                const detailHref = appendToHref(
+                  eventDetailHref(locale, ev.slug, ev.inviteOnly),
+                );
                 const dateLabel = ev.startsAt
                   ? formatLocaleDateTime(ev.startsAt, locale)
                   : t.indexDateTbd;

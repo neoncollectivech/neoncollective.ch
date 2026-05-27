@@ -1,13 +1,17 @@
 export { loadE2eSeed } from "./seed.mjs";
 export { E2E_OTP, signInWithPhone, completeProfileWithPhone } from "./participant-auth.mjs";
 export {
+  assertCheckoutTotalChf,
   checkoutReturnPathFromPage,
+  clickContinueAndExpectIntent,
   completeEventCheckout,
+  completeFreePromoCheckout,
   expectMinimalCheckout,
   extractInviteUrlFromPage,
   openInviteOnlyDossier,
   openInviteOnlyDossierFromIndex,
   selectExclusiveAndAddon,
+  selectRootAndAddons,
   startCheckoutPaymentStep,
   submitStripePaymentAndConfirmRegistration,
 } from "./checkout.mjs";

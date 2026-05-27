@@ -24,6 +24,8 @@ import { ordersService } from "../../services/orders.service";
 import { orderTiersService } from "../../services/order-tiers.service";
 import { eventTiersService } from "../../services/event-tiers.service";
 import { inviteLinksService } from "../../services/invite-links.service";
+import type { ResolvedCheckoutPricing } from "./promotion-pricing";
+import { resolveCheckoutPricingInTx } from "./promotion-pricing";
 import type { ResolvedParticipantSession } from "../registrations/session";
 
 type CheckoutTx = EntityTx;
@@ -46,7 +48,17 @@ export type CheckoutIntentInput = {
   addonTierIds: string[];
   /** Browser path (+ query) for Stripe `return_url` after redirect-capable PMs (we disable those). */
   returnPath?: string | null;
+  promotionCode?: string | null;
   session: ResolvedParticipantSession;
+};
+
+export type CheckoutIntentSuccess = {
+  ok: true;
+  orderId: string;
+  returnUrl: string;
+  requiresPayment: boolean;
+  clientSecret?: string;
+  amountCents: number;
 };
 
 function normalizedCheckoutEmail(raw: string | null | undefined): string | null {
@@ -106,6 +118,8 @@ export type CreateCheckoutIntentFailureReason =
   | "already_registered"
   | "payment_complete_refresh"
   | "mixed_currency"
+  | "invalid_promotion"
+  | "promotion_exhausted"
   | "checkout_failed";
 
 type CheckoutIntentFailure = {
@@ -116,11 +130,53 @@ type CheckoutIntentFailure = {
 
 type ExistingOrderResolution =
   | { action: "continue" }
-  | { action: "resume"; clientSecret: string; orderId: string }
+  | {
+      action: "resume";
+      orderId: string;
+      requiresPayment: boolean;
+      clientSecret?: string;
+      amountCents: number;
+    }
   | {
       action: "blocked";
       reason: "already_registered" | "payment_complete_refresh";
     };
+
+async function pendingOrderMatchesCheckoutTx(
+  tx: CheckoutTx,
+  order: OrderRow,
+  selectedTiers: SelectedTier[],
+  pricing: ResolvedCheckoutPricing,
+): Promise<boolean> {
+  if (order.amountCents !== pricing.amountCents) {
+    return false;
+  }
+  if ((order.promotionCodeId ?? null) !== pricing.promotionCodeId) {
+    return false;
+  }
+  if (!(await pendingOrderTierIdsMatchTx(tx, order.id, selectedTiers))) {
+    return false;
+  }
+  const lines = await orderTiersService.listForOrder(order.id, tx);
+  if (lines.length !== pricing.lines.length) {
+    return false;
+  }
+  const priceByTier = new Map(
+    pricing.lines.map((line) => [line.eventTierId, line.unitPriceCents]),
+  );
+  for (const line of lines) {
+    if (priceByTier.get(line.eventTierId) !== line.unitPriceCents) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function intentSuccess(
+  params: Omit<CheckoutIntentSuccess, "ok">,
+): CheckoutIntentSuccess {
+  return { ok: true, ...params };
+}
 
 function checkoutFailure(
   reason: CreateCheckoutIntentFailureReason,
@@ -133,6 +189,7 @@ async function resolveExistingOrderForCheckoutTx(
   tx: CheckoutTx,
   existingOrder: OrderRow,
   selectedTiers: SelectedTier[],
+  pricing: ResolvedCheckoutPricing,
 ): Promise<ExistingOrderResolution> {
   if (existingOrder.status === "paid") {
     return { action: "blocked", reason: "already_registered" };
@@ -143,6 +200,17 @@ async function resolveExistingOrderForCheckoutTx(
   }
 
   if (!existingOrder.stripePaymentIntentId) {
+    if (
+      existingOrder.amountCents === 0 &&
+      (await pendingOrderMatchesCheckoutTx(tx, existingOrder, selectedTiers, pricing))
+    ) {
+      return {
+        action: "resume",
+        orderId: existingOrder.id,
+        requiresPayment: false,
+        amountCents: 0,
+      };
+    }
     await supersedePendingOrderTx(tx, existingOrder);
     return { action: "continue" };
   }
@@ -172,7 +240,8 @@ async function resolveExistingOrderForCheckoutTx(
   if (
     RESUMABLE_PI_STATUSES.has(pi.status) &&
     pi.client_secret &&
-    (await pendingOrderTierIdsMatchTx(tx, existingOrder.id, selectedTiers))
+    pi.amount === pricing.amountCents &&
+    (await pendingOrderMatchesCheckoutTx(tx, existingOrder, selectedTiers, pricing))
   ) {
     if (!paymentIntentAllowsElementsConfirm(pi)) {
       await supersedePendingOrderTx(tx, existingOrder);
@@ -182,6 +251,8 @@ async function resolveExistingOrderForCheckoutTx(
       action: "resume",
       clientSecret: pi.client_secret,
       orderId: existingOrder.id,
+      requiresPayment: true,
+      amountCents: pricing.amountCents,
     };
   }
 
@@ -203,10 +274,9 @@ function uniqueAddonIds(ids: string[]): string[] {
   return out;
 }
 
-export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
-  | { ok: true; clientSecret: string; orderId: string; returnUrl: string }
-  | CheckoutIntentFailure
-> {
+export async function createCheckoutIntent(
+  input: CheckoutIntentInput,
+): Promise<CheckoutIntentSuccess | CheckoutIntentFailure> {
   const returnUrl = resolveCheckoutReturnUrl({
     returnPath: input.returnPath,
     locale: input.locale,
@@ -401,26 +471,40 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         personId,
       );
 
+      const excludeOrderId =
+        existingOrder?.status === "pending" ? existingOrder.id : undefined;
+      const pricingResult = await resolveCheckoutPricingInTx(tx, {
+        eventId: ev.id,
+        selectedTiers,
+        promotionCodeRaw: input.promotionCode,
+        excludeOrderId,
+      });
+      if (!pricingResult.ok) {
+        return checkoutFailure(pricingResult.reason);
+      }
+      const pricing = pricingResult.pricing;
+
       if (existingOrder) {
         const resolved = await resolveExistingOrderForCheckoutTx(
           tx,
           existingOrder,
           selectedTiers,
+          pricing,
         );
         if (resolved.action === "blocked") {
           return checkoutFailure(resolved.reason);
         }
         if (resolved.action === "resume") {
-          return {
-            ok: true,
-            clientSecret: resolved.clientSecret,
+          return intentSuccess({
             orderId: resolved.orderId,
             returnUrl,
-          };
+            requiresPayment: resolved.requiresPayment,
+            clientSecret: resolved.clientSecret,
+            amountCents: resolved.amountCents,
+          });
         }
       }
 
-      const amountCents = selectedTiers.reduce((sum, t) => sum + t.priceCents, 0);
       const currency = selectedTiers[0]!.currency.toLowerCase();
       const mixedCurrency = selectedTiers.some(
         (t) => t.currency.toLowerCase() !== currency,
@@ -433,32 +517,43 @@ export async function createCheckoutIntent(input: CheckoutIntentInput): Promise<
         eventId: ev.id,
         personId,
         locale: input.locale,
-        amountCents,
+        amountCents: pricing.amountCents,
         inviteLinkId,
+        promotionCodeId: pricing.promotionCodeId,
       });
 
       await orderTiersService.insertLinesInTx(
         tx,
-        selectedTiers.map((tier) => ({
+        pricing.lines.map((line) => ({
           orderId,
-          eventTierId: tier.id,
-          unitPriceCents: tier.priceCents,
+          eventTierId: line.eventTierId,
+          unitPriceCents: line.unitPriceCents,
         })),
       );
 
+      if (pricing.amountCents === 0) {
+        return intentSuccess({
+          orderId,
+          returnUrl,
+          requiresPayment: false,
+          amountCents: 0,
+        });
+      }
+
       const pi = await stripe.paymentIntents.create({
-        amount: amountCents,
+        amount: pricing.amountCents,
         currency,
         metadata: { orderId, eventId: ev.id },
         automatic_payment_methods: PAYMENT_INTENT_AUTOMATIC_METHODS,
       });
       await ordersService.attachStripePaymentIntentInTx(tx, orderId, pi.id);
-      return {
-        ok: true,
-        clientSecret: pi.client_secret!,
+      return intentSuccess({
         orderId,
         returnUrl,
-      };
+        requiresPayment: true,
+        clientSecret: pi.client_secret!,
+        amountCents: pricing.amountCents,
+      });
     });
   } catch {
     return checkoutFailure("checkout_failed");

@@ -234,6 +234,14 @@ export async function fetchEvent(
   };
 }
 
+export type CheckoutIntentResponse = {
+  orderId: string;
+  returnUrl: string;
+  requiresPayment: boolean;
+  amountCents: number;
+  clientSecret?: string;
+};
+
 export async function createEventCheckoutIntent(body: {
   slug: string;
   email: string | null;
@@ -243,12 +251,12 @@ export async function createEventCheckoutIntent(body: {
   exclusiveTierId: string;
   addonTierIds: string[];
   returnPath: string | null;
-}): Promise<{ clientSecret: string; orderId: string; returnUrl: string }> {
-  const { data } = await eventsClient.post<{
-    clientSecret: string;
-    orderId: string;
-    returnUrl: string;
-  }>("/checkout/intent", body);
+  promotionCode?: string | null;
+}): Promise<CheckoutIntentResponse> {
+  const { data } = await eventsClient.post<CheckoutIntentResponse>(
+    "/checkout/intent",
+    body,
+  );
 
   return data;
 }

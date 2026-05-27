@@ -52,4 +52,10 @@ export const adminKeys = {
     all: ["admin", "maintenance"] as const,
     preview: ["admin", "maintenance", "preview"] as const,
   },
+  promotionCodes: {
+    all: ["admin", "promotion-codes"] as const,
+    forEvent: (eventId: string) =>
+      ["admin", "promotion-codes", "event", eventId] as const,
+    detail: (id: string) => ["admin", "promotion-codes", id] as const,
+  },
 } as const;

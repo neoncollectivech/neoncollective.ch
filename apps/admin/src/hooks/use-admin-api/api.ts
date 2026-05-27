@@ -7,11 +7,14 @@ import { toast } from "sonner";
 import {
   addEventInvitee,
   createEvent,
+  createEventPromotionCode,
   ensureInviteeLink,
   getEvent,
+  getPromotionCode,
   getOrder,
   getPerson,
   listEventInvitees,
+  listEventPromotionCodes,
   listEventTiers,
   listInviteLinks,
   listInviteRedemptions,
@@ -20,6 +23,7 @@ import {
   listOrders,
   patchEvent,
   patchEventInvitee,
+  patchEventPromotionCode,
   patchInviteLink,
   patchPerson,
   putEventTiers,
@@ -51,9 +55,15 @@ async function invalidateEvents(eventId?: string) {
     queryKey: adminKeys.eventInvitees.all,
   });
   await queryClient.invalidateQueries({ queryKey: adminKeys.inviteLinks.all });
+  await queryClient.invalidateQueries({
+    queryKey: adminKeys.promotionCodes.all,
+  });
   if (eventId) {
     await queryClient.invalidateQueries({
       queryKey: adminKeys.events.detail(eventId),
+    });
+    await queryClient.invalidateQueries({
+      queryKey: adminKeys.promotionCodes.forEvent(eventId),
     });
   }
 }
@@ -234,6 +244,37 @@ export const adminApi = {
         onError: (err) =>
           toast.error(getApiErrorMessage(err, "Failed to save tiers")),
       }),
+    promotionCodes: (eventId: string) =>
+      queryOptions({
+        queryKey: adminKeys.promotionCodes.forEvent(eventId),
+        queryFn: () => listEventPromotionCodes(eventId),
+        enabled: Boolean(eventId),
+      }),
+    createPromotionCode: (eventId: string) =>
+      mutationOptions({
+        mutationFn: (payload: Parameters<typeof createEventPromotionCode>[1]) =>
+          createEventPromotionCode(eventId, payload),
+        onSuccess: async () => {
+          await invalidateEvents(eventId);
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to create promotion")),
+      }),
+    patchPromotionCode: (eventId: string) =>
+      mutationOptions({
+        mutationFn: ({
+          promotionCodeId,
+          payload,
+        }: {
+          promotionCodeId: string;
+          payload: Parameters<typeof patchEventPromotionCode>[2];
+        }) => patchEventPromotionCode(eventId, promotionCodeId, payload),
+        onSuccess: async () => {
+          await invalidateEvents(eventId);
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to update promotion")),
+      }),
   },
   order: {
     detail: (orderId: string) =>
@@ -295,6 +336,12 @@ export const adminApi = {
             relatedListParams({ orderId }),
           ),
         enabled: Boolean(orderId),
+      }),
+    promotionCode: (promotionCodeId: string | null | undefined) =>
+      queryOptions({
+        queryKey: adminKeys.promotionCodes.detail(promotionCodeId ?? ""),
+        queryFn: () => getPromotionCode(promotionCodeId!),
+        enabled: Boolean(promotionCodeId),
       }),
     refund: (boundOrderId?: string) =>
       mutationOptions({

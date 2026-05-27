@@ -11,6 +11,7 @@ import {
 } from "../shared/invite-links-orchestration";
 import { inviteLinksService } from "../../services/invite-links.service";
 import { inviteRedemptionsService } from "../../services/invite-redemptions.service";
+import { promotionCodeRedemptionsService } from "../../services/promotion-code-redemptions.service";
 import { orderTiersService } from "../../services/order-tiers.service";
 import { ordersService } from "../../services/orders.service";
 import { peopleService } from "../../services/people.service";
@@ -171,6 +172,16 @@ async function repairPaidOrderFulfillmentInTx(
     }
   }
 
+  if (order.promotionCodeId) {
+    const promoRedemption = await promotionCodeRedemptionsService.findByOrderId(order.id, tx);
+    if (!promoRedemption) {
+      await promotionCodeRedemptionsService.insertInTx(tx, {
+        promotionCodeId: order.promotionCodeId,
+        orderId: order.id,
+      });
+    }
+  }
+
   if (ev && person) {
     await ensureEventInviteeFromGuestCheckoutInTx(tx, order, ev, person);
     if (await shouldMintHostInviteLinkForOrderInTx(tx, order)) {
@@ -204,6 +215,13 @@ async function applyCheckoutFulfillmentSideEffectsInTx(
   if (order.inviteLinkId) {
     await inviteRedemptionsService.insertInTx(tx, {
       inviteLinkId: order.inviteLinkId,
+      orderId: order.id,
+    });
+  }
+
+  if (order.promotionCodeId) {
+    await promotionCodeRedemptionsService.insertInTx(tx, {
+      promotionCodeId: order.promotionCodeId,
       orderId: order.id,
     });
   }

@@ -39,6 +39,7 @@ export const ordersResourceMeta = introspectTable(orders, {
       "locale",
       "stripePaymentIntentId",
       "inviteLinkId",
+      "promotionCodeId",
       "createdAt",
       "updatedAt",
     ],
@@ -106,6 +107,7 @@ export class OrdersService extends TableService<
       locale: string;
       amountCents: number;
       inviteLinkId: string | null;
+      promotionCodeId?: string | null;
     },
   ): Promise<string> {
     const [row] = await tx
@@ -117,9 +119,29 @@ export class OrdersService extends TableService<
         amountCents: params.amountCents,
         status: "pending",
         inviteLinkId: params.inviteLinkId,
+        promotionCodeId: params.promotionCodeId ?? null,
       })
       .returning({ id: orders.id });
     return row!.id;
+  }
+
+  async countPendingOrPaidForPromotionCode(
+    promotionCodeId: string,
+    tx?: OrderTx,
+  ): Promise<number> {
+    const executor = tx ?? getDb();
+    const [row] = await executor
+      .select({
+        qty: sql<number>`count(*)::int`,
+      })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.promotionCodeId, promotionCodeId),
+          inArray(orders.status, ["pending", "paid"]),
+        ),
+      );
+    return Number(row?.qty ?? 0);
   }
 
   async attachStripePaymentIntentInTx(

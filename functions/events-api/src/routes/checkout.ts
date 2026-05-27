@@ -53,6 +53,8 @@ const CHECKOUT_INTENT_ERRORS: Record<
     error: "Your payment is complete. Refresh the page to see your confirmation.",
   },
   mixed_currency: { status: 400, error: "Selected tiers use different currencies." },
+  invalid_promotion: { status: 400, error: "This promotion is not valid for this event." },
+  promotion_exhausted: { status: 409, error: "This promotion has reached its usage limit." },
   checkout_failed: { status: 500, error: "Checkout failed." },
 };
 
@@ -100,15 +102,18 @@ export function createCheckoutRouter(): Hono {
       exclusiveTierId: body.exclusiveTierId,
       addonTierIds: body.addonTierIds,
       returnPath: body.returnPath,
+      promotionCode: body.promotionCode,
       session,
     });
     if (!res.ok) {
       return jsonReasonFailure(c, res, CHECKOUT_INTENT_ERRORS);
     }
     return c.json({
-      clientSecret: res.clientSecret,
       orderId: res.orderId,
       returnUrl: res.returnUrl,
+      requiresPayment: res.requiresPayment,
+      amountCents: res.amountCents,
+      ...(res.clientSecret ? { clientSecret: res.clientSecret } : {}),
     });
   });
 

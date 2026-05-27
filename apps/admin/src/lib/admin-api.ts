@@ -79,7 +79,54 @@ export type EventReadRow = EventRow & {
 export type OrderReadRow = OrderRow & {
   stripePaymentIntentId: string | null;
   inviteLinkId: string | null;
+  promotionCodeId: string | null;
   updatedAt: string;
+};
+
+export type PromotionTierOverride = {
+  eventTierId: string;
+  priceCents: number;
+};
+
+/** Event-scoped promotion code from GET /admin/events/:id/promotion-codes. */
+export type EventPromotionCodeRow = {
+  id: string;
+  eventId: string;
+  code: string;
+  kind: "percent_off" | "amount_off" | "tier_prices";
+  percentBps: number | null;
+  amountOffCents: number | null;
+  tierOverrides: PromotionTierOverride[];
+  maxRedemptions: number | null;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  usedRedemptions: number;
+  remainingRedemptions: number | null;
+};
+
+export type PromotionCodeCreatePayload = {
+  code: string;
+  kind: "percent_off" | "amount_off" | "tier_prices";
+  percentBps?: number;
+  amountOffCents?: number;
+  tierOverrides?: PromotionTierOverride[];
+  maxRedemptions?: number | null;
+  active?: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+};
+
+export type PromotionCodePatchPayload = {
+  active?: boolean;
+  maxRedemptions?: number | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  tierOverrides?: PromotionTierOverride[];
+  kind?: "percent_off" | "amount_off" | "tier_prices";
+  percentBps?: number;
+  amountOffCents?: number;
 };
 
 export type PersonReadRow = PersonRow & {
@@ -338,6 +385,47 @@ export async function putEventTiers(
   payload: { tiers: Omit<TierRow, "id">[] },
 ) {
   await api.put(`/admin/events/${eventId}/tiers`, payload);
+}
+
+export async function listEventPromotionCodes(eventId: string) {
+  const res = await api.get<{ items: EventPromotionCodeRow[] }>(
+    `/admin/events/${eventId}/promotion-codes`,
+  );
+
+  return res.data.items;
+}
+
+export async function createEventPromotionCode(
+  eventId: string,
+  payload: PromotionCodeCreatePayload,
+) {
+  const res = await api.post<{ item: EventPromotionCodeRow }>(
+    `/admin/events/${eventId}/promotion-codes`,
+    payload,
+  );
+
+  return res.data.item;
+}
+
+export async function patchEventPromotionCode(
+  eventId: string,
+  promotionCodeId: string,
+  payload: PromotionCodePatchPayload,
+) {
+  const res = await api.patch<{ item: EventPromotionCodeRow }>(
+    `/admin/events/${eventId}/promotion-codes/${promotionCodeId}`,
+    payload,
+  );
+
+  return res.data.item;
+}
+
+export async function getPromotionCode(promotionCodeId: string) {
+  const res = await api.get<ItemResponse<EventPromotionCodeRow>>(
+    `/admin/promotion-codes/${promotionCodeId}`,
+  );
+
+  return res.data.item;
 }
 
 export async function listOrders(params: AdminListRequestParams) {

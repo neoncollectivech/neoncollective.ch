@@ -46,7 +46,7 @@ test.describe("invite-only checkout", () => {
       state.pageA = await state.contextA.newPage();
 
       await state.pageA.goto(state.seed.privateUrl);
-      await signInWithPhone(state.pageA, state.seed.personAPhone);
+      await signInWithPhone(state.pageA, state.seed.hostInvited.phone);
     });
 
     test("sees minimal checkout with exclusive and add-on tiers", async () => {
@@ -54,7 +54,7 @@ test.describe("invite-only checkout", () => {
       await expectMinimalCheckout(state.pageA, state.seed);
     });
 
-    test("selects guest tier and bar add-on", async () => {
+    test("selects Root and Addon 1", async () => {
       await selectExclusiveAndAddon(state.pageA, state.seed);
     });
 
@@ -90,9 +90,9 @@ test.describe("invite-only checkout", () => {
         timeout: 30_000,
       });
       await completeProfileWithPhone(state.pageB, {
-        givenName: state.seed.personBGivenName,
-        familyName: state.seed.personBFamilyName,
-        phone: state.seed.personBPhone,
+        givenName: state.seed.guestInvited.givenName,
+        familyName: state.seed.guestInvited.familyName,
+        phone: state.seed.guestInvited.phone,
       });
     });
 
@@ -111,7 +111,7 @@ test.describe("invite-only checkout", () => {
       await expectMinimalCheckout(state.pageB, state.seed);
     });
 
-    test("selects guest tier and bar add-on", async () => {
+    test("selects Root and Addon 1", async () => {
       await selectExclusiveAndAddon(state.pageB, state.seed);
     });
 

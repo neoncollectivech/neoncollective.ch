@@ -1,33 +1,56 @@
 /**
- * E2E Playwright seed: invite-only event + Person A on guest list (no orders, no host link).
+ * E2E Playwright seed: invite-only event + three distinct participant personas.
  *
  * Usage:
  *   pnpm --filter @neon/events-api db:seed:e2e
  *
- * Prints one JSON line to stdout for test/global-setup.ts:
- *   { slug, personAPhone, personBPhone, privateUrl, locale, exclusiveTierName, addonTierName, checkoutTotalChf }
+ * Personas:
+ *   - Host Invited — on guest list; paid invite-only checkout + host invite link
+ *   - Guest Invited — joins via host link (not on guest list in seed)
+ *   - Host InvitedPromo — on guest list; promotion / free checkout flow
+ *
+ * Prints one JSON line to stdout for test/global-setup.mjs.
  */
 
 import { and, eq, sql } from "drizzle-orm";
 
 import { phoneToStoredDigits } from "../helpers/contact";
 import { closeDb, getDb } from "../db/index";
-import { eventTiers, events, people } from "../db/schema";
+import { eventTiers, events, people, promotionCodes } from "../db/schema";
 import { upsertInviteesForEvent } from "../routes/admin/providers/invitees-admin";
 
 const SLUG = "e2e-invite-only";
 const LOCALE = "en";
 
-const EXCLUSIVE_TIER_NAME = "Guest";
-const EXCLUSIVE_TIER_CENTS = 1500;
-const ADDON_TIER_NAME = "Bar package";
-const ADDON_TIER_CENTS = 800;
+const ROOT_TIER_NAME = "Root";
+const ROOT_TIER_CENTS = 1500;
+const ADDON_1_TIER_NAME = "Addon 1";
+const ADDON_1_TIER_CENTS = 800;
+const ADDON_2_TIER_NAME = "Addon 2";
+const ADDON_2_TIER_CENTS = 500;
+const PROMO_CODE = "E2ETIER";
 
-const PERSON_A_PHONE = process.env.E2E_PERSON_A_PHONE?.trim() || "+41791234567";
-const PERSON_B_PHONE = process.env.E2E_PERSON_B_PHONE?.trim() || "+41791234568";
-const PERSON_A_EMAIL = process.env.E2E_PERSON_A_EMAIL?.trim() || "e2e-host-a@neon.test";
-const PERSON_A_GIVEN = "E2E";
-const PERSON_A_FAMILY = "Host";
+const HOST_INVITED = {
+  phone: process.env.E2E_HOST_INVITED_PHONE?.trim() || "+41791234567",
+  email: process.env.E2E_HOST_INVITED_EMAIL?.trim() || "e2e-host-invited@neon.test",
+  givenName: "E2E",
+  familyName: "HostInvited",
+};
+
+const GUEST_INVITED = {
+  phone: process.env.E2E_GUEST_INVITED_PHONE?.trim() || "+41791234568",
+  givenName: "E2E",
+  familyName: "GuestInvited",
+};
+
+const HOST_INVITED_PROMO = {
+  phone: process.env.E2E_HOST_INVITED_PROMO_PHONE?.trim() || "+41791234569",
+  email:
+    process.env.E2E_HOST_INVITED_PROMO_EMAIL?.trim() ||
+    "e2e-host-invited-promo@neon.test",
+  givenName: "E2E",
+  familyName: "HostInvitedPromo",
+};
 
 type Db = ReturnType<typeof getDb>;
 
@@ -45,6 +68,8 @@ async function truncateAllApplicationData(db: Db): Promise<void> {
       "event_tiers",
       "events",
       "stripe_events_processed",
+      "promotion_code_redemptions",
+      "promotion_codes",
       "people"
     CASCADE
   `);
@@ -89,34 +114,108 @@ async function ensureTier(
   });
 }
 
-async function ensureE2eEventTiers(db: Db, eventId: string): Promise<void> {
+type E2eTierIds = {
+  rootId: string;
+  addon1Id: string;
+  addon2Id: string;
+};
+
+async function tierIdByName(
+  db: Db,
+  eventId: string,
+  name: string,
+  selectionMode: "exclusive" | "addon",
+): Promise<string> {
+  const [row] = await db
+    .select({ id: eventTiers.id })
+    .from(eventTiers)
+    .where(
+      and(
+        eq(eventTiers.eventId, eventId),
+        eq(eventTiers.name, name),
+        eq(eventTiers.selectionMode, selectionMode),
+      ),
+    )
+    .limit(1);
+  if (!row) {
+    throw new Error(`E2E tier not found: ${name} (${selectionMode})`);
+  }
+  return row.id;
+}
+
+async function ensureTierPricesPromo(
+  db: Db,
+  eventId: string,
+  tierIds: E2eTierIds,
+): Promise<void> {
+  const [existing] = await db
+    .select({ id: promotionCodes.id })
+    .from(promotionCodes)
+    .where(and(eq(promotionCodes.eventId, eventId), eq(promotionCodes.code, PROMO_CODE)))
+    .limit(1);
+  if (existing) {
+    return;
+  }
+  await db.insert(promotionCodes).values({
+    eventId,
+    code: PROMO_CODE,
+    kind: "tier_prices",
+    percentBps: null,
+    amountOffCents: null,
+    tierOverrides: [
+      { eventTierId: tierIds.rootId, priceCents: 0 },
+      { eventTierId: tierIds.addon1Id, priceCents: 0 },
+    ],
+    maxRedemptions: null,
+    active: true,
+  });
+}
+
+async function ensureE2eEventTiers(db: Db, eventId: string): Promise<E2eTierIds> {
   await ensureTier(db, eventId, {
-    name: EXCLUSIVE_TIER_NAME,
-    description: "E2E guest-list tier.",
-    priceCents: EXCLUSIVE_TIER_CENTS,
+    name: ROOT_TIER_NAME,
+    description: "E2E mandatory root tier.",
+    priceCents: ROOT_TIER_CENTS,
     selectionMode: "exclusive",
     sortOrder: 0,
     quota: null,
   });
   await ensureTier(db, eventId, {
-    name: ADDON_TIER_NAME,
-    description: "E2E optional bar add-on.",
-    priceCents: ADDON_TIER_CENTS,
+    name: ADDON_1_TIER_NAME,
+    description: "E2E first add-on.",
+    priceCents: ADDON_1_TIER_CENTS,
     selectionMode: "addon",
     sortOrder: 1,
     quota: 50,
   });
+  await ensureTier(db, eventId, {
+    name: ADDON_2_TIER_NAME,
+    description: "E2E second add-on.",
+    priceCents: ADDON_2_TIER_CENTS,
+    selectionMode: "addon",
+    sortOrder: 2,
+    quota: 50,
+  });
+  return {
+    rootId: await tierIdByName(db, eventId, ROOT_TIER_NAME, "exclusive"),
+    addon1Id: await tierIdByName(db, eventId, ADDON_1_TIER_NAME, "addon"),
+    addon2Id: await tierIdByName(db, eventId, ADDON_2_TIER_NAME, "addon"),
+  };
 }
 
-async function ensureInviteOnlyEvent(db: Db, startsAt: Date): Promise<string> {
+async function ensureInviteOnlyEvent(
+  db: Db,
+  startsAt: Date,
+): Promise<{ eventId: string; tierIds: E2eTierIds }> {
   const [existing] = await db
     .select({ id: events.id })
     .from(events)
     .where(eq(events.slug, SLUG))
     .limit(1);
   if (existing) {
-    await ensureE2eEventTiers(db, existing.id);
-    return existing.id;
+    const tierIds = await ensureE2eEventTiers(db, existing.id);
+    await ensureTierPricesPromo(db, existing.id, tierIds);
+    return { eventId: existing.id, tierIds };
   }
   const [ev] = await db
     .insert(events)
@@ -134,8 +233,27 @@ async function ensureInviteOnlyEvent(db: Db, startsAt: Date): Promise<string> {
     })
     .returning({ id: events.id });
   const id = ev!.id;
-  await ensureE2eEventTiers(db, id);
-  return id;
+  const tierIds = await ensureE2eEventTiers(db, id);
+  await ensureTierPricesPromo(db, id, tierIds);
+  return { eventId: id, tierIds };
+}
+
+function assertPhoneE164(label: string, phone: string): void {
+  if (!phoneToStoredDigits(phone)) {
+    throw new Error(`${label} phone is invalid: ${phone}`);
+  }
+}
+
+async function verifyPersonContact(db: Db, personId: string): Promise<void> {
+  const now = new Date();
+  await db
+    .update(people)
+    .set({
+      emailVerifiedAt: now,
+      phoneVerifiedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(people.id, personId));
 }
 
 async function main(): Promise<void> {
@@ -143,10 +261,9 @@ async function main(): Promise<void> {
     throw new Error("DATABASE_URL is not set. Use .env.local (see db:seed:e2e).");
   }
 
-  const phoneDigits = phoneToStoredDigits(PERSON_A_PHONE);
-  if (!phoneDigits) {
-    throw new Error(`E2E_PERSON_A_PHONE is invalid: ${PERSON_A_PHONE}`);
-  }
+  assertPhoneE164("Host Invited", HOST_INVITED.phone);
+  assertPhoneE164("Guest Invited", GUEST_INVITED.phone);
+  assertPhoneE164("Host InvitedPromo", HOST_INVITED_PROMO.phone);
 
   const site = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
   let origin: string;
@@ -160,49 +277,61 @@ async function main(): Promise<void> {
   await truncateAllApplicationData(db);
 
   const startsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  const eventId = await ensureInviteOnlyEvent(db, startsAt);
+  const { eventId } = await ensureInviteOnlyEvent(db, startsAt);
 
   const upserted = await upsertInviteesForEvent(eventId, [
     {
-      givenName: PERSON_A_GIVEN,
-      familyName: PERSON_A_FAMILY,
-      email: PERSON_A_EMAIL,
-      phoneE164: PERSON_A_PHONE,
+      givenName: HOST_INVITED.givenName,
+      familyName: HOST_INVITED.familyName,
+      email: HOST_INVITED.email,
+      phoneE164: HOST_INVITED.phone,
       maxRedemptions: 10,
-      notes: "seed-e2e-checkout",
+      notes: "seed-e2e-host-invited",
+    },
+    {
+      givenName: HOST_INVITED_PROMO.givenName,
+      familyName: HOST_INVITED_PROMO.familyName,
+      email: HOST_INVITED_PROMO.email,
+      phoneE164: HOST_INVITED_PROMO.phone,
+      maxRedemptions: 10,
+      notes: "seed-e2e-host-invited-promo",
     },
   ]);
-  const personId = upserted.results[0]?.personId;
-  if (!personId) {
-    throw new Error("Failed to upsert Person A invitee.");
+
+  const hostInvitedPersonId = upserted.results[0]?.personId;
+  const hostInvitedPromoPersonId = upserted.results[1]?.personId;
+  if (!hostInvitedPersonId || !hostInvitedPromoPersonId) {
+    throw new Error("Failed to upsert Host Invited / Host InvitedPromo on guest list.");
   }
 
-  const now = new Date();
-  await db
-    .update(people)
-    .set({
-      emailVerifiedAt: now,
-      phoneVerifiedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(people.id, personId));
+  await verifyPersonContact(db, hostInvitedPersonId);
+  await verifyPersonContact(db, hostInvitedPromoPersonId);
 
   const privateUrl = `${origin}/${LOCALE}/events/private?slug=${encodeURIComponent(SLUG)}`;
-  const checkoutTotalCents = EXCLUSIVE_TIER_CENTS + ADDON_TIER_CENTS;
+  const freePromoUrl = `${privateUrl}&promo=${encodeURIComponent(PROMO_CODE)}`;
+  const checkoutTotalCents = ROOT_TIER_CENTS + ADDON_1_TIER_CENTS;
+  const promoAllTiersTotalCents = ADDON_2_TIER_CENTS;
 
   const payload = {
     slug: SLUG,
     locale: LOCALE,
-    personAPhone: PERSON_A_PHONE,
-    personBPhone: PERSON_B_PHONE,
-    personBGivenName: "E2E",
-    personBFamilyName: "Invited",
+    hostInvited: HOST_INVITED,
+    guestInvited: GUEST_INVITED,
+    hostInvitedPromo: HOST_INVITED_PROMO,
     privateUrl,
-    exclusiveTierName: EXCLUSIVE_TIER_NAME,
-    addonTierName: ADDON_TIER_NAME,
-    guestTierLine: `${EXCLUSIVE_TIER_NAME} + ${ADDON_TIER_NAME}`,
+    freePromoUrl,
+    promoCode: PROMO_CODE,
+    rootTierName: ROOT_TIER_NAME,
+    addon1TierName: ADDON_1_TIER_NAME,
+    addon2TierName: ADDON_2_TIER_NAME,
+    exclusiveTierName: ROOT_TIER_NAME,
+    addonTierName: ADDON_1_TIER_NAME,
+    guestTierLine: `${ROOT_TIER_NAME} + ${ADDON_1_TIER_NAME}`,
     checkoutTotalChf: checkoutTotalCents / 100,
     checkoutTotalCents,
+    promoAllTiersTotalChf: promoAllTiersTotalCents / 100,
+    promoAllTiersTotalCents,
+    freeCheckoutTotalChf: 0,
   };
 
   // eslint-disable-next-line no-console -- machine-readable for Playwright globalSetup

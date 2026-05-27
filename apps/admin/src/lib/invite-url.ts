@@ -35,6 +35,35 @@ function publicSiteLocale(): string {
   return raw?.trim() || publicSiteConfig.defaultLocale;
 }
 
+function buildPublicEventDetailUrl(slug: string, inviteOnly: boolean): string {
+  const origin = resolvePublicSiteOrigin();
+  const locale = publicSiteLocale();
+  const enc = encodeURIComponent(slug);
+
+  if (inviteOnly) {
+    return `${origin}/${locale}/events/private?slug=${enc}`;
+  }
+
+  return `${origin}/${locale}/events/${enc}`;
+}
+
+/** Public event URL with `?promo=` (and optional `?invite=`). */
+export function buildPublicPromoUrl(
+  slug: string,
+  inviteOnly: boolean,
+  promoCode: string,
+  inviteToken?: string,
+): string {
+  const url = new URL(buildPublicEventDetailUrl(slug, inviteOnly));
+
+  url.searchParams.set("promo", promoCode);
+  if (inviteToken) {
+    url.searchParams.set("invite", inviteToken);
+  }
+
+  return url.toString();
+}
+
 /** Full public URL for an invite-only event host share link. */
 export function buildPublicInviteUrl(
   slug: string,

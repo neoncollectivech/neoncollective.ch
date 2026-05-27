@@ -109,12 +109,24 @@ Fixtures: `startCheckoutPaymentStep`, `submitStripePaymentAndConfirmRegistration
 
 **Serial** tests in `test/web/checkout-invite-flow.spec.mjs` (two nested describes):
 
-**Person A (host on guest list):** sign-in → **minimal checkout** (exclusive **Guest** + add-on **Bar package**, total CHF 23) → pay → confirmed → host invite link
+**Person A (host on guest list):** sign-in → **minimal checkout** (exclusive **Root** + **Addon 1**, total CHF 23) → pay → confirmed → host invite link
 
 **Person B (guest link):** fresh browser → profile + verify → same tier/add-on checkout → pay → confirmed (no “Bring your friends”) → API has no `hostInvite`
 
 **Person A (after B):** reload private dossier → **Registered via your link** lists Person B (name + `Guest + Bar package` tiers) → API `hostInvite.conversions` matches
 
-Seed (`db:seed:e2e`) creates one exclusive tier (CHF 15) and one add-on tier (CHF 8). Tests select both and assert the combined total before payment.
+Seed (`db:seed:e2e`) creates **Root** (CHF 15, mandatory), **Addon 1** (CHF 8), and **Addon 2** (CHF 5). Invite checkout uses Root + Addon 1 (CHF 23). Promo code `E2ETIER` sets Root and Addon 1 to 0; with all three tiers selected the cart totals Addon 2 only (CHF 5); Root + Addon 1 checkout is free.
+
+### E2E personas (distinct phones)
+
+| Persona | On guest list | Spec | Default phone |
+|--------|----------------|------|----------------|
+| **Host Invited** | yes | `checkout-invite-flow` (Person A) | `+41791234567` |
+| **Guest Invited** | no (via host link) | `checkout-invite-flow` (Person B) | `+41791234568` |
+| **Host InvitedPromo** | yes | `checkout-promotion` (100% promo, no Stripe) | `+41791234569` |
+
+Override with `E2E_HOST_INVITED_PHONE`, `E2E_GUEST_INVITED_PHONE`, `E2E_HOST_INVITED_PROMO_PHONE` (and optional `*_EMAIL` for hosts). Seed JSON uses `hostInvited`, `guestInvited`, `hostInvitedPromo` objects.
 
 Minimal checkout means tier/add-on pickers + **Continue to payment** only — no inline email/phone fields and no “Welcome back” sign-in block under checkout.
+
+**Promotion spec** uses `createIsolatedContext` (fresh browser, no participant cookie) and **Host InvitedPromo** so it never reuses Host Invited’s session or registration.

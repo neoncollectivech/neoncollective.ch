@@ -2,7 +2,7 @@ import { expect } from "@playwright/test";
 
 /** Person A (host) sees a guest who paid via the host invite link. */
 export async function expectHostInviteConversion(page, seed) {
-  const guestName = `${seed.personBGivenName} ${seed.personBFamilyName}`;
+  const guestName = `${seed.guestInvited.givenName} ${seed.guestInvited.familyName}`;
 
   await expect(page.getByText("Bring your friends")).toBeVisible();
   await expect(
@@ -22,12 +22,14 @@ export function expectHostInviteConversionApi(detail, seed) {
     );
   }
   const guest = conversions[0];
-  if (guest.givenName !== seed.personBGivenName) {
-    throw new Error(`Expected givenName ${seed.personBGivenName}, got ${guest.givenName}.`);
-  }
-  if (guest.familyName !== seed.personBFamilyName) {
+  if (guest.givenName !== seed.guestInvited.givenName) {
     throw new Error(
-      `Expected familyName ${seed.personBFamilyName}, got ${guest.familyName}.`,
+      `Expected givenName ${seed.guestInvited.givenName}, got ${guest.givenName}.`,
+    );
+  }
+  if (guest.familyName !== seed.guestInvited.familyName) {
+    throw new Error(
+      `Expected familyName ${seed.guestInvited.familyName}, got ${guest.familyName}.`,
     );
   }
   if (!guest.tierName?.includes(seed.exclusiveTierName)) {

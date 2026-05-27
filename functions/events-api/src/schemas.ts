@@ -11,6 +11,7 @@ export const checkoutIntentSchema = type({
   addonTierIds: "string[]",
   /** Path + query for Stripe return_url (e.g. /en/events/private?slug=…). */
   returnPath: "string | null",
+  promotionCode: "string | null",
 });
 
 /** After Stripe confirms payment in the browser; webhook reconciles the same order idempotently. */
