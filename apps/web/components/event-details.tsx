@@ -29,6 +29,11 @@ import { useDictionary } from "@/i18n/DictionaryContext";
 import { useEventUrlParams } from "@/hooks/use-event-url-params";
 import { usePersistedEventLinkQuery } from "@/hooks/use-persisted-event-link-query";
 import { useLocale } from "@/hooks/use-locale";
+import { eventDetailPath } from "@/helpers/eventRoutes";
+import {
+  buildReturnPath,
+  resolveEventLinkQuery,
+} from "@/helpers/event-link-query";
 import { useProfileModalLabels } from "@/hooks/use-profile-modal-labels";
 import { useStripePromise } from "@/hooks/use-stripe-promise";
 import {
@@ -468,18 +473,16 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const {
-    inviteToken: urlInviteToken,
-    code: initialCode,
-    promo,
-  } = useEventUrlParams();
-  const { appendToHref, returnPath: linkReturnPath } =
-    usePersistedEventLinkQuery();
+  const { inviteToken: urlInviteToken, code: initialCode } = useEventUrlParams();
+  const { appendToHref } = usePersistedEventLinkQuery();
+  const linkQuery = useMemo(
+    () => resolveEventLinkQuery(searchParams),
+    [searchParams],
+  );
+  const promo = linkQuery.promo;
   const { dictionary } = useDictionary();
   const t = dictionary.events;
   const stripePromise = useStripePromise();
-
-  const detailReturnPath = linkReturnPath(pathname);
 
   const { codeHandled, codeError } = useExchangeRegistrationCode({
     code: initialCode,
@@ -501,6 +504,22 @@ function EventDetailsInner({ slug }: { slug: string }) {
   });
 
   const eventQuery = useQuery(eventDetailOptions);
+
+  const detailReturnPath = useMemo(() => {
+    const inviteOnly = eventQuery.data?.inviteOnly ?? true;
+
+    return buildReturnPath(
+      `/${locale}${eventDetailPath(slug, inviteOnly)}`,
+      searchParams,
+      linkQuery,
+    );
+  }, [
+    eventQuery.data?.inviteOnly,
+    locale,
+    linkQuery,
+    searchParams,
+    slug,
+  ]);
 
   const effectiveInviteToken =
     eventQuery.data != null && !eventQuery.data.inviteOnly
@@ -678,7 +697,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
       addonTierIds: Array.from(selectedAddonIds),
       promotionCode: promo ?? null,
       enabled:
-        codeHandled &&
         Boolean(promo?.trim()) &&
         selectedTiers.length > 0 &&
         !checkoutLocked,
@@ -1111,6 +1129,13 @@ function EventDetailsInner({ slug }: { slug: string }) {
                     </p>
                   ) : null}
                   {promo && pricingPreviewQuery.isError ? (
+                    <p className="text-xs text-red-400">{t.promoInvalid}</p>
+                  ) : null}
+                  {promo &&
+                  pricingPreviewQuery.isSuccess &&
+                  previewPricing &&
+                  previewPricing.discountCents === 0 &&
+                  previewPricing.subtotalCents > 0 ? (
                     <p className="text-xs text-red-400">{t.promoInvalid}</p>
                   ) : null}
                 </div>

@@ -200,6 +200,18 @@ PageContent { meta, blocks[] }
 - Never use `getServerSideProps`/`getStaticProps` (Pages Router only).
 - With static export, do not use Server Actions/middleware/ISR/API routes.
 
+### Event checkout link params (`invite`, `promo`)
+
+Single resolver: `helpers/event-link-query.ts` → `resolveEventLinkQuery(searchParams)` (used by `useEventUrlParams` / `usePersistedEventLinkQuery`).
+
+**Precedence (MUST):**
+
+1. Non-empty `?invite=` / `?promo=` in the URL → use that value and persist to `sessionStorage` (`neon:eventLink:events:*`).
+2. Param absent from URL → read `sessionStorage` (e.g. user navigates without query string after opening a promo link).
+3. Neither → no invite/promo from link state (no promotion discount from URL/session).
+
+Checkout must pass resolved `promo` to `POST /checkout/pricing-preview` and `POST /checkout/intent`. Do not duplicate resolution in components.
+
 ## Cloud Functions (`functions/`)
 
 Cloud Run functions (GCF Gen 2), each as its own workspace.

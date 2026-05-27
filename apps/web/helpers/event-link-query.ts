@@ -50,6 +50,12 @@ export function clearStored(scope: string, urlKey: string): void {
   sessionStorage.removeItem(storageKey(scope, urlKey));
 }
 
+/**
+ * Resolve invite/promo (or similar) for checkout:
+ * 1. Non-empty URL query param → use it and persist to sessionStorage.
+ * 2. No param in URL → use sessionStorage if present.
+ * 3. Otherwise → undefined (no invite/promo/discount from link state).
+ */
 export function resolveLinkQueryParam(params: {
   urlValue: string | undefined;
   scope: string;
@@ -118,9 +124,9 @@ export function buildEventHref(
     question >= 0 ? basePath.slice(question + 1) : "",
   );
   if (existingSearch) {
-    for (const [key, value] of existingSearch.entries()) {
+    existingSearch.forEach((value, key) => {
       params.set(key, value);
-    }
+    });
   }
   const merged = appendLinkQueryToSearchParams(params, resolved);
   const qs = merged.toString();

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import {
   buildEventHref,
@@ -13,13 +13,10 @@ import {
 export function usePersistedEventLinkQuery() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [resolved, setResolved] = useState<ResolvedEventLinkQuery>(() =>
-    resolveEventLinkQuery(searchParams),
+  const resolved = useMemo(
+    () => resolveEventLinkQuery(searchParams),
+    [searchParams],
   );
-
-  useEffect(() => {
-    setResolved(resolveEventLinkQuery(searchParams));
-  }, [searchParams]);
 
   const appendToHref = useMemo(
     () => (basePath: string, extra?: ResolvedEventLinkQuery) => {
