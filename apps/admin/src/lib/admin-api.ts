@@ -420,6 +420,10 @@ export async function patchEventPromotionCode(
   return res.data.item;
 }
 
+export async function deletePromotionCode(promotionCodeId: string) {
+  await api.delete(`/admin/promotion-codes/${promotionCodeId}`);
+}
+
 export async function getPromotionCode(promotionCodeId: string) {
   const res = await api.get<ItemResponse<EventPromotionCodeRow>>(
     `/admin/promotion-codes/${promotionCodeId}`,

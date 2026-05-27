@@ -9,6 +9,7 @@ import {
   createEvent,
   createEventPromotionCode,
   createPerson,
+  deletePromotionCode,
   deletePerson,
   ensureInviteeLink,
   getEvent,
@@ -277,6 +278,20 @@ export const adminApi = {
         },
         onError: (err) =>
           toast.error(getApiErrorMessage(err, "Failed to update promotion")),
+      }),
+    deletePromotionCode: (eventId?: string) =>
+      mutationOptions({
+        mutationFn: (promotionCodeId: string) => deletePromotionCode(promotionCodeId),
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: adminKeys.promotionCodes.all,
+          });
+          if (eventId) {
+            await invalidateEvents(eventId);
+          }
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to delete promotion")),
       }),
   },
   order: {

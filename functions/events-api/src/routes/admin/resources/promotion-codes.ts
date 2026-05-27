@@ -10,6 +10,6 @@ export const promotionCodesResource = defineResource({
   meta: promotionCodesResourceMeta,
   service: tableServiceToBridge(promotionCodesService),
   opts: {
-    operations: ["list", "read"],
+    operations: ["list", "read", "delete"],
   },
 });

@@ -376,7 +376,39 @@ composeResourceRouter({ resource: orders, control: createOrdersControlRouter(), 
 - **Generated routes:** `createResourceRouter` requires `service` bridge; mutations use bridge + `buildArkTypeSchemas(meta, ...)`.
 - **FORBIDDEN:** standalone `list:` / `detail:` on resources for tables with `TableService`; `crudProvider` / `CrudService` (removed).
 
-**Wired tables (all use bridge today):** orders, events, people, event-invitees, event-tiers, admissions, invite-links, order-tiers, invite-redemptions.
+**Wired tables (all use bridge today):** orders, events, people, event-invitees, event-tiers, admissions, invite-links, order-tiers, invite-redemptions, promotion-codes.
+
+---
+
+### Backend — conditional delete (PREFER generated CRUD + `beforeDelete`)
+
+When admin delete is **one row on one table** with preconditions (e.g. unused promotion code, deletable order status), use the generated bridge — **not** a custom `DELETE` on `routes/admin/control/`.
+
+**PREFER:**
+
+1. Enable `"delete"` in `routes/admin/resources/*.ts` `opts.operations`.
+2. Implement guards on the domain service: `protected override async beforeDelete(id, ctx?)` on `TableService`.
+3. Throw `@neon/resource-api` errors (`ConflictError` → 409, `BadRequestError` → 400, `NotFoundError` → 404). Admin `createAdminRouter` `onError` maps `ResourceApiError` to `{ error }` + status.
+4. Admin SPA: `DELETE /admin/{resource}/:id` (204 on success).
+
+```typescript
+// services/promotion-codes.service.ts
+protected override async beforeDelete(id: string, _ctx?: ServiceContext): Promise<void> {
+  const used = await ordersService.countPendingOrPaidForPromotionCode(id);
+  if (used > 0) {
+    throw new ConflictError("Cannot delete a promotion code that has been used on an order.");
+  }
+}
+```
+
+```typescript
+// routes/admin/resources/promotion-codes.ts
+opts: { operations: ["list", "read", "delete"] },
+```
+
+**Use control `DELETE` only when** the HTTP shape cannot be generated CRUD (multi-step orchestration, Stripe/refund, event-nested surface where the whole feature is control-only and delete is not on the flat resource), or the operation is not a single-table row delete.
+
+**FORBIDDEN:** duplicating `beforeDelete` logic in a control handler when the table already has a bridge resource.
 
 ---
 

@@ -1,8 +1,10 @@
-import { introspectTable } from "@neon/resource-api";
+import { ConflictError, introspectTable } from "@neon/resource-api";
 import { and, desc, eq } from "drizzle-orm";
 
 import { promotionCodes } from "../db/schema";
+import { ordersService } from "./orders.service";
 import type { EntityTx } from "./transaction";
+import type { ServiceContext } from "./base/types";
 import { TableService } from "./base/table-service";
 
 export { promotionCodes as promotionCodesTable };
@@ -136,6 +138,15 @@ export class PromotionCodesService extends TableService<typeof promotionCodes> {
       )
       .limit(1);
     return row ?? null;
+  }
+
+  protected override async beforeDelete(id: string, _ctx?: ServiceContext): Promise<void> {
+    const used = await ordersService.countPendingOrPaidForPromotionCode(id);
+    if (used > 0) {
+      throw new ConflictError(
+        "Cannot delete a promotion code that has been used on an order.",
+      );
+    }
   }
 }
 

@@ -76,6 +76,7 @@ export function EventPromotionCodes({
     adminApi.event.createPromotionCode(eventId),
   );
   const patchMutation = useMutation(adminApi.event.patchPromotionCode(eventId));
+  const deleteMutation = useMutation(adminApi.event.deletePromotionCode(eventId));
 
   async function copyPromoLink(promoCode: string) {
     const url = buildPublicPromoUrl(eventSlug, inviteOnly, promoCode);
@@ -229,6 +230,27 @@ export function EventPromotionCodes({
                   >
                     {row.active ? "Deactivate" : "Activate"}
                   </Button>
+                  {row.usedRedemptions === 0 ? (
+                    <Button
+                      disabled={deleteMutation.isPending}
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Delete promotion code "${row.code}"? This cannot be undone.`,
+                          )
+                        ) {
+                          deleteMutation.mutate(row.id, {
+                            onSuccess: () =>
+                              toast.success("Promotion code deleted"),
+                          });
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))}
