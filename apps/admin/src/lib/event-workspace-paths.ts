@@ -21,6 +21,24 @@ const WORKSPACE_SECTIONS = new Set<string>([
   "orders",
 ]);
 
+/** Event workspace routes: `/events/:uuid` and `/events/:uuid/...` (not `/events/new`). */
+export function parseEventWorkspaceEventId(
+  pathname: string,
+): string | undefined {
+  const match = pathname.match(/^\/events\/([^/]+)(?:\/|$)/);
+  const id = match?.[1];
+
+  if (!id || id === "new" || !isUuid(id)) {
+    return undefined;
+  }
+
+  return id;
+}
+
+export function isEventWorkspaceRoute(pathname: string): boolean {
+  return parseEventWorkspaceEventId(pathname) != null;
+}
+
 export function eventBasePath(eventId: string): string {
   return `/events/${eventId}`;
 }

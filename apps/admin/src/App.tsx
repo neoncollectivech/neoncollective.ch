@@ -4,7 +4,7 @@ import { Toaster } from "sonner";
 
 import { AuthGuard } from "@/components/auth-guard";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { EventWorkspaceLayout } from "@/components/layout/event-workspace-layout";
+import { EventWorkspaceOutlet } from "@/components/layout/event-workspace-outlet";
 import { adminBasename } from "@/lib/admin-base";
 import { EventFormPage } from "@/pages/event-form-page";
 import { EventInviteesPage } from "@/pages/event-invitees-page";
@@ -37,7 +37,7 @@ export function App() {
             <Route index element={<Navigate replace to="/events" />} />
             <Route element={<EventsPage />} path="events" />
             <Route element={<EventFormPage />} path="events/new" />
-            <Route element={<EventWorkspaceLayout />} path="events/:eventId">
+            <Route element={<EventWorkspaceOutlet />} path="events/:eventId">
               <Route index element={<Navigate replace to="overview" />} />
               <Route element={<EventOverviewPage />} path="overview" />
               <Route element={<EventSettingsPage />} path="settings" />

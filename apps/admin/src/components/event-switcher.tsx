@@ -26,6 +26,7 @@ type EventSwitcherProps = {
   currentEventId: string;
   currentTitle?: string;
   currentStatus?: string;
+  className?: string;
 };
 
 function filterEvents(events: EventRow[], query: string): EventRow[] {
@@ -80,6 +81,7 @@ export function EventSwitcher({
   currentEventId,
   currentTitle,
   currentStatus,
+  className,
 }: EventSwitcherProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -120,7 +122,7 @@ export function EventSwitcher({
   return (
     <>
       <Button
-        className="max-w-md justify-between gap-2"
+        className={cn("max-w-md justify-between gap-2", className)}
         size="sm"
         variant="outline"
         onClick={() => setOpen(true)}
