@@ -207,7 +207,7 @@ export class OrdersService extends TableService<
 
     const bucketRows = await db
       .select({
-        bucket: sql<Date>`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC')`,
+        bucket: sql<string>`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC')::text`,
         revenueCents: sql<number>`coalesce(sum(${orders.amountCents}), 0)::int`,
         orderCount: sql<number>`count(*)::int`,
       })
@@ -476,7 +476,11 @@ export class OrdersService extends TableService<
 
 export const ordersService = new OrdersService();
 
-function formatUtcDayKey(value: Date): string {
+function formatUtcDayKey(value: Date | string): string {
+  if (typeof value === "string") {
+    return value.slice(0, 10);
+  }
+
   return value.toISOString().slice(0, 10);
 }
 
