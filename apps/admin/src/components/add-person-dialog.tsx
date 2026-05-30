@@ -9,6 +9,7 @@ import {
   type PersonEditForm,
 } from "@/lib/person-form-utils";
 import { PersonEditFormFields } from "@/components/person-edit-form";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -42,15 +43,16 @@ export function AddPersonDialog({ open, onOpenChange }: AddPersonDialogProps) {
         <DialogHeader>
           <DialogTitle>Add person</DialogTitle>
         </DialogHeader>
-        <label className="flex items-center gap-2 text-sm">
-          <input
+        <div className="flex items-center gap-2 text-sm">
+          <Checkbox
             checked={markVerified}
-            className="rounded border-input"
-            type="checkbox"
-            onChange={(e) => setMarkVerified(e.target.checked)}
+            id="add-person-mark-verified"
+            onCheckedChange={(checked) => setMarkVerified(checked === true)}
           />
-          <Label className="font-normal">Mark email/phone as verified</Label>
-        </label>
+          <Label className="font-normal" htmlFor="add-person-mark-verified">
+            Mark email/phone as verified
+          </Label>
+        </div>
         <PersonEditFormFields
           form={form}
           isPending={createMutation.isPending}

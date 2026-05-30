@@ -8,6 +8,7 @@ import type { AdminFkServiceDefinition } from "@/lib/admin-fk-services";
 import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { DataTableColumnHeader } from "@/components/admin-data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function createSortHeader<TRow, TValue>(
   title: string,
@@ -192,15 +193,12 @@ export function adminSelectionColumn<TRow>(opts?: {
       const selectAllId = `${idPrefix}-select-all`;
 
       return (
-        <input
+        <Checkbox
           aria-label="Select all selectable rows on this page"
           checked={sel.allSelectableSelected}
-          className="size-4 rounded border-input"
           disabled={sel.selectableIdsOnPage.length === 0}
           id={selectAllId}
-          name={selectAllId}
-          type="checkbox"
-          onChange={() => sel.toggleAllOnPage()}
+          onCheckedChange={() => sel.toggleAllOnPage()}
         />
       );
     },
@@ -217,16 +215,12 @@ export function adminSelectionColumn<TRow>(opts?: {
       const checkboxId = `${idPrefix}-${id}`;
 
       return (
-        <input
+        <Checkbox
           aria-label="Select row"
           checked={sel.selectedIds.has(id)}
-          className="size-4 rounded border-input"
           disabled={!canSelect}
           id={checkboxId}
-          name={`${idPrefix}-selected`}
-          type="checkbox"
-          value={id}
-          onChange={() => sel.toggleRow(id)}
+          onCheckedChange={() => sel.toggleRow(id)}
         />
       );
     },

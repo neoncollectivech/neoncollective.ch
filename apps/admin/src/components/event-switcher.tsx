@@ -53,12 +53,13 @@ function EventPickerRow({
   onSelect: (eventId: string) => void;
 }) {
   return (
-    <button
+    <Button
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted",
+        "flex h-auto w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-normal",
         isCurrent && "bg-muted",
       )}
       type="button"
+      variant="ghost"
       onClick={() => onSelect(event.id)}
     >
       <span className="min-w-0">
@@ -73,7 +74,7 @@ function EventPickerRow({
       >
         {event.status}
       </Badge>
-    </button>
+    </Button>
   );
 }
 

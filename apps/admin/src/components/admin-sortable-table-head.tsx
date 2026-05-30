@@ -2,6 +2,7 @@ import type { AdminSortDirection } from "@/lib/admin-list-sort";
 
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { TableHead } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
@@ -37,17 +38,18 @@ export function AdminSortableTableHead({
 
   return (
     <TableHead className={className}>
-      <button
+      <Button
         className={cn(
-          "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
+          "inline-flex h-auto items-center gap-1 p-0 font-medium hover:bg-transparent",
           active ? "text-foreground" : "text-muted-foreground",
         )}
         type="button"
+        variant="ghost"
         onClick={() => onSort(field)}
       >
         {label}
         <Icon aria-hidden className="size-3.5 shrink-0 opacity-70" />
-      </button>
+      </Button>
     </TableHead>
   );
 }

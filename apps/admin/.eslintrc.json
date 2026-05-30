@@ -34,5 +34,47 @@
         "newlines-between": "always"
       }
     ]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.{ts,tsx}"],
+      "excludedFiles": ["src/components/ui/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@radix-ui/*"],
+                "message": "Do not import Radix directly. Use Shadcn components from @/components/ui/*."
+              }
+            ]
+          }
+        ],
+        "react/forbid-elements": [
+          "error",
+          {
+            "forbid": [
+              {
+                "element": "button",
+                "message": "Use Button from @/components/ui/button."
+              },
+              {
+                "element": "input",
+                "message": "Use Input from @/components/ui/input."
+              },
+              {
+                "element": "select",
+                "message": "Use Select from @/components/ui/select."
+              },
+              {
+                "element": "textarea",
+                "message": "Use Textarea from @/components/ui/textarea."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

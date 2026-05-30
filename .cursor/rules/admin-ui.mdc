@@ -1,0 +1,13 @@
+---
+description: Admin SPA UI — Shadcn only, no direct Radix imports
+globs: apps/admin/**/*
+alwaysApply: false
+---
+
+# Admin UI (Shadcn only)
+
+- Import UI only from `@/components/ui/*` (Button, Input, Dialog, Table, etc.).
+- Never add `@radix-ui/*` imports outside `apps/admin/src/components/ui/**`. Radix is an implementation detail of the Shadcn primitive layer only.
+- Add new primitives with the Shadcn CLI from `apps/admin/`: `pnpm dlx shadcn@latest add <component>` (uses `components.json`).
+- Prefer Shadcn wrappers over raw HTML controls (`<button>`, `<input>`, `<select>`, `<textarea>`).
+- Do not use HeroUI, MUI, or other component libraries in admin (`apps/web` uses HeroUI; admin uses Shadcn).

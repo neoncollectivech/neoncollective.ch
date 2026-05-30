@@ -6,7 +6,10 @@ import { toast } from "sonner";
 
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { adminApi } from "@/hooks/use-admin-api";
 
@@ -141,8 +144,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
           </FormField>
 
           <FormField label="Selection mode">
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            <Select
               value={row.selectionMode}
               onChange={(e) =>
                 updateRow(index, {
@@ -152,7 +154,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
             >
               <option value="exclusive">Exclusive (pick one)</option>
               <option value="addon">Add-on (combinable)</option>
-            </select>
+            </Select>
           </FormField>
 
           <div className="grid grid-cols-2 gap-3">
@@ -180,14 +182,16 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
             </FormField>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
+          <div className="flex items-center gap-2 text-sm">
+            <Checkbox
               checked={row.active}
-              type="checkbox"
-              onChange={(e) => updateRow(index, { active: e.target.checked })}
+              id={`tier-active-${index}`}
+              onCheckedChange={(checked) =>
+                updateRow(index, { active: checked === true })
+              }
             />
-            Active
-          </label>
+            <Label htmlFor={`tier-active-${index}`}>Active</Label>
+          </div>
         </div>
       ))}
 

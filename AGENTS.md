@@ -320,6 +320,14 @@ Admin table behavior has **one source of truth per table**. Do not define parall
 
 **Frontend:** `@neon/admin` (Vite + React Router + TanStack Query + dark Shadcn UI), no SSR; local proxy `/api` + `/admin` → `events-api:8082`.
 
+### Admin UI (MUST)
+
+- **Allowed UI:** Shadcn components from `@/components/ui/*` only.
+- **Radix (`@radix-ui/*`):** implementation detail confined to `apps/admin/src/components/ui/**`; never import in pages, hooks, or feature components. ESLint enforces this.
+- **New primitives:** add via Shadcn CLI (`apps/admin/components.json`); output lands in `components/ui/`.
+- **No other UI libs** in admin (no HeroUI, MUI, etc. — web uses HeroUI; admin uses Shadcn).
+- Prefer `Button`, `Input`, `Dialog`, etc. over raw HTML form controls.
+
 **Layers:** `lib/admin-api.ts` (HTTP + row types), `lib/admin-list-services/` (paginated list pages), `hooks/use-admin-api/` (detail/mutations only — not duplicate list factories for list pages).
 
 **Auth:** Better Auth at `/admin/auth/*` (not `/api/auth`; CDN must route `/neo-events-api/admin/*`), Google OAuth only, `databaseHooks` + session guard enforce `@neonclub.ch`; `AdminSession` type from `require-admin-session.ts`; optional `adminSession` on `ServiceContext` for control handlers; env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.

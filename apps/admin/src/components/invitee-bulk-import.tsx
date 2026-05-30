@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   INVITEES_CSV_TEMPLATE,
   ParseInviteesCsvError,
@@ -61,14 +63,14 @@ export function InviteeBulkImport({
             {INVITEES_CSV_TEMPLATE}
           </pre>
         </div>
-        <textarea
-          className="w-full min-h-28 rounded-md border border-input bg-background p-3 text-sm font-mono"
+        <Textarea
+          className="min-h-28 font-mono"
           placeholder="Paste or upload CSV…"
           value={csv}
           onChange={(e) => setCsv(e.target.value)}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <input
+          <Input
             ref={fileRef}
             accept=".csv,text/csv"
             className="hidden"

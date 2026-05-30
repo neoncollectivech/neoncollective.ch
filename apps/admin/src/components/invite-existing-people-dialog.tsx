@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -228,13 +229,11 @@ export function InviteExistingPeopleDialog({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10">
-                    <input
+                    <Checkbox
                       aria-label="Select all inviteable people on this page"
                       checked={allSelectableOnPageSelected}
-                      className="size-4 rounded border-input"
                       disabled={selectableOnPage.length === 0}
-                      type="checkbox"
-                      onChange={toggleAllOnPage}
+                      onCheckedChange={toggleAllOnPage}
                     />
                   </TableHead>
                   <TableHead>Name</TableHead>
@@ -250,14 +249,12 @@ export function InviteExistingPeopleDialog({
                   return (
                     <TableRow key={person.id}>
                       <TableCell className="w-10">
-                        <input
+                        <Checkbox
                           aria-label={`Select ${person.givenName} ${person.familyName}`}
                           checked={selectedSet.has(person.id)}
-                          className="size-4 rounded border-input"
                           disabled={!inviteable}
                           id={checkboxId}
-                          type="checkbox"
-                          onChange={() => toggleRow(person)}
+                          onCheckedChange={() => toggleRow(person)}
                         />
                       </TableCell>
                       <TableCell>
