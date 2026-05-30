@@ -1,11 +1,3 @@
-import type { InviteeEditForm } from "@/lib/admin-types";
-
-import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-
-import { FormField } from "@/components/form-field";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { adminApi } from "@/hooks/use-admin-api";
+import { Button } from "@/components/ui/button";
+import { InviteeNotesForm } from "@/components/invitee-notes-form";
 
 type EditInviteeListRow = {
   id: string;
@@ -36,15 +28,6 @@ export function EditInviteeDialog({
   open,
   onOpenChange,
 }: EditInviteeDialogProps) {
-  const [form, setForm] = useState<InviteeEditForm>({ notes: "" });
-  const mutation = useMutation(adminApi.event.updateInvitee(eventId));
-
-  useEffect(() => {
-    if (open && invitee) {
-      setForm({ notes: invitee.notes ?? "" });
-    }
-  }, [open, invitee]);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -57,40 +40,17 @@ export function EditInviteeDialog({
               {invitee.email ?? "—"}
               {invitee.phone ? ` · +${invitee.phone}` : ""}
             </p>
-            <FormField label="Notes">
-              <Textarea
-                rows={3}
-                value={form.notes}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, notes: e.target.value }))
-                }
-              />
-            </FormField>
+            <InviteeNotesForm
+              eventId={eventId}
+              initialNotes={invitee.notes}
+              inviteeId={invitee.id}
+              onSaved={() => onOpenChange(false)}
+            />
           </div>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            disabled={mutation.isPending || !invitee}
-            onClick={() => {
-              if (!invitee) return;
-              mutation.mutate(
-                {
-                  inviteeId: invitee.id,
-                  notes: form.notes.trim() || null,
-                },
-                {
-                  onSuccess: () => {
-                    toast.success("Invitee updated");
-                    onOpenChange(false);
-                  },
-                },
-              );
-            }}
-          >
-            {mutation.isPending ? "Saving…" : "Save"}
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>

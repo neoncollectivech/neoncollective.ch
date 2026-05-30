@@ -41,6 +41,7 @@ import {
   getMaintenancePreview,
   runMaintenance,
 } from "@/lib/admin-api";
+import { fetchAllEventInvitees } from "@/lib/fetch-all-event-invitees";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { queryClient } from "@/lib/query-client";
 import { toIdInParam } from "@/lib/admin-list";
@@ -128,6 +129,12 @@ export const adminApi = {
 
           return { used: res.meta.total };
         },
+        enabled: Boolean(eventId),
+      }),
+    inviteeTreeAll: (eventId: string) =>
+      queryOptions({
+        queryKey: adminKeys.eventInvitees.treeAll(eventId),
+        queryFn: () => fetchAllEventInvitees(eventId),
         enabled: Boolean(eventId),
       }),
     create: () =>

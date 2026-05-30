@@ -22,6 +22,8 @@ export const adminKeys = {
     list: (params?: Record<string, string>) =>
       ["admin", "event-invitees", "list", params] as const,
     detail: (id: string) => ["admin", "event-invitees", id] as const,
+    treeAll: (eventId: string) =>
+      ["admin", "event-invitees", "tree", eventId] as const,
   },
   eventTiers: {
     all: ["admin", "event-tiers"] as const,
