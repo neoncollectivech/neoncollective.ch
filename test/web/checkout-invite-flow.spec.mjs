@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 import {
+  clickContinueAndExpectIntent,
   completeEventCheckout,
   completeProfileWithPhone,
   createIsolatedContext,
@@ -11,8 +12,12 @@ import {
   openInviteOnlyDossierFromIndex,
   expectHostInviteConversion,
   expectHostInviteConversionApi,
+  fetchInviteRemainingRedemptions,
   selectExclusiveAndAddon,
   signInWithPhone,
+  startCheckoutPaymentStep,
+  submitStripePaymentAndConfirmRegistration,
+  waitForStripePaymentElement,
 } from "../fixtures/index.mjs";
 
 const EVENTS_API =
@@ -115,8 +120,32 @@ test.describe("invite-only checkout", () => {
       await selectExclusiveAndAddon(state.pageB, state.seed);
     });
 
+    test("can retry checkout after abandoning a pending payment", async () => {
+      await startCheckoutPaymentStep(state.pageB, state.seed);
+
+      const remainingAfterAbandon = await fetchInviteRemainingRedemptions(
+        state.requestB,
+        EVENTS_API,
+        state.inviteUrl,
+      );
+      expect(remainingAfterAbandon).toBe(0);
+
+      await openInviteOnlyDossierFromIndex(
+        state.pageB,
+        state.seed,
+        state.inviteUrl,
+      );
+      await selectExclusiveAndAddon(state.pageB, state.seed);
+      await clickContinueAndExpectIntent(state.pageB, state.seed, {
+        expectRequiresPayment: true,
+        expectAmountCents: state.seed.checkoutTotalCents,
+      });
+    });
+
     test("pays with Stripe Payment Element and confirms registration", async () => {
-      await completeEventCheckout(state.pageB, state.seed);
+      // Abandon/retry test leaves the payment step open — do not click Continue again.
+      await waitForStripePaymentElement(state.pageB);
+      await submitStripePaymentAndConfirmRegistration(state.pageB, state.seed);
       await expect(state.pageB.getByText("Bring your friends")).not.toBeVisible();
     });
 

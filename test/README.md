@@ -111,7 +111,7 @@ Fixtures: `startCheckoutPaymentStep`, `submitStripePaymentAndConfirmRegistration
 
 **Person A (host on guest list):** sign-in → **minimal checkout** (exclusive **Root** + **Addon 1**, total CHF 23) → pay → confirmed → host invite link
 
-**Person B (guest link):** fresh browser → profile + verify → same tier/add-on checkout → pay → confirmed (no “Bring your friends”) → API has no `hostInvite`
+**Person B (guest link):** fresh browser → profile + verify → same tier/add-on checkout → **abandon Stripe step and retry intent** (host link `maxRedemptions: 1`; pending must not block the same guest) → pay → confirmed (no “Bring your friends”) → API has no `hostInvite`
 
 **Person A (after B):** reload private dossier → **Registered via your link** lists Person B (name + `Guest + Bar package` tiers) → API `hostInvite.conversions` matches
 

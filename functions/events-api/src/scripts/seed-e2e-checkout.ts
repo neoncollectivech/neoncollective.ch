@@ -229,7 +229,8 @@ async function ensureInviteOnlyEvent(
       status: "published",
       accessMode: "invite_only",
       eventQuota: 80,
-      defaultInviteLinkMaxRedemptions: 5,
+      /** One guest slot — Playwright asserts retry after abandoned pending checkout. */
+      defaultInviteLinkMaxRedemptions: 1,
     })
     .returning({ id: events.id });
   const id = ev!.id;

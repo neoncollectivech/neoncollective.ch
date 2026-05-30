@@ -358,6 +358,29 @@ export async function completeFreePromoCheckout(page, seed) {
   ).toBeVisible({ timeout: 30_000 });
 }
 
+/** Guest invite link budget from `GET /invites/resolve` (counts pending + paid orders). */
+export async function fetchInviteRemainingRedemptions(request, eventsApiBase, inviteUrl) {
+  const token = new URL(inviteUrl).searchParams.get("invite");
+  if (!token) {
+    throw new Error(`Invite URL missing ?invite= param: ${inviteUrl}`);
+  }
+  const res = await request.get(
+    `${eventsApiBase}/invites/resolve?token=${encodeURIComponent(token)}`,
+  );
+  if (!res.ok()) {
+    throw new Error(
+      `Invite resolve failed (${res.status()}): ${await res.text()}`,
+    );
+  }
+  const body = await res.json();
+  if (typeof body.remainingRedemptions !== "number") {
+    throw new Error(
+      `Invite resolve missing remainingRedemptions: ${JSON.stringify(body)}`,
+    );
+  }
+  return body.remainingRedemptions;
+}
+
 export async function extractInviteUrlFromPage(page) {
   const text = await page.locator("text=/invite=/").first().textContent();
   const raw = text?.trim() ?? "";

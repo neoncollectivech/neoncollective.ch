@@ -8,6 +8,7 @@ export {
   completeFreePromoCheckout,
   expectMinimalCheckout,
   extractInviteUrlFromPage,
+  fetchInviteRemainingRedemptions,
   openInviteOnlyDossier,
   openInviteOnlyDossierFromIndex,
   selectExclusiveAndAddon,
