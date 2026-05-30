@@ -9,6 +9,7 @@ import { useMutation } from "@tanstack/react-query";
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
+import { NeonOtpInput } from "@/components/neon-otp-input";
 import { apiErrorMessage } from "@/helpers/apiErrorMessage";
 import { useLocale } from "@/hooks/use-locale";
 import {
@@ -284,29 +285,23 @@ export function ParticipantProfileModal({
               className="space-y-4 max-w-md"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!code.trim()) {
+                if (code.length < 6) {
                   return;
                 }
                 verifyMutation.mutate();
               }}
             >
-              <NeonInput
-                isRequired
-                classNames={{
-                  input:
-                    "text-sm text-foreground/80 font-mono uppercase tracking-wider",
-                }}
+              <NeonOtpInput
+                required
                 data-testid="participant-profile-verify-code"
                 label={labels.verifyCodeLabel}
-                maxLength={6}
-                placeholder={labels.verifyCodePlaceholder}
                 value={code}
-                onValueChange={setCode}
+                onChange={setCode}
               />
               <div className="flex flex-wrap gap-3">
                 <NeonButton
                   data-testid="participant-profile-verify-submit"
-                  isDisabled={verifyMutation.isPending || !code.trim()}
+                  isDisabled={verifyMutation.isPending || code.length < 6}
                   type="submit"
                   variant="bordered"
                 >

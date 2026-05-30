@@ -12,6 +12,7 @@ import { apiErrorMessage } from "@/helpers/apiErrorMessage";
 import { absoluteSiteUrl } from "@/helpers/site-url";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
+import { NeonOtpInput } from "@/components/neon-otp-input";
 import { NeonLink } from "@/components/neon-link";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useLocale } from "@/hooks/use-locale";
@@ -170,10 +171,10 @@ export function ParticipantSessionPanel({
           className="space-y-3 max-w-md"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!accessCode.trim()) {
+            if (accessCode.length < 6) {
               return;
             }
-            exchangeMutation.mutate(accessCode.trim(), {
+            exchangeMutation.mutate(accessCode, {
               onSuccess: async () => {
                 setAwaitingCode(false);
                 setAccessCode("");
@@ -186,23 +187,16 @@ export function ParticipantSessionPanel({
             });
           }}
         >
-          <NeonInput
-            isRequired
-            classNames={{
-              input:
-                "text-sm text-foreground/80 font-mono uppercase tracking-wider",
-            }}
+          <NeonOtpInput
+            required
             data-testid="participant-session-code"
             label={t.sessionCodeLabel}
-            maxLength={6}
-            placeholder={t.sessionCodePlaceholder}
-            type="text"
             value={accessCode}
-            onValueChange={setAccessCode}
+            onChange={setAccessCode}
           />
           <NeonButton
             data-testid="participant-session-submit"
-            isDisabled={exchangeMutation.isPending || !accessCode.trim()}
+            isDisabled={exchangeMutation.isPending || accessCode.length < 6}
             type="submit"
             variant="bordered"
           >

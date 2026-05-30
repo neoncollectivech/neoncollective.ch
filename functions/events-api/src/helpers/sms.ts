@@ -12,6 +12,7 @@ import {
   resolveTwilioOutboundParams,
   sendTwilioSms,
 } from "./twilio-rest";
+import { formatOtpDisplayCode } from "./otp";
 
 const log = createLogger("sms");
 
@@ -51,7 +52,7 @@ export async function sendRegistrationSmsCode(params: {
     return { ok: false, error: outbound.error };
   }
 
-  const body = `NEON ${params.code}\n${params.accessUrl}`;
+  const body = `NEON ${formatOtpDisplayCode(params.code)}\n${params.accessUrl}`;
   if (!isSingleGsmSegmentRegistrationSms(body)) {
     log.error(
       { len: body.length, to: params.toE164 },

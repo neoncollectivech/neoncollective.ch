@@ -5,6 +5,7 @@ import {
 } from "@neon/server-kit";
 
 import { getEventsApiEnv } from "../config/runtime-env";
+import { formatOtpDisplayCode } from "./otp";
 import {
   confirmationTemplates,
   profileVerifyTemplates,
@@ -60,7 +61,7 @@ export async function sendProfileVerificationEmail(params: {
       ctaUrl,
       ctaLabel,
       footer: t.footer,
-      displayCode: params.code,
+      displayCode: formatOtpDisplayCode(params.code),
     }),
   });
 }
@@ -82,7 +83,7 @@ export async function sendRegistrationAccessEmail(params: {
       ctaUrl: params.accessUrl,
       ctaLabel: t.cta,
       footer: t.footer,
-      displayCode: params.code,
+      displayCode: formatOtpDisplayCode(params.code),
     }),
   });
 }
@@ -112,7 +113,7 @@ export async function sendContributionConfirmationEmail(params: {
       ctaUrl: params.accessUrl,
       ctaLabel: t.cta,
       footer: t.footer,
-      displayCode: params.code,
+      displayCode: formatOtpDisplayCode(params.code),
     }),
   });
 }
