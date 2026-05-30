@@ -23,26 +23,22 @@ import { absoluteSiteUrl, getSiteOrigin } from "@/helpers/site-url";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
 import { NeonLink } from "@/components/neon-link";
-import { ParticipantProfileModal } from "@/components/participant-profile-modal";
+import {
+  ParticipantProfileGateModal,
+  useParticipantProfileGate,
+} from "@/hooks/use-participant-profile-gate";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { useDictionary } from "@/i18n/DictionaryContext";
-import { useEventUrlParams } from "@/hooks/use-event-url-params";
-import { usePersistedEventLinkQuery } from "@/hooks/use-persisted-event-link-query";
+import { useEventLinkState } from "@/hooks/use-event-link-state";
 import { useLocale } from "@/hooks/use-locale";
 import { eventDetailPath } from "@/helpers/eventRoutes";
-import {
-  buildReturnPath,
-  resolveEventLinkQuery,
-} from "@/helpers/event-link-query";
-import { useProfileModalLabels } from "@/hooks/use-profile-modal-labels";
+import { buildReturnPath } from "@/helpers/event-link-query";
 import { useStripePromise } from "@/hooks/use-stripe-promise";
 import {
   eventsApi,
   eventsKeys,
   useCheckoutConfirmation,
   useExchangeRegistrationCode,
-  useProfileBootstrap,
-  writeParticipantProfileCache,
   type EventPayload,
   type EventTier,
   type InviteLinkConversion,
@@ -473,14 +469,13 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const { inviteToken: urlInviteToken, code: initialCode } =
-    useEventUrlParams();
-  const { appendToHref } = usePersistedEventLinkQuery();
-  const linkQuery = useMemo(
-    () => resolveEventLinkQuery(searchParams),
-    [searchParams],
-  );
-  const promo = linkQuery.promo;
+  const {
+    inviteToken: urlInviteToken,
+    promo,
+    code: initialCode,
+    appendToHref,
+    linkQuery,
+  } = useEventLinkState();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
   const stripePromise = useStripePromise();
@@ -521,20 +516,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       ? undefined
       : urlInviteToken;
 
-  const profileLabels = useProfileModalLabels();
-  const [profileGateOpen, setProfileGateOpen] = useState(true);
-  const {
-    profile,
-    needsProfile,
-    isLoading: profileLoading,
-    invalidateAfterProfileComplete,
-  } = useProfileBootstrap(effectiveInviteToken);
-
-  useEffect(() => {
-    if (!profileLoading && needsProfile) {
-      setProfileGateOpen(true);
-    }
-  }, [profileLoading, needsProfile]);
+  const profileGate = useParticipantProfileGate(effectiveInviteToken);
 
   useEffect(() => {
     const ev = eventQuery.data;
@@ -791,10 +773,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const ev = eventQuery.data as EventPayload;
   const registrationSettled =
     Boolean(ev.registrationConfirmed) && !confirmingRegistration;
-  const hasCheckoutProfile = Boolean(profile?.profileComplete);
-  const showProfileGateModal =
-    profileGateOpen && needsProfile && !profileLoading;
-  const showContactForm = !profileLoading && !hasCheckoutProfile;
+  const hasCheckoutProfile = Boolean(profileGate.profile?.profileComplete);
+  const showContactForm = !profileGate.profileLoading && !hasCheckoutProfile;
   const checkoutContactReady = hasCheckoutProfile
     ? true
     : Boolean(email.trim() || phone.trim());
@@ -807,7 +787,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
   const checkoutDisabledReason = !tierSelectionReady
     ? t.checkoutSelectTier
-    : profileLoading
+    : profileGate.profileLoading
       ? t.loading
       : !checkoutContactReady
         ? t.checkoutEnterContact
@@ -826,26 +806,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
   return (
     <>
-      {showProfileGateModal ? (
-        <ParticipantProfileModal
-          open
-          dismissable={false}
-          initialProfile={profile ?? undefined}
-          labels={profileLabels}
-          onComplete={async (p) => {
-            writeParticipantProfileCache(queryClient, p, effectiveInviteToken);
-            await invalidateAfterProfileComplete();
-            setProfileGateOpen(false);
-          }}
-        />
-      ) : null}
-      <div
-        className={
-          showProfileGateModal
-            ? "pointer-events-none opacity-40 select-none"
-            : undefined
-        }
-      >
+      <ParticipantProfileGateModal gate={profileGate} />
+      <div className={profileGate.dimmedContentClassName}>
         <EventHero
           backHref={backHref}
           backLabel={t.backToEvents}
@@ -1163,16 +1125,18 @@ function EventDetailsInner({ slug }: { slug: string }) {
                     isDisabled={
                       intentMutation.isPending ||
                       !tierSelectionReady ||
-                      profileLoading ||
+                      profileGate.profileLoading ||
                       !checkoutContactReady
                     }
                     type="button"
                     onPress={() => {
                       const useProfileContact = Boolean(
-                        profile?.profileComplete,
+                        profileGate.profile?.profileComplete,
                       );
-                      const profileEmail = profile?.email?.trim() ?? "";
-                      const profilePhone = profile?.phoneE164?.trim() ?? "";
+                      const profileEmail =
+                        profileGate.profile?.email?.trim() ?? "";
+                      const profilePhone =
+                        profileGate.profile?.phoneE164?.trim() ?? "";
 
                       intentMutation.mutate(
                         {
@@ -1222,7 +1186,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   {checkoutDisabledReason &&
                   (intentMutation.isPending ||
                     !tierSelectionReady ||
-                    profileLoading ||
+                    profileGate.profileLoading ||
                     !checkoutContactReady) ? (
                     <p className="text-xs text-foreground/40">
                       {checkoutDisabledReason}

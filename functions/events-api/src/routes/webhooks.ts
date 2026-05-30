@@ -13,7 +13,7 @@ import {
   fulfillPaidOrder,
   type FulfillPaidOrderResult,
 } from "./checkout/fulfill-paid-order";
-import { sendPostCheckoutParticipantAccessEmail } from "./registrations/session";
+import { handleFulfillmentResult } from "./checkout/handle-fulfillment-result";
 import { runTransaction } from "../services/transaction";
 
 const log = createLogger("stripe-webhook");
@@ -56,13 +56,7 @@ async function handlePaymentIntentSucceeded(
     return { ok: false, status: 500, error: result.reason };
   }
 
-  if (result.kind === "send_email") {
-    try {
-      await sendPostCheckoutParticipantAccessEmail(result.job);
-    } catch (e) {
-      log.error({ err: e, orderId }, "Post-checkout access email failed");
-    }
-  }
+  await handleFulfillmentResult(result);
 
   const order = await ordersService.get(orderId);
   if (!isFulfillmentComplete(order)) {

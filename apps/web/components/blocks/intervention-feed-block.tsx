@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { SplitFlapText } from "@/components/split-flap-text";
-import { NeonLink } from "@/components/neon-link";
+import { ContentCtaLink } from "@/components/content-cta-link";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { eventsApi, type EventCatalogItem } from "@/hooks/use-events-api";
 import { eventDetailPath } from "@/helpers/eventRoutes";
@@ -206,16 +206,16 @@ function EntryCard({
           </span>
         ) : (
           entry.cta && (
-            <NeonLink
+            <ContentCtaLink
+              className=""
+              external={entry.cta.external}
               href={
                 entry.cta.external
                   ? entry.cta.href
                   : `/${locale}${entry.cta.href}`
               }
-              isExternal={entry.cta.external}
-            >
-              {entry.cta.label}
-            </NeonLink>
+              label={entry.cta.label}
+            />
           )
         )}
       </div>

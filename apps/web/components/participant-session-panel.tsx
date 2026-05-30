@@ -2,7 +2,6 @@
 
 import type { QueryKey } from "@tanstack/react-query";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Spinner } from "@heroui/react";
@@ -16,7 +15,7 @@ import { NeonOtpInput } from "@/components/neon-otp-input";
 import { NeonLink } from "@/components/neon-link";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useLocale } from "@/hooks/use-locale";
-import { eventsApi } from "@/hooks/use-events-api";
+import { useParticipantSession } from "@/hooks/use-events-api";
 
 type ParticipantSessionPanelProps = {
   returnPath: string;
@@ -41,7 +40,6 @@ export function ParticipantSessionPanel({
   const locale = useLocale();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
-  const queryClient = useQueryClient();
 
   const searchParams = useSearchParams();
   const loginPrefill = searchParams.get("login")?.trim() ?? "";
@@ -57,15 +55,18 @@ export function ParticipantSessionPanel({
   );
   const [accessCode, setAccessCode] = useState("");
 
-  const sessionStatusQuery = useQuery(
-    eventsApi.participant.session({ enabled: !codeExchangePending }),
-  );
-  const sessionMutation = useMutation(eventsApi.registration.requestSession());
-  const exchangeMutation = useMutation(
-    eventsApi.registration.exchangeSession(),
-  );
-
-  const sessionEstablished = sessionStatusQuery.data?.session === true;
+  const {
+    sessionStatusQuery,
+    sessionEstablished,
+    requestMutation: sessionMutation,
+    exchangeMutation,
+    invalidateAfterExchange,
+  } = useParticipantSession({
+    locale,
+    returnPath,
+    enabled: !codeExchangePending,
+    sessionEstablishedQueryKeys,
+  });
 
   useEffect(() => {
     if (
@@ -180,9 +181,7 @@ export function ParticipantSessionPanel({
                 setAccessCode("");
                 setAccessChannel(null);
                 sessionMutation.reset();
-                for (const key of sessionEstablishedQueryKeys) {
-                  await queryClient.invalidateQueries({ queryKey: key });
-                }
+                await invalidateAfterExchange();
               },
             });
           }}

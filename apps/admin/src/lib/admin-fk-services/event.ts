@@ -1,24 +1,12 @@
 import { listEvents } from "@/lib/admin-api";
 import { eventOverviewPath } from "@/lib/event-workspace-paths";
-import { toIdInParam } from "@/lib/admin-list";
 
-import { defineAdminFkService } from "./types";
+import { createIdKeyedFkService } from "./create-id-keyed-fk-service";
 
-function lookupKeyById(row: unknown): string {
-  return String((row as { id: string }).id);
-}
-
-export const eventFkService = defineAdminFkService({
+export const eventFkService = createIdKeyedFkService({
   id: "event",
   defaultIdKey: "eventId",
   batchIdFromRow: (row) => row.eventId,
-  buildListParams: (ids) => ({
-    limit: String(ids.length || 1),
-    skip: "0",
-    ...(ids.length > 0 ? { id_in: toIdInParam(ids) } : {}),
-  }),
   list: listEvents,
-  lookupKeyFromRow: lookupKeyById,
-  presentation: "link",
   href: (id) => eventOverviewPath(id),
 });

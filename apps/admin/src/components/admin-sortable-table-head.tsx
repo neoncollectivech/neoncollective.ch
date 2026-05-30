@@ -1,10 +1,7 @@
 import type { AdminSortDirection } from "@/lib/admin-list-sort";
 
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import { AdminSortableColumnLabel } from "@/components/admin-sortable-column-label";
 import { TableHead } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 
 type AdminSortableTableHeadProps = {
   label: string;
@@ -30,26 +27,15 @@ export function AdminSortableTableHead({
   }
 
   const active = sortField === field;
-  const Icon = active
-    ? sortDirection === "asc"
-      ? ArrowUp
-      : ArrowDown
-    : ArrowUpDown;
 
   return (
     <TableHead className={className}>
-      <Button
-        className={cn(
-          "inline-flex h-auto items-center gap-1 p-0 font-medium hover:bg-transparent",
-          active ? "text-foreground" : "text-muted-foreground",
-        )}
-        type="button"
-        variant="ghost"
+      <AdminSortableColumnLabel
+        active={active}
+        direction={active ? sortDirection : undefined}
+        label={label}
         onClick={() => onSort(field)}
-      >
-        {label}
-        <Icon aria-hidden className="size-3.5 shrink-0 opacity-70" />
-      </Button>
+      />
     </TableHead>
   );
 }

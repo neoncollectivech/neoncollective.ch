@@ -7,9 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { adminApi } from "@/hooks/use-admin-api";
 
-import { CumulativeTotalChart } from "./cumulative-total-chart";
 import { EventSalesKpiStrip } from "./event-sales-kpi-strip";
-import { SalesOverTimeChart } from "./sales-over-time-chart";
+import { SalesMetricChart } from "./sales-metric-chart";
 import { buildSalesChartPoints } from "./sales-chart-utils";
 
 type EventSalesAnalyticsProps = {
@@ -89,7 +88,11 @@ export function EventSalesAnalytics({ eventId }: EventSalesAnalyticsProps) {
                   <CardTitle className="text-base">Sales over time</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <SalesOverTimeChart data={chartData} metric={metric} />
+                  <SalesMetricChart
+                    data={chartData}
+                    metric={metric}
+                    variant="bar"
+                  />
                 </CardContent>
               </Card>
 
@@ -98,7 +101,11 @@ export function EventSalesAnalytics({ eventId }: EventSalesAnalyticsProps) {
                   <CardTitle className="text-base">Cumulative total</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CumulativeTotalChart data={chartData} metric={metric} />
+                  <SalesMetricChart
+                    data={chartData}
+                    metric={metric}
+                    variant="line"
+                  />
                 </CardContent>
               </Card>
             </div>

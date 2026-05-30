@@ -1,5 +1,6 @@
 "use client";
 
+import type { QueryKey } from "@tanstack/react-query";
 import type { Locale } from "@/i18n/config";
 import type { ParticipantProfile } from "@/helpers/eventsApi";
 
@@ -74,14 +75,11 @@ export function useProfileBootstrap(
   };
 }
 
-/** @deprecated Use useProfileBootstrap */
-export const useParticipantProfileBootstrap = useProfileBootstrap;
-
 export function useParticipantSession(opts: {
   locale: Locale;
   returnPath: string;
   enabled?: boolean;
-  sessionEstablishedQueryKeys?: readonly unknown[][];
+  sessionEstablishedQueryKeys?: readonly QueryKey[];
 }) {
   const queryClient = useQueryClient();
   const invalidate = useEventsInvalidate();
@@ -181,9 +179,6 @@ export function useExchangeRegistrationCode(params: {
 
   return { codeHandled, codeError };
 }
-
-/** @deprecated Use useExchangeRegistrationCode */
-export const useExchangeRegistrationSessionCode = useExchangeRegistrationCode;
 
 export type CheckoutConfirmationLabels = {
   timeout: string;

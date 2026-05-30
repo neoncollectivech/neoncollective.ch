@@ -16,6 +16,7 @@ import { TableService } from "./base/table-service";
 import type { ServiceContext } from "./base/types";
 import type { EntityTx } from "./transaction";
 import { eventsService } from "./events.service";
+import { peopleService } from "./people.service";
 
 export type EventInviteesTx = EntityTx;
 
@@ -58,6 +59,16 @@ function contactMatchSql(contact: InviteeContactLookup): SQL | null {
     parts.push(eq(eventInvitees.phone, digits));
   }
   return orClauses(parts);
+}
+
+function inviteeLookupResult<T>(rows: T[]): T | null | "ambiguous" {
+  if (rows.length === 0) {
+    return null;
+  }
+  if (rows.length > 1) {
+    return "ambiguous";
+  }
+  return rows[0]!;
 }
 
 export const eventInviteesResourceMeta = introspectTable(eventInvitees, {
@@ -730,6 +741,39 @@ export class EventInviteesService extends TableService<
       .from(eventInvitees)
       .where(scope.where)
       .orderBy(...scope.orderBy);
+  }
+
+  async findInviteeByContactWithPersonFallback(
+    eventId: string,
+    email: string,
+    phoneDigits: string | null,
+  ): Promise<(typeof eventInvitees.$inferSelect) | null | "ambiguous"> {
+    const em = email.trim() ? normalizeEmailTypo(email) : null;
+    const rows = await this.findActiveInviteesByContactOnEvent(eventId, {
+      email: em,
+      phoneDigits,
+      phoneE164: phoneDigits ? `+${phoneDigits}` : null,
+    });
+    const direct = inviteeLookupResult(rows);
+    if (direct) {
+      return direct;
+    }
+
+    let personId: string | undefined;
+    if (em) {
+      personId =
+        (await peopleService.findPersonIdByEmail(em)) ??
+        (await this.findLinkedPersonIdByEmail(em));
+    } else if (phoneDigits) {
+      personId =
+        (await peopleService.findPersonIdByPhoneE164(`+${phoneDigits}`)) ??
+        (await this.findLinkedPersonIdByPhoneE164(`+${phoneDigits}`));
+    }
+    if (!personId) {
+      return null;
+    }
+
+    return this.findByPersonIdOnEvent(eventId, personId);
   }
 }
 

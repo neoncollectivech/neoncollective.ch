@@ -8,12 +8,8 @@ import {
   resolveCheckoutReturnUrl,
   stripe,
 } from "../../helpers/stripe";
-import {
-  computeTierPlacesRemaining,
-  eventIdForInviteLinkId,
-  findEventInviteeByContact,
-} from "../events/read";
-import { getTierSoldQty } from "../shared/tier-capacity";
+import { computeTierPlacesRemaining, getTierSoldQty } from "../../helpers/tier-capacity";
+import { inviteLinksService } from "../../services/invite-links.service";
 import { findInviteLinkByRawToken } from "../shared/invite-links-orchestration";
 import { isSessionProfileComplete } from "../registrations/profile";
 import { eventInviteesService } from "../../services/event-invitees.service";
@@ -23,9 +19,12 @@ import { eventsService } from "../../services/events.service";
 import { ordersService } from "../../services/orders.service";
 import { orderTiersService } from "../../services/order-tiers.service";
 import { eventTiersService } from "../../services/event-tiers.service";
-import { inviteLinksService } from "../../services/invite-links.service";
-import type { ResolvedCheckoutPricing } from "./promotion-pricing";
+import {
+  resolveSelectedCheckoutTiersInTx,
+  uniqueCheckoutAddonIds,
+} from "./resolve-selected-tiers";
 import { resolveCheckoutPricingInTx } from "./promotion-pricing";
+import type { ResolvedCheckoutPricing } from "./promotion-pricing";
 import type { ResolvedParticipantSession } from "../registrations/session";
 
 type CheckoutTx = EntityTx;
@@ -283,20 +282,6 @@ async function resolveExistingOrderForCheckoutTx(
   return { action: "continue" };
 }
 
-function uniqueAddonIds(ids: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const id of ids) {
-    const trimmed = id.trim();
-    if (!trimmed || seen.has(trimmed)) {
-      continue;
-    }
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out;
-}
-
 export async function createCheckoutIntent(
   input: CheckoutIntentInput,
 ): Promise<CheckoutIntentSuccess | CheckoutIntentFailure> {
@@ -306,7 +291,7 @@ export async function createCheckoutIntent(
     slug: input.slug,
   });
   const exclusiveTierId = input.exclusiveTierId?.trim() ?? "";
-  const addonTierIds = uniqueAddonIds(input.addonTierIds ?? []);
+  const addonTierIds = uniqueCheckoutAddonIds(input.addonTierIds ?? []);
 
   const session = input.session;
   const profileComplete = await isSessionProfileComplete(session);
@@ -361,7 +346,7 @@ export async function createCheckoutIntent(
           guestLinkMax = guest.link.maxRedemptions;
         }
         if (!guestLinkId && session.inviteLinkId) {
-          const linkEventId = await eventIdForInviteLinkId(session.inviteLinkId);
+          const linkEventId = await inviteLinksService.eventIdForLinkId(session.inviteLinkId);
           if (linkEventId === ev.id) {
             guestLinkId = session.inviteLinkId;
             guestLinkMax = await inviteLinksService.getMaxRedemptions(session.inviteLinkId, tx);
@@ -378,7 +363,7 @@ export async function createCheckoutIntent(
         if (!checkoutEmailForEventInvite && !phoneDigits) {
           return checkoutFailure("contact_required");
         }
-        const eventInvitee = await findEventInviteeByContact(
+        const eventInvitee = await eventInviteesService.findInviteeByContactWithPersonFallback(
           ev.id,
           checkoutEmailForEventInvite ?? "",
           phoneDigits,
@@ -406,43 +391,15 @@ export async function createCheckoutIntent(
         }
       }
 
-      const activeTiers = await eventTiersService.listActiveForEvent(ev.id, tx);
-
-      const hasExclusiveTiers = activeTiers.some((t) => t.selectionMode === "exclusive");
-      if (hasExclusiveTiers && !exclusiveTierId) {
-        return checkoutFailure("tier_required");
+      const tierResult = await resolveSelectedCheckoutTiersInTx(tx, {
+        eventId: ev.id,
+        exclusiveTierId,
+        addonTierIds,
+      });
+      if (!tierResult.ok) {
+        return checkoutFailure(tierResult.reason);
       }
-      if (!hasExclusiveTiers && addonTierIds.length === 0) {
-        return checkoutFailure("tiers_required");
-      }
-
-      const selectedIds = [
-        ...(exclusiveTierId ? [exclusiveTierId] : []),
-        ...addonTierIds,
-      ];
-      const tierById = new Map(activeTiers.map((t) => [t.id, t]));
-
-      const selectedTiers: SelectedTier[] = [];
-      for (const id of selectedIds) {
-        const tier = tierById.get(id);
-        if (!tier) {
-          return checkoutFailure("unknown_tier");
-        }
-        selectedTiers.push(tier);
-      }
-
-      if (exclusiveTierId) {
-        const exclusive = tierById.get(exclusiveTierId);
-        if (!exclusive || exclusive.selectionMode !== "exclusive") {
-          return checkoutFailure("invalid_exclusive_tier");
-        }
-      }
-      for (const id of addonTierIds) {
-        const addon = tierById.get(id);
-        if (!addon || addon.selectionMode !== "addon") {
-          return checkoutFailure("invalid_addon_tier");
-        }
-      }
+      const selectedTiers = tierResult.selectedTiers;
 
       let headUsed = await ordersService.countPendingOrPaidForEvent(ev.id, tx);
       headUsed = await decrementCountIfExcludedPendingOrderTx(

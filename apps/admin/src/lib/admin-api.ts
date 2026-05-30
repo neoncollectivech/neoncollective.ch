@@ -1,10 +1,10 @@
-import type { TierRow } from "@/lib/admin-types";
+import type { EventDetail, PersonDetail, TierRow } from "@/lib/admin-types";
 import type { InviteeUpsertPayload } from "@/lib/parse-invitees-csv";
 
 import axios from "axios";
 
 import { createAdminListClient } from "@/lib/admin-list-services/create-admin-list-client";
-import { api, type ItemResponse } from "@/lib/api-client";
+import { api, type ItemResponse, type ListResponse } from "@/lib/api-client";
 
 /** Mirrors `eventsResourceMeta.project.list`. */
 export type EventRow = {
@@ -67,14 +67,7 @@ export type VerifyPeopleMeta = {
   notFound: number;
 };
 
-export type EventReadRow = EventRow & {
-  summary: string | null;
-  location: string | null;
-  imageUrls: string[];
-  eventQuota: number | null;
-  defaultInviteLinkMaxRedemptions: number;
-  createdAt: string;
-};
+export type EventReadRow = EventDetail;
 
 export type EventSalesAnalyticsDay = {
   date: string;
@@ -145,10 +138,7 @@ export type PromotionCodePatchPayload = {
   amountOffCents?: number;
 };
 
-export type PersonReadRow = PersonRow & {
-  createdAt: string;
-  updatedAt: string;
-};
+export type PersonReadRow = PersonDetail;
 
 export type EventTierListRow = TierRow & {
   id: string;
@@ -229,9 +219,7 @@ const listInviteLinksClient = createAdminListClient<InviteLinkRow>(
   "/admin/invite-links",
 );
 
-export async function listEvents(params: AdminListRequestParams) {
-  return listEventsClient(params);
-}
+export const listEvents = listEventsClient;
 
 export async function getEvent(eventId: string) {
   const res = await api.get<ItemResponse<EventReadRow>>(
@@ -259,9 +247,7 @@ export async function patchEvent(eventId: string, payload: unknown) {
   return res.data.item;
 }
 
-export async function listEventInvitees(params: AdminListRequestParams) {
-  return listEventInviteesClient(params);
-}
+export const listEventInvitees = listEventInviteesClient;
 
 export async function getEventInvitee(inviteeId: string) {
   const res = await api.get<ItemResponse<EventInviteeListRow>>(
@@ -411,6 +397,50 @@ export async function listEventPromotionCodes(eventId: string) {
   return res.data.items;
 }
 
+/** Client-side pagination over the event-scoped promotion codes list. */
+export async function listEventPromotionCodesPaginated(
+  eventId: string,
+  params?: Pick<AdminListRequestParams, "limit" | "skip" | "sort">,
+): Promise<ListResponse<EventPromotionCodeRow>> {
+  const all = await listEventPromotionCodes(eventId);
+  const limit = params?.limit ? Number.parseInt(params.limit, 10) : 50;
+  const skip = params?.skip ? Number.parseInt(params.skip, 10) : 0;
+  const sorted = sortEventPromotionCodeRows(all, params?.sort);
+
+  return {
+    items: sorted.slice(skip, skip + limit),
+    meta: { total: sorted.length, limit, skip },
+  };
+}
+
+function sortEventPromotionCodeRows(
+  rows: EventPromotionCodeRow[],
+  sort?: string,
+): EventPromotionCodeRow[] {
+  const [field, direction] = (sort ?? "createdAt:desc").split(":");
+  const dir = direction === "asc" ? 1 : -1;
+
+  return [...rows].sort((a, b) => {
+    const av = a[field as keyof EventPromotionCodeRow];
+    const bv = b[field as keyof EventPromotionCodeRow];
+
+    if (av == null && bv == null) {
+      return 0;
+    }
+    if (av == null) {
+      return 1;
+    }
+    if (bv == null) {
+      return -1;
+    }
+    if (typeof av === "number" && typeof bv === "number") {
+      return (av - bv) * dir;
+    }
+
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+}
+
 export async function getEventSalesAnalytics(eventId: string) {
   const res = await api.get<EventSalesAnalytics>(
     `/admin/events/${eventId}/sales-analytics`,
@@ -456,9 +486,7 @@ export async function getPromotionCode(promotionCodeId: string) {
   return res.data.item;
 }
 
-export async function listOrders(params: AdminListRequestParams) {
-  return listOrdersClient(params);
-}
+export const listOrders = listOrdersClient;
 
 export async function getOrder(orderId: string) {
   const res = await api.get<ItemResponse<OrderReadRow>>(
@@ -476,9 +504,7 @@ export async function deleteOrder(orderId: string) {
   await api.delete(`/admin/orders/${orderId}`);
 }
 
-export async function listPeople(params: AdminListRequestParams) {
-  return listPeopleClient(params);
-}
+export const listPeople = listPeopleClient;
 
 export type PersonCreatePayload = {
   givenName: string;
@@ -549,25 +575,11 @@ export async function deletePerson(personId: string) {
   await api.delete(`/admin/people/${personId}`);
 }
 
-export async function listEventTiers(params: AdminListRequestParams) {
-  return listEventTiersClient(params);
-}
-
-export async function listOrderTiers(params: AdminListRequestParams) {
-  return listOrderTiersClient(params);
-}
-
-export async function listAdmissions(params: AdminListRequestParams) {
-  return listAdmissionsClient(params);
-}
-
-export async function listInviteRedemptions(params: AdminListRequestParams) {
-  return listInviteRedemptionsClient(params);
-}
-
-export async function listInviteLinks(params: AdminListRequestParams) {
-  return listInviteLinksClient(params);
-}
+export const listEventTiers = listEventTiersClient;
+export const listOrderTiers = listOrderTiersClient;
+export const listAdmissions = listAdmissionsClient;
+export const listInviteRedemptions = listInviteRedemptionsClient;
+export const listInviteLinks = listInviteLinksClient;
 
 export type MaintenanceCategoryPreview = {
   key: string;

@@ -141,7 +141,9 @@ export class PromotionCodesService extends TableService<typeof promotionCodes> {
   }
 
   protected override async beforeDelete(id: string, _ctx?: ServiceContext): Promise<void> {
-    const used = await ordersService.countPendingOrPaidForPromotionCode(id);
+    const used = (
+      await ordersService.promotionUsageStats(id)
+    ).usedRedemptions;
     if (used > 0) {
       throw new ConflictError(
         "Cannot delete a promotion code that has been used on an order.",

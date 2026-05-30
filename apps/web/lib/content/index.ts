@@ -1,6 +1,8 @@
 import type { Locale } from "@/i18n/config";
 import type { ContentMap } from "./types";
 
+import { cache } from "react";
+
 /**
  * Fetch page content for a given slug and locale.
  *
@@ -10,11 +12,10 @@ import type { ContentMap } from "./types";
  *   const res = await fetch(`${STRAPI_URL}/api/${slug}?locale=${locale}`);
  *   return res.json();
  */
-export async function getContent<K extends keyof ContentMap>(
-  slug: K,
-  locale: Locale,
-): Promise<ContentMap[K]> {
+export const getContent = cache(async function getContent<
+  K extends keyof ContentMap,
+>(slug: K, locale: Locale): Promise<ContentMap[K]> {
   const mod = await import(`./local/${slug}`);
 
   return mod.default[locale] as ContentMap[K];
-}
+});

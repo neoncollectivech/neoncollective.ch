@@ -97,17 +97,6 @@ export const eventsApi = {
         enabled,
       });
     },
-    profileRead: (opts?: { enabled?: boolean }) => {
-      const enabled = opts?.enabled ?? true;
-
-      return queryOptions({
-        queryKey: eventsKeys.participant.profile(),
-        queryFn: fetchParticipantProfile,
-        retry: false,
-        staleTime: 30_000,
-        enabled,
-      });
-    },
     session: (opts?: { enabled?: boolean }) => {
       const enabled = opts?.enabled ?? true;
 

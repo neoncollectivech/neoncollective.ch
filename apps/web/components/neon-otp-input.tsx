@@ -10,7 +10,10 @@ import {
 const OTP_LENGTH = 6;
 
 function normalizeOtpValue(raw: string): string {
-  return raw.replace(/[\s-]+/g, "").toUpperCase().slice(0, OTP_LENGTH);
+  return raw
+    .replace(/[\s-]+/g, "")
+    .toUpperCase()
+    .slice(0, OTP_LENGTH);
 }
 
 type NeonOtpInputProps = {

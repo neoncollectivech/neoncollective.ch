@@ -1,26 +1,25 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { Suspense } from "react";
 import { Card, CardBody } from "@heroui/card";
 import { Spinner } from "@heroui/react";
 
 import { FormError } from "@/components/form-error";
 import { NeonLink } from "@/components/neon-link";
-import { ParticipantProfileModal } from "@/components/participant-profile-modal";
+import {
+  ParticipantProfileGateModal,
+  useParticipantProfileGate,
+} from "@/hooks/use-participant-profile-gate";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { useDictionary } from "@/i18n/DictionaryContext";
-import { useEventUrlParams } from "@/hooks/use-event-url-params";
-import { usePersistedEventLinkQuery } from "@/hooks/use-persisted-event-link-query";
+import { useEventLinkState } from "@/hooks/use-event-link-state";
 import { useLocale } from "@/hooks/use-locale";
-import { useProfileModalLabels } from "@/hooks/use-profile-modal-labels";
 import {
   eventsApi,
   eventsKeys,
   useExchangeRegistrationCode,
-  useProfileBootstrap,
-  writeParticipantProfileCache,
   type EventCatalogItem,
 } from "@/hooks/use-events-api";
 import { formatLocaleDateTime } from "@/helpers/format-locale-datetime";
@@ -48,44 +47,32 @@ function filterUpcoming(events: EventCatalogItem[]): EventCatalogItem[] {
 
 function EventsIndexInner() {
   const locale = useLocale();
-  const { inviteToken, code } = useEventUrlParams();
-  const { appendToHref, returnPath: eventReturnPath } =
-    usePersistedEventLinkQuery();
+  const {
+    inviteToken,
+    code,
+    appendToHref,
+    returnPath: eventReturnPath,
+  } = useEventLinkState();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
-  const queryClient = useQueryClient();
-  const [profileGateOpen, setProfileGateOpen] = useState(true);
-
-  const {
-    profile,
-    needsProfile,
-    isLoading: profileLoading,
-    invalidateAfterProfileComplete,
-  } = useProfileBootstrap(inviteToken);
-
-  const profileLabels = useProfileModalLabels();
+  const profileGate = useParticipantProfileGate(inviteToken);
 
   const { codeHandled, codeError } = useExchangeRegistrationCode({
     code,
     sessionErrorLabel: t.sessionError,
   });
 
-  useEffect(() => {
-    if (!profileLoading && needsProfile) {
-      setProfileGateOpen(true);
-    }
-  }, [profileLoading, needsProfile]);
-
   const listQuery = useQuery(
     eventsApi.catalog({
       inviteToken,
-      enabled: codeHandled && !profileLoading,
+      enabled: codeHandled && !profileGate.profileLoading,
     }),
   );
 
   const sessionQuery = useQuery(
     eventsApi.participant.session({
-      enabled: codeHandled && !profileLoading && !needsProfile,
+      enabled:
+        codeHandled && !profileGate.profileLoading && !profileGate.needsProfile,
     }),
   );
 
@@ -98,13 +85,14 @@ function EventsIndexInner() {
     return <FormError>{codeError}</FormError>;
   }
 
-  const showProfileGateModal =
-    profileGateOpen && needsProfile && !profileLoading;
-
-  const listLoading = !codeHandled || profileLoading || listQuery.isLoading;
+  const listLoading =
+    !codeHandled || profileGate.profileLoading || listQuery.isLoading;
   const sessionEstablished = sessionQuery.data?.session === true;
   const sessionBlockLoading =
-    !needsProfile && !profileLoading && codeHandled && sessionQuery.isLoading;
+    !profileGate.needsProfile &&
+    !profileGate.profileLoading &&
+    codeHandled &&
+    sessionQuery.isLoading;
 
   const welcomeLine = (() => {
     const givenName = sessionQuery.data?.givenName?.trim();
@@ -116,27 +104,9 @@ function EventsIndexInner() {
 
   return (
     <>
-      {showProfileGateModal ? (
-        <ParticipantProfileModal
-          open
-          dismissable={false}
-          initialProfile={profile ?? undefined}
-          labels={profileLabels}
-          onComplete={async (p) => {
-            writeParticipantProfileCache(queryClient, p, inviteToken);
-            await invalidateAfterProfileComplete();
-            setProfileGateOpen(false);
-          }}
-        />
-      ) : null}
+      <ParticipantProfileGateModal gate={profileGate} />
 
-      <div
-        className={
-          showProfileGateModal
-            ? "pointer-events-none opacity-40 select-none"
-            : undefined
-        }
-      >
+      <div className={profileGate.dimmedContentClassName}>
         <header className="mb-10 md:mb-12">
           <div className="neon-line w-12 mb-6" />
 
@@ -149,13 +119,15 @@ function EventsIndexInner() {
           </p>
         </header>
 
-        {!needsProfile && sessionBlockLoading ? (
+        {!profileGate.needsProfile && sessionBlockLoading ? (
           <div className="flex justify-center py-4 mb-10 md:mb-12">
             <Spinner color="success" size="md" />
           </div>
         ) : null}
 
-        {!needsProfile && !sessionBlockLoading && sessionEstablished ? (
+        {!profileGate.needsProfile &&
+        !sessionBlockLoading &&
+        sessionEstablished ? (
           <p
             className="mb-10 md:mb-12 text-base md:text-lg font-semibold text-foreground/90 tracking-tight"
             data-testid="events-index-welcome"
@@ -164,7 +136,9 @@ function EventsIndexInner() {
           </p>
         ) : null}
 
-        {!needsProfile && !sessionBlockLoading && !sessionEstablished ? (
+        {!profileGate.needsProfile &&
+        !sessionBlockLoading &&
+        !sessionEstablished ? (
           <Card
             className="mb-10 md:mb-12 border border-foreground/10 bg-transparent"
             radius="sm"

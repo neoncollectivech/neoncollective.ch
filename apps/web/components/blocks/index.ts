@@ -9,6 +9,4 @@ export { TextBlockComponent } from "./text-block";
 export { NeonLineBlockComponent } from "./neon-line-block";
 export { SpacerBlockComponent } from "./spacer-block";
 export { MetaTextBlockComponent } from "./meta-text-block";
-export { DonationPickerBlockComponent } from "./donation-picker-block";
-export { ManageDonationBlockComponent } from "./manage-donation-block";
 export { InterventionFeedBlockComponent } from "./intervention-feed-block";

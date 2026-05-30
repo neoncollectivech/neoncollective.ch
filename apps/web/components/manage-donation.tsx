@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AxiosError } from "axios";
 
 import { FormError } from "@/components/form-error";
+import { apiErrorMessage } from "@/helpers/apiErrorMessage";
 import { absoluteSiteUrl } from "@/helpers/site-url";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { NeonButton } from "@/components/neon-button";
@@ -100,7 +101,10 @@ export function ManageDonation() {
 
       {status === "error" && (
         <FormError className="mt-4">
-          Something went wrong. Please try again.
+          {apiErrorMessage(
+            portalMutation.error,
+            "Something went wrong. Please try again.",
+          )}
         </FormError>
       )}
     </div>

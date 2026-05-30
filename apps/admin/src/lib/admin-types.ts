@@ -61,27 +61,6 @@ export type TierFormRow = {
   selectionMode: TierSelectionMode;
 };
 
-export type InviteLinkSummary = {
-  id: string;
-  token: string;
-  maxRedemptions: number;
-  usedRedemptions: number;
-  remainingRedemptions: number;
-  rotatedAt: string | null;
-};
-
-export type InviteeUpsertForm = {
-  givenName: string;
-  familyName: string;
-  email: string;
-  phoneE164: string;
-  notes: string;
-};
-
-export type InviteeEditForm = {
-  notes: string;
-};
-
 /** Flat person read row from CRUD `GET /admin/people/:id`. */
 export type PersonDetail = {
   id: string;

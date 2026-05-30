@@ -13,10 +13,10 @@ import {
   NeonLineBlockComponent,
   SpacerBlockComponent,
   MetaTextBlockComponent,
-  DonationPickerBlockComponent,
-  ManageDonationBlockComponent,
   InterventionFeedBlockComponent,
 } from "@/components/blocks";
+import { DonationPicker } from "@/components/donation-picker";
+import { ManageDonation } from "@/components/manage-donation";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const BLOCK_REGISTRY: Record<string, ComponentType<any>> = {
@@ -31,8 +31,8 @@ const BLOCK_REGISTRY: Record<string, ComponentType<any>> = {
   neonLine: NeonLineBlockComponent,
   spacer: SpacerBlockComponent,
   metaText: MetaTextBlockComponent,
-  donationPicker: DonationPickerBlockComponent,
-  manageDonation: ManageDonationBlockComponent,
+  donationPicker: DonationPicker,
+  manageDonation: ManageDonation,
   interventionFeed: InterventionFeedBlockComponent,
 };
 /* eslint-enable @typescript-eslint/no-explicit-any */

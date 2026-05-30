@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { stripe } from "../../helpers/stripe";
 import { ordersService } from "../../services/orders.service";
 import { fulfillPaidOrder } from "./fulfill-paid-order";
-import { sendPostCheckoutParticipantAccessEmail } from "../registrations/session";
+import { handleFulfillmentResult } from "./handle-fulfillment-result";
 
 export type ConfirmPaidCheckoutFailureReason =
   | "order_not_found"
@@ -46,15 +46,8 @@ export async function confirmPaidCheckout(params: {
     if (freeResult.kind === "failed") {
       return { ok: false, reason: "checkout_fulfillment_failed" };
     }
-    if (freeResult.kind === "send_email") {
-      try {
-        await sendPostCheckoutParticipantAccessEmail(freeResult.job);
-      } catch {
-        /* non-fatal */
-      }
-      return { ok: true, alreadyPaid: false };
-    }
-    return { ok: true, alreadyPaid: true };
+    await handleFulfillmentResult(freeResult);
+    return { ok: true, alreadyPaid: freeResult.kind === "noop" };
   }
 
   let pi: Stripe.PaymentIntent;
@@ -81,14 +74,6 @@ export async function confirmPaidCheckout(params: {
     return { ok: false, reason: "checkout_fulfillment_failed" };
   }
 
-  if (result.kind === "send_email") {
-    try {
-      await sendPostCheckoutParticipantAccessEmail(result.job);
-    } catch {
-      /* registration is confirmed; email failure is non-fatal for the client */
-    }
-    return { ok: true, alreadyPaid: false };
-  }
-
-  return { ok: true, alreadyPaid: true };
+  await handleFulfillmentResult(result);
+  return { ok: true, alreadyPaid: result.kind === "noop" };
 }

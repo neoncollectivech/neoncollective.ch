@@ -4,10 +4,8 @@ export { writeParticipantProfileCache } from "./profile-cache";
 export { useEventsInvalidate, useEventsApiInvalidate } from "./invalidate";
 export {
   useProfileBootstrap,
-  useParticipantProfileBootstrap,
   useParticipantSession,
   useExchangeRegistrationCode,
-  useExchangeRegistrationSessionCode,
   useCheckoutConfirmation,
   type CheckoutConfirmationLabels,
   type ProfileModalLabels,

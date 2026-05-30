@@ -11,7 +11,7 @@ import { getDb } from "../db/index";
 import { events, orders } from "../db/schema";
 import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
-import { TableService } from "./base";
+import { TableService } from "./base/table-service";
 
 export { orders as ordersTable };
 
@@ -157,6 +157,38 @@ export class OrdersService extends TableService<
         ),
       );
     return Number(row?.qty ?? 0);
+  }
+
+  async promotionUsageStats(
+    promotionCodeId: string,
+    options?: {
+      tx?: OrderTx;
+      excludeOrderId?: string;
+      maxRedemptions?: number | null;
+    },
+  ): Promise<{ usedRedemptions: number; remainingRedemptions: number | null }> {
+    const tx = options?.tx;
+    let usedRedemptions = await this.countPendingOrPaidForPromotionCode(
+      promotionCodeId,
+      tx,
+    );
+    if (options?.excludeOrderId) {
+      const excluded = tx
+        ? await this.getInTx(tx, options.excludeOrderId)
+        : await this.get(options.excludeOrderId);
+      if (
+        excluded &&
+        excluded.promotionCodeId === promotionCodeId &&
+        (excluded.status === "pending" || excluded.status === "paid")
+      ) {
+        usedRedemptions = Math.max(0, usedRedemptions - 1);
+      }
+    }
+    const maxRedemptions = options?.maxRedemptions;
+    const remainingRedemptions =
+      maxRedemptions != null ? Math.max(0, maxRedemptions - usedRedemptions) : null;
+
+    return { usedRedemptions, remainingRedemptions };
   }
 
   async attachStripePaymentIntentInTx(

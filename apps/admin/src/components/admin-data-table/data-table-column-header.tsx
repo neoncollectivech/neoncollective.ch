@@ -1,9 +1,6 @@
 import type { Column } from "@tanstack/react-table";
 
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { AdminSortableColumnLabel } from "@/components/admin-sortable-column-label";
 
 type DataTableColumnHeaderProps<TData, TValue> = {
   column: Column<TData, TValue>;
@@ -21,22 +18,16 @@ export function DataTableColumnHeader<TData, TValue>({
   }
 
   const sorted = column.getIsSorted();
-  const Icon =
-    sorted === "asc" ? ArrowUp : sorted === "desc" ? ArrowDown : ArrowUpDown;
 
   return (
-    <Button
-      className={cn(
-        "inline-flex h-auto items-center gap-1 p-0 font-medium hover:bg-transparent",
-        sorted ? "text-foreground" : "text-muted-foreground",
-        className,
-      )}
-      type="button"
-      variant="ghost"
+    <AdminSortableColumnLabel
+      active={sorted === "asc" || sorted === "desc"}
+      className={className}
+      direction={
+        sorted === "asc" ? "asc" : sorted === "desc" ? "desc" : undefined
+      }
+      label={title}
       onClick={() => column.toggleSorting(sorted === "asc")}
-    >
-      {title}
-      <Icon aria-hidden className="size-3.5 shrink-0 opacity-70" />
-    </Button>
+    />
   );
 }

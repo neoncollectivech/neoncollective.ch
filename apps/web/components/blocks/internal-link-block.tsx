@@ -1,6 +1,6 @@
 import type { InternalLinkBlock } from "@/lib/content/types";
 
-import { NeonLink } from "@/components/neon-link";
+import { ContentCtaLink } from "@/components/content-cta-link";
 
 export function InternalLinkBlockComponent({
   label,
@@ -8,11 +8,13 @@ export function InternalLinkBlockComponent({
   locale,
 }: InternalLinkBlock & { locale: string }) {
   return (
-    <div className="mt-14">
-      <NeonLink href={`/${locale}${href}`} neonStyle="inline">
-        {label}
-        <span aria-hidden="true">&rarr;</span>
-      </NeonLink>
-    </div>
+    <ContentCtaLink
+      showArrow
+      className="mt-14"
+      href={href}
+      label={label}
+      locale={locale}
+      neonStyle="inline"
+    />
   );
 }

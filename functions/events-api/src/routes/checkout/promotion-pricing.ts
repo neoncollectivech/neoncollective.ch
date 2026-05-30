@@ -84,18 +84,12 @@ export async function resolveCheckoutPricingInTx(
   }
 
   if (promo.maxRedemptions != null) {
-    let used = await ordersService.countPendingOrPaidForPromotionCode(promo.id, tx);
-    if (params.excludeOrderId) {
-      const excluded = await ordersService.getInTx(tx, params.excludeOrderId);
-      if (
-        excluded &&
-        excluded.promotionCodeId === promo.id &&
-        (excluded.status === "pending" || excluded.status === "paid")
-      ) {
-        used = Math.max(0, used - 1);
-      }
-    }
-    if (used >= promo.maxRedemptions) {
+    const { usedRedemptions } = await ordersService.promotionUsageStats(promo.id, {
+      tx,
+      excludeOrderId: params.excludeOrderId,
+      maxRedemptions: promo.maxRedemptions,
+    });
+    if (usedRedemptions >= promo.maxRedemptions) {
       return { ok: false, reason: "promotion_exhausted" };
     }
   }

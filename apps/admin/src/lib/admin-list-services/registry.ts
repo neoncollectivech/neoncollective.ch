@@ -1,5 +1,6 @@
 import type {
   EventInviteeListRow,
+  EventPromotionCodeRow,
   EventRow,
   OrderRow,
   PersonRow,
@@ -8,6 +9,7 @@ import type {
 import { adminKeys } from "@/hooks/use-admin-api/keys";
 import {
   listEventInvitees,
+  listEventPromotionCodesPaginated,
   listEvents,
   listOrders,
   listPeople,
@@ -81,5 +83,31 @@ export const eventInviteesListService = createAdminListService<
     ...(filters?.orderStatus ? { orderStatus: filters.orderStatus } : {}),
   }),
   queryKeyExtra: ({ filters }) => [filters?.orderStatus ?? ""],
+  enabled: (scope) => Boolean(scope?.eventId),
+});
+
+export type EventPromotionCodesListScope = {
+  eventId: string;
+};
+
+export const eventPromotionCodesListService = createAdminListService<
+  EventPromotionCodeRow,
+  EventPromotionCodesListScope
+>({
+  defaultSort: { field: "createdAt", direction: "desc" },
+  keys: adminKeys.promotionCodes,
+  listFn: (params) => {
+    const eventId = params.eventId;
+
+    if (!eventId) {
+      throw new Error("eventPromotionCodesListService requires eventId");
+    }
+
+    return listEventPromotionCodesPaginated(eventId, params);
+  },
+  buildQueryParams: ({ scope }) => ({
+    eventId: scope?.eventId,
+  }),
+  queryKeyExtra: ({ scope }) => [scope?.eventId ?? ""],
   enabled: (scope) => Boolean(scope?.eventId),
 });

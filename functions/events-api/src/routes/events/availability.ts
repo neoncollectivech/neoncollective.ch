@@ -1,6 +1,6 @@
 import { eventsService } from "../../services/events.service";
 import { eventTiersService } from "../../services/event-tiers.service";
-import { enrichTiersWithCapacityStats } from "../shared/tier-capacity";
+import { enrichTiersWithCapacityStats } from "../../helpers/tier-capacity";
 
 export type EventAvailabilityCapacity = {
   quota: number | null;

@@ -57,12 +57,13 @@ export async function listEventPromotionCodesHandler(c: Context): Promise<Respon
   );
   const items = await Promise.all(
     rows.map(async (row) => {
-      const used = await ordersService.countPendingOrPaidForPromotionCode(row.id);
+      const stats = await ordersService.promotionUsageStats(row.id, {
+        maxRedemptions: row.maxRedemptions,
+      });
       return {
         ...row,
-        usedRedemptions: used,
-        remainingRedemptions:
-          row.maxRedemptions != null ? Math.max(0, row.maxRedemptions - used) : null,
+        usedRedemptions: stats.usedRedemptions,
+        remainingRedemptions: stats.remainingRedemptions,
       };
     }),
   );
@@ -128,7 +129,9 @@ export async function patchEventPromotionCodeHandler(c: Context): Promise<Respon
   if (!existing || existing.eventId !== eventId) {
     return jsonReasonFailure(c, { reason: "promotion_not_found" }, PROMO_ERRORS);
   }
-  const used = await ordersService.countPendingOrPaidForPromotionCode(promotionCodeId);
+  const used = (
+    await ordersService.promotionUsageStats(promotionCodeId)
+  ).usedRedemptions;
   if (used > 0 && (body.kind != null || body.percentBps != null || body.amountOffCents != null)) {
     return jsonReasonFailure(c, { reason: "kind_locked" }, PROMO_ERRORS);
   }

@@ -20,9 +20,11 @@ export {
   ordersListService,
   peopleListService,
   eventInviteesListService,
+  eventPromotionCodesListService,
   type PeopleListFilters,
   type EventInviteesListScope,
   type EventInviteesListFilters,
+  type EventPromotionCodesListScope,
 } from "./registry";
 
 export { createAdminListService } from "./create";

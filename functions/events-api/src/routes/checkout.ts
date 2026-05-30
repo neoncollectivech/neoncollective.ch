@@ -20,6 +20,22 @@ import { resolveParticipantSessionFromCookie } from "./registrations/session";
 import { databaseUnavailableResponse, requireDatabase } from "./shared/guards";
 import { jsonReasonFailure } from "./shared/respond";
 
+const CHECKOUT_TIER_PROMO_ERRORS = {
+  tier_required: { status: 400 as ContentfulStatusCode, error: "Select a contribution tier." },
+  tiers_required: { status: 400 as ContentfulStatusCode, error: "Select at least one tier." },
+  unknown_tier: { status: 400 as ContentfulStatusCode, error: "Unknown or inactive tier." },
+  invalid_exclusive_tier: { status: 400 as ContentfulStatusCode, error: "Invalid contribution tier." },
+  invalid_addon_tier: { status: 400 as ContentfulStatusCode, error: "Invalid add-on tier." },
+  invalid_promotion: {
+    status: 400 as ContentfulStatusCode,
+    error: "This promotion is not valid for this event.",
+  },
+  promotion_exhausted: {
+    status: 409 as ContentfulStatusCode,
+    error: "This promotion has reached its usage limit.",
+  },
+} as const;
+
 const CHECKOUT_INTENT_ERRORS: Record<
   CreateCheckoutIntentFailureReason,
   { status: ContentfulStatusCode; error: string }
@@ -43,11 +59,7 @@ const CHECKOUT_INTENT_ERRORS: Record<
     error: "This event is invite-only. Use your invite link or invited email.",
   },
   invite_exhausted: { status: 409, error: "This invite link has no remaining places." },
-  tier_required: { status: 400, error: "Select a contribution tier." },
-  tiers_required: { status: 400, error: "Select at least one tier." },
-  unknown_tier: { status: 400, error: "Unknown or inactive tier." },
-  invalid_exclusive_tier: { status: 400, error: "Invalid contribution tier." },
-  invalid_addon_tier: { status: 400, error: "Invalid add-on tier." },
+  ...CHECKOUT_TIER_PROMO_ERRORS,
   event_sold_out: { status: 409, error: "This event is sold out." },
   tier_sold_out: { status: 409, error: "Not enough places remaining for this tier." },
   identity_conflict: {
@@ -61,8 +73,6 @@ const CHECKOUT_INTENT_ERRORS: Record<
     error: "Your payment is complete. Refresh the page to see your confirmation.",
   },
   mixed_currency: { status: 400, error: "Selected tiers use different currencies." },
-  invalid_promotion: { status: 400, error: "This promotion is not valid for this event." },
-  promotion_exhausted: { status: 409, error: "This promotion has reached its usage limit." },
   checkout_failed: { status: 500, error: "Checkout failed." },
 };
 
@@ -71,13 +81,7 @@ const CHECKOUT_PRICING_PREVIEW_ERRORS: Record<
   { status: ContentfulStatusCode; error: string }
 > = {
   event_not_found: { status: 404, error: "Event not found." },
-  tier_required: { status: 400, error: "Select a contribution tier." },
-  tiers_required: { status: 400, error: "Select at least one tier." },
-  unknown_tier: { status: 400, error: "Unknown or inactive tier." },
-  invalid_exclusive_tier: { status: 400, error: "Invalid contribution tier." },
-  invalid_addon_tier: { status: 400, error: "Invalid add-on tier." },
-  invalid_promotion: { status: 400, error: "This promotion is not valid for this event." },
-  promotion_exhausted: { status: 409, error: "This promotion has reached its usage limit." },
+  ...CHECKOUT_TIER_PROMO_ERRORS,
 };
 
 const CHECKOUT_CONFIRM_ERRORS: Record<

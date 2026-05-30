@@ -1,7 +1,7 @@
 import type { SectionBlock } from "@/lib/content/types";
 
+import { ContentCtaLink } from "@/components/content-cta-link";
 import { Markdown } from "@/components/markdown";
-import { NeonLink } from "@/components/neon-link";
 
 export function SectionBlockComponent({
   number,
@@ -60,13 +60,7 @@ export function SectionBlockComponent({
         </div>
       )}
 
-      {cta && (
-        <div className="my-14">
-          <NeonLink href={cta.href} isExternal={cta.href.startsWith("http")}>
-            {cta.label}
-          </NeonLink>
-        </div>
-      )}
+      {cta ? <ContentCtaLink href={cta.href} label={cta.label} /> : null}
     </section>
   );
 }

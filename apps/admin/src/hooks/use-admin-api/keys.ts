@@ -58,6 +58,8 @@ export const adminKeys = {
   },
   promotionCodes: {
     all: ["admin", "promotion-codes"] as const,
+    list: (params?: Record<string, string>) =>
+      ["admin", "promotion-codes", "list", params] as const,
     forEvent: (eventId: string) =>
       ["admin", "promotion-codes", "event", eventId] as const,
     detail: (id: string) => ["admin", "promotion-codes", id] as const,

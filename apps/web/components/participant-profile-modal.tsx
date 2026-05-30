@@ -2,9 +2,9 @@
 
 import type { ProfileModalLabels } from "@/hooks/use-events-api";
 
+import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
-import { useMutation } from "@tanstack/react-query";
 
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
@@ -12,12 +12,8 @@ import { NeonInput } from "@/components/neon-input";
 import { NeonOtpInput } from "@/components/neon-otp-input";
 import { apiErrorMessage } from "@/helpers/apiErrorMessage";
 import { useLocale } from "@/hooks/use-locale";
-import {
-  confirmProfileVerification,
-  requestProfileVerification,
-  updateParticipantProfile,
-  type ParticipantProfile,
-} from "@/helpers/eventsApi";
+import { eventsApi } from "@/hooks/use-events-api";
+import { type ParticipantProfile } from "@/helpers/eventsApi";
 
 type Step = "details" | "verify";
 
@@ -117,55 +113,38 @@ export function ParticipantProfileModal({
     setPhone(initialProfile.phoneE164 ?? "");
   }, [initialProfile, step]);
 
-  const saveMutation = useMutation({
-    mutationFn: () => {
-      const payload = {
-        givenName: givenName.trim(),
-        familyName: familyName.trim(),
-        email: email.trim() || null,
-        phoneE164: phone.trim() || null,
-      };
+  const updateProfileMutation = useMutation(eventsApi.profile.update());
+  const requestVerificationMutation = useMutation(
+    eventsApi.profile.requestVerification(),
+  );
+  const resendMutation = useMutation(eventsApi.profile.requestVerification());
 
-      if (
-        initialProfile &&
-        isProfileFormUnchanged(initialProfile, {
-          givenName,
-          familyName,
-          email,
-          phone,
-        }) &&
-        profileContactsVerified(initialProfile)
-      ) {
-        return Promise.resolve(initialProfile);
-      }
+  async function afterProfileSaved(saved: ParticipantProfile) {
+    setProfile(saved);
+    const pending = channelsToVerify(saved);
 
-      return updateParticipantProfile(payload);
-    },
-    onSuccess: async (saved) => {
-      setProfile(saved);
-      const pending = channelsToVerify(saved);
+    if (pending.length === 0) {
+      onComplete(saved);
 
-      if (pending.length === 0) {
-        onComplete(saved);
+      return;
+    }
+    const ch = pending[0] ?? saved.pendingVerification;
 
-        return;
-      }
-      const ch = pending[0] ?? saved.pendingVerification;
+    if (!ch) {
+      onComplete(saved);
 
-      if (!ch) {
-        onComplete(saved);
+      return;
+    }
+    await requestVerificationMutation.mutateAsync({ channel: ch, locale });
+    setVerifyChannel(ch);
+    setStep("verify");
+    setCode("");
+  }
 
-        return;
-      }
-      await requestProfileVerification({ channel: ch, locale });
-      setVerifyChannel(ch);
-      setStep("verify");
-      setCode("");
-    },
-  });
+  const saveMutation = updateProfileMutation;
 
   const verifyMutation = useMutation({
-    mutationFn: () => confirmProfileVerification({ code: code.trim() }),
+    ...eventsApi.profile.confirmVerification(),
     onSuccess: async (updated) => {
       setProfile(updated);
       setCode("");
@@ -183,28 +162,49 @@ export function ParticipantProfileModal({
         return;
       }
       setVerifyChannel(next);
-      await requestProfileVerification({ channel: next, locale });
+      await requestVerificationMutation.mutateAsync({ channel: next, locale });
     },
   });
 
-  const resendMutation = useMutation({
-    mutationFn: () => {
-      if (!verifyChannel) {
-        throw new Error("No channel");
-      }
+  function handleSaveSubmit() {
+    const payload = {
+      givenName: givenName.trim(),
+      familyName: familyName.trim(),
+      email: email.trim() || null,
+      phoneE164: phone.trim() || null,
+    };
 
-      return requestProfileVerification({ channel: verifyChannel, locale });
-    },
-  });
+    if (
+      initialProfile &&
+      isProfileFormUnchanged(initialProfile, {
+        givenName,
+        familyName,
+        email,
+        phone,
+      }) &&
+      profileContactsVerified(initialProfile)
+    ) {
+      void afterProfileSaved(initialProfile);
+
+      return;
+    }
+
+    updateProfileMutation.mutate(payload, {
+      onSuccess: (saved) => {
+        void afterProfileSaved(saved);
+      },
+    });
+  }
 
   const verifyHint =
     verifyChannel === "phone" ? labels.verifyPhoneHint : labels.verifyEmailHint;
 
   const handleResend = useCallback(() => {
-    if (verifyChannel) {
-      resendMutation.mutate();
+    if (!verifyChannel) {
+      return;
     }
-  }, [verifyChannel, resendMutation]);
+    resendMutation.mutate({ channel: verifyChannel, locale });
+  }, [locale, verifyChannel, resendMutation]);
 
   return (
     <Modal
@@ -232,7 +232,7 @@ export function ParticipantProfileModal({
               className="space-y-4 max-w-md"
               onSubmit={(e) => {
                 e.preventDefault();
-                saveMutation.mutate();
+                handleSaveSubmit();
               }}
             >
               <NeonInput
@@ -288,7 +288,7 @@ export function ParticipantProfileModal({
                 if (code.length < 6) {
                   return;
                 }
-                verifyMutation.mutate();
+                verifyMutation.mutate({ code: code.trim() });
               }}
             >
               <NeonOtpInput

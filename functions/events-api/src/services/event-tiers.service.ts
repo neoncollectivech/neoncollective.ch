@@ -9,7 +9,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { eventTiers } from "../db/schema";
-import { enrichTiersWithCapacityStats } from "../routes/shared/tier-capacity";
+import { enrichTiersWithCapacityStats } from "../helpers/tier-capacity";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base/table-service";
 import type { ServiceContext } from "./base/types";
