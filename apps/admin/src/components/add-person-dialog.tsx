@@ -1,14 +1,13 @@
-import {
-  emptyPersonEditForm,
-  personEditFormToPayload,
-  type PersonEditForm,
-} from "@/lib/person-form-utils";
-
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import {
+  emptyPersonEditForm,
+  personEditFormToPayload,
+  type PersonEditForm,
+} from "@/lib/person-form-utils";
 import { PersonEditFormFields } from "@/components/person-edit-form";
 import {
   Dialog,
@@ -59,6 +58,7 @@ export function AddPersonDialog({ open, onOpenChange }: AddPersonDialogProps) {
           onChange={setForm}
           onSubmit={() => {
             const payload = personEditFormToPayload(form);
+
             createMutation.mutate(
               { ...payload, markVerified },
               {

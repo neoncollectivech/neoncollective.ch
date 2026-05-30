@@ -4,13 +4,18 @@ import { Toaster } from "sonner";
 
 import { AuthGuard } from "@/components/auth-guard";
 import { AdminLayout } from "@/components/layout/admin-layout";
+import { EventWorkspaceLayout } from "@/components/layout/event-workspace-layout";
 import { adminBasename } from "@/lib/admin-base";
-import { EventDetailPage } from "@/pages/event-detail-page";
 import { EventFormPage } from "@/pages/event-form-page";
+import { EventInviteesPage } from "@/pages/event-invitees-page";
+import { EventOrdersPage } from "@/pages/event-orders-page";
+import { EventOverviewPage } from "@/pages/event-overview-page";
+import { EventPromotionsPage } from "@/pages/event-promotions-page";
+import { EventSettingsPage } from "@/pages/event-settings-page";
+import { EventTiersPage } from "@/pages/event-tiers-page";
 import { EventsPage } from "@/pages/events-page";
 import { LoginPage } from "@/pages/login-page";
 import { OrderDetailPage } from "@/pages/order-detail-page";
-import { OrdersPage } from "@/pages/orders-page";
 import { PeoplePage } from "@/pages/people-page";
 import { MaintenancePage } from "@/pages/maintenance-page";
 import { PersonDetailPage } from "@/pages/person-detail-page";
@@ -32,9 +37,16 @@ export function App() {
             <Route index element={<Navigate replace to="/events" />} />
             <Route element={<EventsPage />} path="events" />
             <Route element={<EventFormPage />} path="events/new" />
-            <Route element={<EventDetailPage />} path="events/:id" />
-            <Route element={<OrdersPage />} path="orders" />
-            <Route element={<OrderDetailPage />} path="orders/:id" />
+            <Route element={<EventWorkspaceLayout />} path="events/:eventId">
+              <Route index element={<Navigate replace to="overview" />} />
+              <Route element={<EventOverviewPage />} path="overview" />
+              <Route element={<EventSettingsPage />} path="settings" />
+              <Route element={<EventTiersPage />} path="tiers" />
+              <Route element={<EventPromotionsPage />} path="promotions" />
+              <Route element={<EventInviteesPage />} path="invitees" />
+              <Route element={<EventOrdersPage />} path="orders" />
+              <Route element={<OrderDetailPage />} path="orders/:orderId" />
+            </Route>
             <Route element={<PeoplePage />} path="people" />
             <Route element={<PersonDetailPage />} path="people/:id" />
             <Route element={<MaintenancePage />} path="maintenance" />

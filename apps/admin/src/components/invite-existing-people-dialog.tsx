@@ -27,10 +27,7 @@ import { adminApi } from "@/hooks/use-admin-api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { limitSkipToPage, listRangeLabel } from "@/lib/admin-list";
 import { peopleListService } from "@/lib/admin-list-services";
-import {
-  canInvitePerson,
-  personToInviteePayload,
-} from "@/lib/person-invitee";
+import { canInvitePerson, personToInviteePayload } from "@/lib/person-invitee";
 
 const SEARCH_PAGE_SIZE = 25;
 const MIN_SEARCH_LENGTH = 2;
@@ -104,8 +101,10 @@ export function InviteExistingPeopleDialog({
 
   const runSearch = () => {
     const q = searchInput.trim();
+
     if (q.length < MIN_SEARCH_LENGTH) {
       toast.error(`Enter at least ${MIN_SEARCH_LENGTH} characters to search.`);
+
       return;
     }
     setActiveQuery(q);
@@ -114,11 +113,13 @@ export function InviteExistingPeopleDialog({
   const toggleRow = (person: PersonRow) => {
     setSelectedPeople((prev) => {
       const next = new Map(prev);
+
       if (next.has(person.id)) {
         next.delete(person.id);
       } else {
         next.set(person.id, person);
       }
+
       return next;
     });
   };
@@ -127,18 +128,23 @@ export function InviteExistingPeopleDialog({
     if (allSelectableOnPageSelected) {
       setSelectedPeople((prev) => {
         const next = new Map(prev);
+
         for (const person of selectableOnPage) {
           next.delete(getPersonRowId(person));
         }
+
         return next;
       });
+
       return;
     }
     setSelectedPeople((prev) => {
       const next = new Map(prev);
+
       for (const person of selectableOnPage) {
         next.set(person.id, person);
       }
+
       return next;
     });
   };
@@ -150,12 +156,14 @@ export function InviteExistingPeopleDialog({
 
     if (payloads.length === 0) {
       toast.error("Selected people need an email or phone on file.");
+
       return;
     }
 
     upsertMutation.mutate(payloads, {
       onSuccess: (result) => {
         const parts: string[] = [];
+
         if (result.created > 0) parts.push(`${result.created} invited`);
         if (result.skipped > 0) parts.push(`${result.skipped} already on list`);
         if (result.invalid > 0) parts.push(`${result.invalid} invalid`);
@@ -212,7 +220,9 @@ export function InviteExistingPeopleDialog({
           ) : listQuery.isError ? (
             <p className="p-4 text-sm text-red-400">Search failed.</p>
           ) : people.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">No people found.</p>
+            <p className="p-4 text-sm text-muted-foreground">
+              No people found.
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -303,7 +313,11 @@ export function InviteExistingPeopleDialog({
         ) : null}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button

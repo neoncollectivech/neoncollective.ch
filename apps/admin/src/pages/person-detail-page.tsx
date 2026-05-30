@@ -1,3 +1,5 @@
+import type { PersonLinkCounts } from "@/lib/admin-api";
+
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
@@ -18,7 +20,6 @@ import {
   personToEditForm,
   type PersonEditForm,
 } from "@/lib/person-form-utils";
-import type { PersonLinkCounts } from "@/lib/admin-api";
 import {
   personNeedsVerification,
   personVerificationSummary,
@@ -26,6 +27,7 @@ import {
 
 function personDeletionBlockers(links: PersonLinkCounts): string | null {
   const parts: string[] = [];
+
   if (links.orders > 0) {
     parts.push(`${links.orders} order(s)`);
   }
@@ -41,6 +43,7 @@ function personDeletionBlockers(links: PersonLinkCounts): string | null {
   if (parts.length === 0) {
     return null;
   }
+
   return `Cannot delete: linked ${parts.join(", ")}.`;
 }
 
@@ -139,9 +142,7 @@ export function PersonDetailPage() {
                     variant="destructive"
                     onClick={() => {
                       if (
-                        confirm(
-                          "Delete this person? This cannot be undone.",
-                        )
+                        confirm("Delete this person? This cannot be undone.")
                       ) {
                         deleteMutation.mutate(undefined, {
                           onSuccess: () => {

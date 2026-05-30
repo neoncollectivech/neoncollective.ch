@@ -6,6 +6,7 @@ export function personToInviteePayload(
 ): InviteeUpsertPayload | null {
   const email = person.email?.trim() || null;
   const phoneDigits = person.phone?.trim();
+
   if (!email && !phoneDigits) {
     return null;
   }

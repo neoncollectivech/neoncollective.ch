@@ -12,23 +12,34 @@ import {
 } from "@/components/admin-data-table/column-helpers";
 import { Button } from "@/components/ui/button";
 import { eventFkService, personFkService } from "@/lib/admin-fk-services";
+import { eventOrderPath } from "@/lib/event-workspace-paths";
 import { isUuid } from "@/lib/uuid";
 
 type OrderColumnsOptions = {
+  eventId: string;
   onRefund: (orderId: string) => void;
   isRefunding?: boolean;
+  hideEventColumn?: boolean;
 };
 
 export function orderColumns(
   opts: OrderColumnsOptions,
 ): AdminColumnDef<OrderRow>[] {
-  return [
+  const cols: AdminColumnDef<OrderRow>[] = [
     adminDateColumn("createdAt", { header: "Date & time", sortable: true }),
-    adminFkColumn("eventId", {
-      header: "Event",
-      fk: eventFkService,
-      display: "title",
-    }),
+  ];
+
+  if (!opts.hideEventColumn) {
+    cols.push(
+      adminFkColumn("eventId", {
+        header: "Event",
+        fk: eventFkService,
+        display: "title",
+      }),
+    );
+  }
+
+  cols.push(
     adminFkColumn("personId", {
       header: "Person",
       fk: personFkService,
@@ -44,7 +55,7 @@ export function orderColumns(
           <div className="space-x-2">
             {isUuid(order.id) ? (
               <Button asChild size="sm" variant="ghost">
-                <Link to={`/orders/${order.id}`}>View</Link>
+                <Link to={eventOrderPath(opts.eventId, order.id)}>View</Link>
               </Button>
             ) : null}
             {order.status === "paid" ? (
@@ -65,5 +76,7 @@ export function orderColumns(
         );
       },
     }),
-  ];
+  );
+
+  return cols;
 }

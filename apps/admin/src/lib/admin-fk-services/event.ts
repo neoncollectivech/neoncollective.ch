@@ -1,4 +1,5 @@
 import { listEvents } from "@/lib/admin-api";
+import { eventOverviewPath } from "@/lib/event-workspace-paths";
 import { toIdInParam } from "@/lib/admin-list";
 
 import { defineAdminFkService } from "./types";
@@ -19,5 +20,5 @@ export const eventFkService = defineAdminFkService({
   list: listEvents,
   lookupKeyFromRow: lookupKeyById,
   presentation: "link",
-  href: (id) => `/events/${id}`,
+  href: (id) => eventOverviewPath(id),
 });

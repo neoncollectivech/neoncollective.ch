@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -7,14 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { adminApi } from "@/hooks/use-admin-api";
-import { useUuidRouteParam } from "@/hooks/use-uuid-route-param";
+import { useEventIdParam, useOrderIdParam } from "@/hooks/use-event-id-param";
+import {
+  eventOrdersPath,
+  eventOrderPath,
+  eventOverviewPath,
+} from "@/lib/event-workspace-paths";
 import { isUuid } from "@/lib/uuid";
 
 const DELETABLE_STATUSES = new Set(["pending", "failed"]);
 
 export function OrderDetailPage() {
   const navigate = useNavigate();
-  const { id: orderId, isValid } = useUuidRouteParam();
+  const { eventId: routeEventId, isValid: eventIdValid } = useEventIdParam();
+  const { orderId, isValid: orderIdValid } = useOrderIdParam();
   const orderQuery = useQuery(adminApi.order.detail(orderId));
   const order = orderQuery.data;
 
@@ -76,15 +82,25 @@ export function OrderDetailPage() {
     eventQuery.isLoading ||
     orderTiersQuery.isLoading;
 
-  if (!isValid) {
-    return <Navigate replace to="/orders" />;
+  useEffect(() => {
+    if (!order || !orderIdValid || !eventIdValid) {
+      return;
+    }
+
+    if (order.eventId !== routeEventId) {
+      navigate(eventOrderPath(order.eventId, order.id), { replace: true });
+    }
+  }, [order, routeEventId, orderIdValid, eventIdValid, navigate]);
+
+  if (!eventIdValid || !orderIdValid) {
+    return <Navigate replace to="/events" />;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button asChild size="sm" variant="ghost">
-          <Link to="/orders">← Orders</Link>
+          <Link to={eventOrdersPath(routeEventId)}>← Orders</Link>
         </Button>
         <h2 className="text-2xl font-semibold">Order</h2>
         {order && <Badge>{order.status}</Badge>}
@@ -92,7 +108,7 @@ export function OrderDetailPage() {
 
       {isLoading && <p className="text-muted-foreground">Loading…</p>}
 
-      {order && (
+      {order && order.eventId === routeEventId && (
         <>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -112,7 +128,7 @@ export function OrderDetailPage() {
                         deleteMutation.mutate(orderId, {
                           onSuccess: () => {
                             toast.success("Order deleted");
-                            navigate("/orders");
+                            navigate(eventOrdersPath(routeEventId));
                           },
                         });
                       }
@@ -208,7 +224,7 @@ export function OrderDetailPage() {
                 <p>
                   <Link
                     className="text-primary hover:underline"
-                    to={`/events/${eventQuery.data.id}`}
+                    to={eventOverviewPath(eventQuery.data.id)}
                   >
                     {eventQuery.data.title}
                   </Link>

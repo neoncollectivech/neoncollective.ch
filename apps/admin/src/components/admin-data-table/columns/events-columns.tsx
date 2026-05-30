@@ -9,6 +9,7 @@ import {
   adminTextColumn,
 } from "@/components/admin-data-table/column-helpers";
 import { Button } from "@/components/ui/button";
+import { eventOverviewPath } from "@/lib/event-workspace-paths";
 import { isUuid } from "@/lib/uuid";
 
 export function eventsColumns(): AdminColumnDef<EventRow>[] {
@@ -35,7 +36,7 @@ export function eventsColumns(): AdminColumnDef<EventRow>[] {
 
         return isUuid(event.id) ? (
           <Button asChild size="sm" variant="ghost">
-            <Link to={`/events/${event.id}`}>Open</Link>
+            <Link to={eventOverviewPath(event.id)}>Open</Link>
           </Button>
         ) : (
           <span className="text-sm text-muted-foreground">—</span>

@@ -17,6 +17,7 @@ import {
 import { useForeignKey } from "@/hooks/use-foreign-key";
 import { useClientTableSort } from "@/hooks/use-client-table-sort";
 import { eventFkService } from "@/lib/admin-fk-services";
+import { eventOrderPath, eventOverviewPath } from "@/lib/event-workspace-paths";
 import { isUuid } from "@/lib/uuid";
 
 type PersonOrdersTableProps = {
@@ -77,7 +78,7 @@ export function PersonOrdersTable({ orders }: PersonOrdersTableProps) {
             <TableCell>
               {isUuid(order.id) ? (
                 <Button asChild size="sm" variant="ghost">
-                  <Link to={`/orders/${order.id}`}>View</Link>
+                  <Link to={eventOrderPath(order.eventId, order.id)}>View</Link>
                 </Button>
               ) : null}
             </TableCell>
@@ -159,7 +160,7 @@ export function PersonInviteesTable({ invitees }: PersonInviteesTableProps) {
             <TableCell>
               {isUuid(invitee.eventId) ? (
                 <Button asChild size="sm" variant="ghost">
-                  <Link to={`/events/${invitee.eventId}`}>Event</Link>
+                  <Link to={eventOverviewPath(invitee.eventId)}>Event</Link>
                 </Button>
               ) : null}
             </TableCell>

@@ -281,7 +281,8 @@ export const adminApi = {
       }),
     deletePromotionCode: (eventId?: string) =>
       mutationOptions({
-        mutationFn: (promotionCodeId: string) => deletePromotionCode(promotionCodeId),
+        mutationFn: (promotionCodeId: string) =>
+          deletePromotionCode(promotionCodeId),
         onSuccess: async () => {
           await queryClient.invalidateQueries({
             queryKey: adminKeys.promotionCodes.all,

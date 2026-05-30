@@ -76,7 +76,9 @@ export function EventPromotionCodes({
     adminApi.event.createPromotionCode(eventId),
   );
   const patchMutation = useMutation(adminApi.event.patchPromotionCode(eventId));
-  const deleteMutation = useMutation(adminApi.event.deletePromotionCode(eventId));
+  const deleteMutation = useMutation(
+    adminApi.event.deletePromotionCode(eventId),
+  );
 
   async function copyPromoLink(promoCode: string) {
     const url = buildPublicPromoUrl(eventSlug, inviteOnly, promoCode);

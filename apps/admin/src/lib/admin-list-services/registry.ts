@@ -25,14 +25,23 @@ export const eventsListService = createAdminListService<
   listFn: listEvents,
 });
 
+export type OrdersListScope = {
+  eventId: string;
+};
+
 export const ordersListService = createAdminListService<
   OrderRow,
-  undefined,
+  OrdersListScope,
   undefined
 >({
   defaultSort: { field: "createdAt", direction: "desc" },
   keys: adminKeys.orders,
   listFn: listOrders,
+  buildQueryParams: ({ scope }) => ({
+    eventId: scope?.eventId,
+  }),
+  queryKeyExtra: ({ scope }) => [scope?.eventId ?? ""],
+  enabled: (scope) => Boolean(scope?.eventId),
 });
 
 export type PeopleListFilters = {

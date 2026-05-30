@@ -6,6 +6,7 @@ import { EventForm } from "@/components/event-form";
 import { Button } from "@/components/ui/button";
 import { adminApi } from "@/hooks/use-admin-api";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { eventOverviewPath } from "@/lib/event-workspace-paths";
 import {
   emptyEventFormValues,
   formValuesToCreatePayload,
@@ -32,7 +33,7 @@ export function EventFormPage() {
           createMutation.mutate(formValuesToCreatePayload(values), {
             onSuccess: (item) => {
               toast.success("Event created");
-              void navigate(`/events/${item.id}`);
+              void navigate(eventOverviewPath(item.id));
             },
             onError: (err) =>
               toast.error(getApiErrorMessage(err, "Failed to create event")),

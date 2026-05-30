@@ -1,6 +1,7 @@
 import type { OrderRow } from "@/lib/admin-api";
 
 import { listOrders } from "@/lib/admin-api";
+import { eventOrderPath } from "@/lib/event-workspace-paths";
 import { toIdInParam } from "@/lib/admin-list";
 
 import { defineAdminFkService } from "./types";
@@ -30,8 +31,12 @@ export const orderFkService = defineAdminFkService({
   lookupKeyFromRow: orderLookupKeyByPersonId,
   presentation: "badge",
   href: (_personId, row) => {
-    const orderId = (row as OrderRow | undefined)?.id;
+    const order = row as OrderRow | undefined;
 
-    return orderId ? `/orders/${orderId}` : undefined;
+    if (!order?.id || !order.eventId) {
+      return undefined;
+    }
+
+    return eventOrderPath(order.eventId, order.id);
   },
 });
