@@ -17,6 +17,15 @@
   --color-input: #262626;
   --color-ring: rgb(255 49 49);
 
+  --color-sidebar: #111111;
+  --color-sidebar-foreground: #f0f0f0;
+  --color-sidebar-primary: rgb(255 49 49);
+  --color-sidebar-primary-foreground: #0a0a0a;
+  --color-sidebar-accent: #1a1a1a;
+  --color-sidebar-accent-foreground: #f0f0f0;
+  --color-sidebar-border: #262626;
+  --color-sidebar-ring: rgb(255 49 49);
+
   --color-chart-1: rgb(255 49 49);
   --color-chart-2: #737373;
   --color-chart-3: #525252;
