@@ -1,5 +1,7 @@
 import type { SalesMetric } from "./types";
 
+import type { ComponentProps } from "react";
+
 import {
   Bar,
   BarChart,
@@ -46,9 +48,13 @@ function chartDataKey(metric: SalesMetric, variant: "bar" | "line"): string {
     : "cumulativeOrderCount";
 }
 
-function ChartTooltipBody({ metric }: { metric: SalesMetric }) {
+function ChartTooltipBody({
+  metric,
+  ...tooltipProps
+}: { metric: SalesMetric } & ComponentProps<typeof ChartTooltipContent>) {
   return (
     <ChartTooltipContent
+      {...tooltipProps}
       hideIndicator
       hideLabel
       formatter={(value, _name, item) => {
