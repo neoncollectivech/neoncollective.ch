@@ -132,7 +132,7 @@ export function SalesMetricChart({
             dot={false}
             stroke="var(--color-chart-1)"
             strokeWidth={2}
-            type="monotone"
+            type="linear"
           />
         </LineChart>
       )}
