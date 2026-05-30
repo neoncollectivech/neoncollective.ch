@@ -76,6 +76,22 @@ export type EventReadRow = EventRow & {
   createdAt: string;
 };
 
+export type EventSalesAnalyticsDay = {
+  date: string;
+  revenueCents: number;
+  orderCount: number;
+};
+
+export type EventSalesAnalytics = {
+  bucket: "day";
+  series: EventSalesAnalyticsDay[];
+  totals: {
+    revenueCents: number;
+    orderCount: number;
+    avgOrderValueCents: number | null;
+  };
+};
+
 export type OrderReadRow = OrderRow & {
   stripePaymentIntentId: string | null;
   inviteLinkId: string | null;
@@ -393,6 +409,14 @@ export async function listEventPromotionCodes(eventId: string) {
   );
 
   return res.data.items;
+}
+
+export async function getEventSalesAnalytics(eventId: string) {
+  const res = await api.get<EventSalesAnalytics>(
+    `/admin/events/${eventId}/sales-analytics`,
+  );
+
+  return res.data;
 }
 
 export async function createEventPromotionCode(

@@ -19,6 +19,21 @@ export type OrdersListFilters = FilterParams;
 
 export type OrderTx = EntityTx;
 
+export type EventSalesAnalyticsDay = {
+  date: string;
+  revenueCents: number;
+  orderCount: number;
+};
+
+export type EventSalesAnalytics = {
+  series: EventSalesAnalyticsDay[];
+  totals: {
+    revenueCents: number;
+    orderCount: number;
+    avgOrderValueCents: number | null;
+  };
+};
+
 export const ordersResourceMeta = introspectTable(orders, {
   fields: {
     list: [
@@ -171,6 +186,73 @@ export class OrdersService extends TableService<
       .where(eq(orders.personId, personId))
       .limit(1);
     return Boolean(row);
+  }
+
+  async aggregateSalesByDayForEvent(eventId: string): Promise<EventSalesAnalytics> {
+    const db = getDb();
+    const paidForEvent = and(eq(orders.eventId, eventId), eq(orders.status, "paid"));
+
+    const [totalsRow] = await db
+      .select({
+        revenueCents: sql<number>`coalesce(sum(${orders.amountCents}), 0)::int`,
+        orderCount: sql<number>`count(*)::int`,
+      })
+      .from(orders)
+      .where(paidForEvent);
+
+    const revenueCents = Number(totalsRow?.revenueCents ?? 0);
+    const orderCount = Number(totalsRow?.orderCount ?? 0);
+    const avgOrderValueCents =
+      orderCount > 0 ? Math.round(revenueCents / orderCount) : null;
+
+    const bucketRows = await db
+      .select({
+        bucket: sql<Date>`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC')`,
+        revenueCents: sql<number>`coalesce(sum(${orders.amountCents}), 0)::int`,
+        orderCount: sql<number>`count(*)::int`,
+      })
+      .from(orders)
+      .where(paidForEvent)
+      .groupBy(sql`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC')`)
+      .orderBy(sql`date_trunc('day', ${orders.createdAt} AT TIME ZONE 'UTC') ASC`);
+
+    if (bucketRows.length === 0) {
+      return {
+        series: [],
+        totals: { revenueCents, orderCount, avgOrderValueCents },
+      };
+    }
+
+    const byDate = new Map<string, EventSalesAnalyticsDay>();
+    for (const row of bucketRows) {
+      const date = formatUtcDayKey(row.bucket);
+      byDate.set(date, {
+        date,
+        revenueCents: Number(row.revenueCents ?? 0),
+        orderCount: Number(row.orderCount ?? 0),
+      });
+    }
+
+    const dates = [...byDate.keys()].sort();
+    const start = parseUtcDayKey(dates[0]!);
+    const end = parseUtcDayKey(dates[dates.length - 1]!);
+    const series: EventSalesAnalyticsDay[] = [];
+
+    for (let cursor = start; cursor <= end; cursor += 86_400_000) {
+      const date = formatUtcDayKey(new Date(cursor));
+      series.push(
+        byDate.get(date) ?? {
+          date,
+          revenueCents: 0,
+          orderCount: 0,
+        },
+      );
+    }
+
+    return {
+      series,
+      totals: { revenueCents, orderCount, avgOrderValueCents },
+    };
   }
 
   async countPendingOrPaidForEvent(eventId: string, tx?: OrderTx): Promise<number> {
@@ -393,6 +475,14 @@ export class OrdersService extends TableService<
 }
 
 export const ordersService = new OrdersService();
+
+function formatUtcDayKey(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function parseUtcDayKey(value: string): number {
+  return Date.parse(`${value}T00:00:00.000Z`);
+}
 
 /** Column refs for admin route filters (orders table only). */
 export const orderColumns = {

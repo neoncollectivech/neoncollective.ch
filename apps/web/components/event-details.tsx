@@ -473,7 +473,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const { inviteToken: urlInviteToken, code: initialCode } = useEventUrlParams();
+  const { inviteToken: urlInviteToken, code: initialCode } =
+    useEventUrlParams();
   const { appendToHref } = usePersistedEventLinkQuery();
   const linkQuery = useMemo(
     () => resolveEventLinkQuery(searchParams),
@@ -513,13 +514,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       searchParams,
       linkQuery,
     );
-  }, [
-    eventQuery.data?.inviteOnly,
-    locale,
-    linkQuery,
-    searchParams,
-    slug,
-  ]);
+  }, [eventQuery.data?.inviteOnly, locale, linkQuery, searchParams, slug]);
 
   const effectiveInviteToken =
     eventQuery.data != null && !eventQuery.data.inviteOnly
@@ -697,9 +692,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       addonTierIds: Array.from(selectedAddonIds),
       promotionCode: promo ?? null,
       enabled:
-        Boolean(promo?.trim()) &&
-        selectedTiers.length > 0 &&
-        !checkoutLocked,
+        Boolean(promo?.trim()) && selectedTiers.length > 0 && !checkoutLocked,
     }),
   );
 
@@ -1120,7 +1113,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
                     </p>
                   ) : null}
                   <p className="text-sm font-mono text-foreground/55">
-                    {t.checkoutTotal}: CHF {(displayTotalCents / 100).toFixed(0)}
+                    {t.checkoutTotal}: CHF{" "}
+                    {(displayTotalCents / 100).toFixed(0)}
                   </p>
                   {showPromoSubtotal ? (
                     <p className="text-xs text-neon/80">

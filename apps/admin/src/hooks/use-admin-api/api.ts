@@ -13,6 +13,7 @@ import {
   deletePerson,
   ensureInviteeLink,
   getEvent,
+  getEventSalesAnalytics,
   getPromotionCode,
   getOrder,
   getPerson,
@@ -129,6 +130,12 @@ export const adminApi = {
 
           return { used: res.meta.total };
         },
+        enabled: Boolean(eventId),
+      }),
+    salesAnalytics: (eventId: string) =>
+      queryOptions({
+        queryKey: adminKeys.events.salesAnalytics(eventId),
+        queryFn: () => getEventSalesAnalytics(eventId),
         enabled: Boolean(eventId),
       }),
     inviteeTreeAll: (eventId: string) =>

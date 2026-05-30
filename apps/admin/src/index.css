@@ -17,6 +17,12 @@
   --color-input: #262626;
   --color-ring: rgb(255 49 49);
 
+  --color-chart-1: rgb(255 49 49);
+  --color-chart-2: #737373;
+  --color-chart-3: #525252;
+  --color-chart-4: #404040;
+  --color-chart-5: #262626;
+
   --radius: 0;
   --radius-xs: 0;
   --radius-sm: 0;

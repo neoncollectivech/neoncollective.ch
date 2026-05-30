@@ -4,6 +4,8 @@ export const adminKeys = {
     list: (params?: Record<string, string>) =>
       ["admin", "events", "list", params] as const,
     detail: (id: string) => ["admin", "events", id] as const,
+    salesAnalytics: (eventId: string) =>
+      ["admin", "events", eventId, "sales-analytics"] as const,
   },
   orders: {
     all: ["admin", "orders"] as const,

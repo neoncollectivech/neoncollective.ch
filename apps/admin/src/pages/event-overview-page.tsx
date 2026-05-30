@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { EventCapacityStats } from "@/components/event-capacity-stats";
+import { EventSalesAnalytics } from "@/components/event-sales-analytics/event-sales-analytics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEventIdParam } from "@/hooks/use-event-id-param";
@@ -28,6 +29,8 @@ export function EventOverviewPage() {
           <Link to={eventSettingsPath(eventId)}>Edit settings</Link>
         </Button>
       </div>
+
+      <EventSalesAnalytics eventId={eventId} />
 
       <Card>
         <CardHeader>
@@ -59,6 +62,11 @@ export function EventOverviewPage() {
             </p>
           ) : null}
           {event.summary ? <p>{event.summary}</p> : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
           <EventCapacityStats
             capacity={capacity}
             eventQuota={event.eventQuota}

@@ -123,6 +123,7 @@ export function buildEventHref(
   const params = new URLSearchParams(
     question >= 0 ? basePath.slice(question + 1) : "",
   );
+
   if (existingSearch) {
     existingSearch.forEach((value, key) => {
       params.set(key, value);

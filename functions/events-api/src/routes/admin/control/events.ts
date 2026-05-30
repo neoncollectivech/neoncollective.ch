@@ -12,6 +12,7 @@ import {
   listEventPromotionCodesHandler,
   patchEventPromotionCodeHandler,
 } from "./event-promotion-codes";
+import { getEventSalesAnalyticsHandler } from "./event-sales-analytics";
 import { jsonReasonFailure } from "../../shared/respond";
 
 const REPLACE_TIERS_ERRORS = {
@@ -66,6 +67,11 @@ export function createEventsControlRouter(): Hono {
           method: "get",
           path: "/:id/promotion-codes",
           handler: listEventPromotionCodesHandler,
+        },
+        {
+          method: "get",
+          path: "/:id/sales-analytics",
+          handler: getEventSalesAnalyticsHandler,
         },
         {
           method: "post",
