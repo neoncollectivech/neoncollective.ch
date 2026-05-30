@@ -16,6 +16,8 @@ import {
   formatMetricValue,
   formatOrders,
   salesChartConfig,
+  salesChartContainerClassName,
+  salesChartInitialDimension,
   shouldShowXAxisLabel,
   type SalesChartPoint,
 } from "./sales-chart-utils";
@@ -34,8 +36,9 @@ export function CumulativeTotalChart({
 
   return (
     <ChartContainer
-      className="min-h-[280px] w-full aspect-auto"
+      className={salesChartContainerClassName}
       config={salesChartConfig}
+      initialDimension={salesChartInitialDimension}
     >
       <LineChart accessibilityLayer data={data} margin={{ left: 8, right: 8 }}>
         <CartesianGrid vertical={false} />
@@ -86,7 +89,7 @@ export function CumulativeTotalChart({
         <Line
           dataKey={dataKey}
           dot={false}
-          stroke="var(--color-value)"
+          stroke="var(--color-chart-1)"
           strokeWidth={2}
           type="monotone"
         />

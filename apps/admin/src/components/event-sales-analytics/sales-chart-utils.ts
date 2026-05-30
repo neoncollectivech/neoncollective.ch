@@ -84,3 +84,10 @@ export const salesChartConfig = {
     color: "var(--color-chart-1)",
   },
 } as const;
+
+export const salesChartContainerClassName = "aspect-auto h-[280px] w-full";
+
+export const salesChartInitialDimension = {
+  width: 640,
+  height: 280,
+} as const;

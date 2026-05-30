@@ -16,6 +16,8 @@ import {
   formatMetricValue,
   formatOrders,
   salesChartConfig,
+  salesChartContainerClassName,
+  salesChartInitialDimension,
   shouldShowXAxisLabel,
   type SalesChartPoint,
 } from "./sales-chart-utils";
@@ -30,8 +32,9 @@ export function SalesOverTimeChart({ data, metric }: SalesOverTimeChartProps) {
 
   return (
     <ChartContainer
-      className="min-h-[280px] w-full aspect-auto"
+      className={salesChartContainerClassName}
       config={salesChartConfig}
+      initialDimension={salesChartInitialDimension}
     >
       <BarChart accessibilityLayer data={data} margin={{ left: 8, right: 8 }}>
         <CartesianGrid vertical={false} />
@@ -81,7 +84,7 @@ export function SalesOverTimeChart({ data, metric }: SalesOverTimeChartProps) {
         />
         <Bar
           dataKey={dataKey}
-          fill="var(--color-value)"
+          fill="var(--color-chart-1)"
           maxBarSize={48}
           radius={[2, 2, 0, 0]}
         />
