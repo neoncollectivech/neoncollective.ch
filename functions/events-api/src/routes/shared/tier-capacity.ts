@@ -14,11 +14,15 @@ export async function getTierSoldQty(
   eventId: string,
   tierId: string,
   tx?: TierTx,
+  excludeOrderId?: string,
 ): Promise<number> {
-  const orderIds = await ordersService.listIdsByEventAndStatuses(
+  let orderIds = await ordersService.listIdsByEventAndStatuses(
     eventId,
     ["pending", "paid"],
   );
+  if (excludeOrderId) {
+    orderIds = orderIds.filter((id) => id !== excludeOrderId);
+  }
   return orderTiersService.countByTierAmongOrderIds(tierId, orderIds, tx);
 }
 

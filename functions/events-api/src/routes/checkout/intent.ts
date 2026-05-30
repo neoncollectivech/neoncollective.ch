@@ -185,6 +185,29 @@ function checkoutFailure(
   return tierName ? { ok: false, reason, tierName } : { ok: false, reason };
 }
 
+/** Pending order on this event/person is superseded or resumed — do not count it toward quota. */
+function checkoutCapacityExcludeOrderId(
+  existingOrder: OrderRow | null,
+): string | undefined {
+  return existingOrder?.status === "pending" ? existingOrder.id : undefined;
+}
+
+async function decrementCountIfExcludedPendingOrderTx(
+  tx: CheckoutTx,
+  count: number,
+  excludeOrderId: string | undefined,
+  matches: (order: OrderRow) => boolean,
+): Promise<number> {
+  if (!excludeOrderId) {
+    return count;
+  }
+  const excluded = await ordersService.getInTx(tx, excludeOrderId);
+  if (!excluded || excluded.status !== "pending" || !matches(excluded)) {
+    return count;
+  }
+  return Math.max(0, count - 1);
+}
+
 async function resolveExistingOrderForCheckoutTx(
   tx: CheckoutTx,
   existingOrder: OrderRow,
@@ -310,6 +333,18 @@ export async function createCheckoutIntent(
       if (!ev) {
         return checkoutFailure("event_not_found");
       }
+
+      const existingCheckoutOrder = session.personId
+        ? await ordersService.findPendingOrPaidForPersonOnEventInTx(
+            tx,
+            ev.id,
+            session.personId,
+          )
+        : null;
+      const capacityExcludeOrderId = checkoutCapacityExcludeOrderId(
+        existingCheckoutOrder,
+      );
+
       let inviteLinkId: string | null = null;
       if (ev.accessMode === "invite_only") {
         let guestLinkId: string | null = null;
@@ -358,7 +393,13 @@ export async function createCheckoutIntent(
         }
         if (isGuest && guestLinkId && guestLinkMax != null) {
           inviteLinkId = guestLinkId;
-          const used = await ordersService.countPendingOrPaidForInviteLink(inviteLinkId, tx);
+          let used = await ordersService.countPendingOrPaidForInviteLink(inviteLinkId, tx);
+          used = await decrementCountIfExcludedPendingOrderTx(
+            tx,
+            used,
+            capacityExcludeOrderId,
+            (order) => order.inviteLinkId === inviteLinkId,
+          );
           if (used + 1 > guestLinkMax) {
             return checkoutFailure("invite_exhausted");
           }
@@ -403,7 +444,13 @@ export async function createCheckoutIntent(
         }
       }
 
-      const headUsed = await ordersService.countPendingOrPaidForEvent(ev.id, tx);
+      let headUsed = await ordersService.countPendingOrPaidForEvent(ev.id, tx);
+      headUsed = await decrementCountIfExcludedPendingOrderTx(
+        tx,
+        headUsed,
+        capacityExcludeOrderId,
+        (order) => order.eventId === ev.id,
+      );
       const eventRemainingInit =
         ev.eventQuota != null ? Math.max(0, ev.eventQuota - headUsed) : null;
       const eventSlotsLeft =
@@ -415,7 +462,7 @@ export async function createCheckoutIntent(
       }
 
       for (const tier of selectedTiers) {
-        const sold = await getTierSoldQty(ev.id, tier.id, tx);
+        const sold = await getTierSoldQty(ev.id, tier.id, tx, capacityExcludeOrderId);
         const placesCap = computeTierPlacesRemaining({
           tierQuota: tier.quota,
           sold,
@@ -465,14 +512,10 @@ export async function createCheckoutIntent(
         });
       }
 
-      const existingOrder = await ordersService.findPendingOrPaidForPersonOnEventInTx(
-        tx,
-        ev.id,
-        personId,
-      );
+      const existingOrder =
+        existingCheckoutOrder?.personId === personId ? existingCheckoutOrder : null;
 
-      const excludeOrderId =
-        existingOrder?.status === "pending" ? existingOrder.id : undefined;
+      const excludeOrderId = checkoutCapacityExcludeOrderId(existingOrder);
       const pricingResult = await resolveCheckoutPricingInTx(tx, {
         eventId: ev.id,
         selectedTiers,
