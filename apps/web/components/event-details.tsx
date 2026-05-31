@@ -19,6 +19,7 @@ import { Spinner } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { FormError } from "@/components/form-error";
+import { ResponsiveEventImage } from "@/components/responsive-event-image";
 import { absoluteSiteUrl, getSiteOrigin } from "@/helpers/site-url";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
@@ -209,12 +210,12 @@ function EventHero({
 
       {imageUrl ? (
         <div className="mb-6 border border-foreground/10 overflow-hidden bg-foreground/2">
-          <img
+          <ResponsiveEventImage
             alt={imageAlt}
             className="w-full h-auto max-h-[min(420px,55vh)] object-cover object-center"
-            decoding="async"
             loading="eager"
-            src={imageUrl}
+            sizes="(max-width: 768px) 100vw, 768px"
+            url={imageUrl}
           />
         </div>
       ) : null}
@@ -270,12 +271,12 @@ function EventAboutSection({
               key={`${url}-${i}`}
               className="border border-foreground/10 overflow-hidden aspect-4/3"
             >
-              <img
+              <ResponsiveEventImage
                 alt={`${imageAlt} (${i + 2})`}
                 className="w-full h-full object-cover"
-                decoding="async"
                 loading="lazy"
-                src={url}
+                sizes="(max-width: 640px) 50vw, 33vw"
+                url={url}
               />
             </div>
           ))}

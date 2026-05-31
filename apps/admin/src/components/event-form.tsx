@@ -150,17 +150,6 @@ export function EventForm({
         </FormField>
       ) : null}
 
-      <FormField htmlFor="imageUrls" label="Image URLs">
-        <Textarea
-          className="font-mono text-xs"
-          id="imageUrls"
-          placeholder="One URL per line"
-          rows={4}
-          value={values.imageUrlsText}
-          onChange={(e) => set("imageUrlsText", e.target.value)}
-        />
-      </FormField>
-
       <div className="flex gap-2">
         <Button disabled={isPending} type="submit">
           {isPending

@@ -12,8 +12,5 @@ export const events = defineResource({
   service: tableServiceToBridge(eventsService),
   opts: {
     operations: ["list", "read", "create", "update"],
-    schemas: {
-      jsonbStringArrays: ["imageUrls"],
-    },
   },
 });

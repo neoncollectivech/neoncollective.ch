@@ -67,8 +67,6 @@ export const events = pgTable("events", {
   summary: text("summary"),
   /** Venue / city line (plain text). */
   location: text("location"),
-  /** Absolute image URLs (hero first). Stored as JSON array. */
-  imageUrls: jsonb("image_urls").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   startsAt: timestamp("starts_at", { withTimezone: true }),
   status: eventStatusEnum("status").notNull().default("draft"),
   eventQuota: integer("event_quota"),
@@ -78,6 +76,27 @@ export const events = pgTable("events", {
     .default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const eventImages = pgTable(
+  "event_images",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull(),
+    contentType: text("content_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    altText: text("alt_text"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("event_images_storage_key_unique").on(t.storageKey),
+    index("event_images_event_id_idx").on(t.eventId),
+    index("event_images_event_id_sort_order_idx").on(t.eventId, t.sortOrder),
+  ],
+);
 
 export const eventTiers = pgTable(
   "event_tiers",

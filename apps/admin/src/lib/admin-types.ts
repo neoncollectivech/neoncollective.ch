@@ -10,7 +10,6 @@ export type EventFormValues = {
   accessMode: AccessMode;
   eventQuota: string;
   defaultInviteLinkMaxRedemptions: string;
-  imageUrlsText: string;
   status?: EventStatus;
 };
 
@@ -26,7 +25,6 @@ export type EventDetail = {
   title: string;
   summary: string | null;
   location: string | null;
-  imageUrls: string[];
   startsAt: string | null;
   status: EventStatus;
   accessMode: AccessMode;

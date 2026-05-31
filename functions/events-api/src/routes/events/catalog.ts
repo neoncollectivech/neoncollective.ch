@@ -1,32 +1,35 @@
 import {
-  normalizeEventImageUrls,
   type CatalogListParams,
   type CatalogListRow,
 } from "../../services/events.service";
 import { eventInviteesService } from "../../services/event-invitees.service";
+import { eventImagesService } from "../../services/event-images.service";
 import { eventsService } from "../../services/events.service";
 import { ordersService } from "../../services/orders.service";
 
 export type { CatalogListParams, CatalogListRow };
 
+type CatalogSourceRow = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  location: string | null;
+  startsAt: Date | null;
+};
+
 function catalogRow(
-  row: {
-    slug: string;
-    title: string;
-    summary: string | null;
-    location: string | null;
-    imageUrls: unknown;
-    startsAt: Date | null;
-  },
+  row: CatalogSourceRow,
   inviteOnly: boolean,
   registeredSlugs: Set<string>,
+  imageUrls: string[],
 ): CatalogListRow {
   return {
     slug: row.slug,
     title: row.title,
     summary: row.summary ?? null,
     location: row.location ?? null,
-    imageUrls: normalizeEventImageUrls(row.imageUrls),
+    imageUrls,
     startsAt: row.startsAt,
     inviteOnly,
     registrationConfirmed: registeredSlugs.has(row.slug),
@@ -46,10 +49,12 @@ export async function listPublishedCatalog(
     : new Set<string>();
 
   const publicRows = await eventsService.listPublishedPublicCatalogRows();
-  const bySlug = new Map<string, CatalogListRow>();
+  const sourcesBySlug = new Map<string, CatalogSourceRow>();
+  const inviteOnlyBySlug = new Map<string, boolean>();
 
   for (const r of publicRows) {
-    bySlug.set(r.slug, catalogRow(r, false, registeredSlugs));
+    sourcesBySlug.set(r.slug, r);
+    inviteOnlyBySlug.set(r.slug, false);
   }
 
   if (viewerPersonId) {
@@ -59,18 +64,40 @@ export async function listPublishedCatalog(
       if (ev.status !== "published" || ev.accessMode !== "invite_only") {
         continue;
       }
-      bySlug.set(ev.slug, catalogRow(ev, true, registeredSlugs));
+      sourcesBySlug.set(ev.slug, {
+        id: ev.id,
+        slug: ev.slug,
+        title: ev.title,
+        summary: ev.summary,
+        location: ev.location,
+        startsAt: ev.startsAt,
+      });
+      inviteOnlyBySlug.set(ev.slug, true);
     }
   }
 
   if (inviteEventId) {
     const guestEv = await eventsService.getPublishedInviteOnlyById(inviteEventId);
     if (guestEv) {
-      bySlug.set(guestEv.slug, catalogRow(guestEv, true, registeredSlugs));
+      sourcesBySlug.set(guestEv.slug, guestEv);
+      inviteOnlyBySlug.set(guestEv.slug, true);
     }
   }
 
-  const combined = [...bySlug.values()];
+  const sources = [...sourcesBySlug.values()];
+  const imageUrlsByEventId = await eventImagesService.listPublicUrlsByEventIds(
+    sources.map((s) => s.id),
+  );
+
+  const combined = sources.map((row) =>
+    catalogRow(
+      row,
+      inviteOnlyBySlug.get(row.slug) ?? false,
+      registeredSlugs,
+      imageUrlsByEventId.get(row.id) ?? [],
+    ),
+  );
+
   combined.sort((a, b) => {
     const ta = a.startsAt?.getTime() ?? Number.POSITIVE_INFINITY;
     const tb = b.startsAt?.getTime() ?? Number.POSITIVE_INFINITY;

@@ -9,7 +9,6 @@ export const emptyEventFormValues = (): EventFormValues => ({
   accessMode: "public",
   eventQuota: "",
   defaultInviteLinkMaxRedemptions: "0",
-  imageUrlsText: "",
 });
 
 export function eventToFormValues(event: EventDetail): EventFormValues {
@@ -24,7 +23,6 @@ export function eventToFormValues(event: EventDetail): EventFormValues {
     defaultInviteLinkMaxRedemptions: String(
       event.defaultInviteLinkMaxRedemptions,
     ),
-    imageUrlsText: (event.imageUrls ?? []).join("\n"),
     status: event.status,
   };
 }
@@ -40,7 +38,6 @@ export function formValuesToCreatePayload(values: EventFormValues) {
     eventQuota: values.eventQuota.trim() ? Number(values.eventQuota) : null,
     defaultInviteLinkMaxRedemptions:
       Number(values.defaultInviteLinkMaxRedemptions) || 0,
-    imageUrls: parseImageUrls(values.imageUrlsText),
   };
 }
 
@@ -51,13 +48,6 @@ export function formValuesToUpdatePayload(values: EventFormValues) {
     ...base,
     ...(values.status ? { status: values.status } : {}),
   };
-}
-
-function parseImageUrls(text: string): string[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
 }
 
 function toDatetimeLocal(iso: string): string {

@@ -7,6 +7,7 @@ import { Card, CardBody } from "@heroui/card";
 import { Spinner } from "@heroui/react";
 
 import { FormError } from "@/components/form-error";
+import { ResponsiveEventImage } from "@/components/responsive-event-image";
 import { NeonLink } from "@/components/neon-link";
 import {
   ParticipantProfileGateModal,
@@ -199,12 +200,12 @@ function EventsIndexInner() {
                         <div className="flex flex-col sm:flex-row">
                           {thumb ? (
                             <div className="shrink-0 w-full sm:w-40 aspect-video sm:aspect-auto sm:min-h-[7rem] border-b sm:border-b-0 sm:border-r border-foreground/10 overflow-hidden">
-                              <img
+                              <ResponsiveEventImage
                                 alt={t.detailImageAlt}
                                 className="w-full h-full object-cover"
-                                decoding="async"
                                 loading="lazy"
-                                src={thumb}
+                                sizes="(max-width: 640px) 100vw, 10rem"
+                                url={thumb}
                               />
                             </div>
                           ) : null}

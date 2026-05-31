@@ -25,13 +25,6 @@ export class InviteMechanismDisabledError extends Error {
 
 export type EventAccess = "full" | "minimal";
 
-export function normalizeEventImageUrls(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  return raw.filter((u): u is string => typeof u === "string" && u.trim().length > 0);
-}
-
 export type CatalogListRow = {
   slug: string;
   title: string;
@@ -68,7 +61,6 @@ export const eventsResourceMeta = introspectTable(events, {
       "title",
       "summary",
       "location",
-      "imageUrls",
       "startsAt",
       "status",
       "accessMode",
@@ -168,17 +160,17 @@ export class EventsService extends TableService<
   async listPublishedPublicCatalogRows(): Promise<
     Pick<
       typeof events.$inferSelect,
-      "slug" | "title" | "summary" | "location" | "imageUrls" | "startsAt"
+      "id" | "slug" | "title" | "summary" | "location" | "startsAt"
     >[]
   > {
     const db = getDb();
     return db
       .select({
+        id: events.id,
         slug: events.slug,
         title: events.title,
         summary: events.summary,
         location: events.location,
-        imageUrls: events.imageUrls,
         startsAt: events.startsAt,
       })
       .from(events)
@@ -190,17 +182,17 @@ export class EventsService extends TableService<
   ): Promise<
     Pick<
       typeof events.$inferSelect,
-      "slug" | "title" | "summary" | "location" | "imageUrls" | "startsAt"
+      "id" | "slug" | "title" | "summary" | "location" | "startsAt"
     > | null
   > {
     const db = getDb();
     const [row] = await db
       .select({
+        id: events.id,
         slug: events.slug,
         title: events.title,
         summary: events.summary,
         location: events.location,
-        imageUrls: events.imageUrls,
         startsAt: events.startsAt,
       })
       .from(events)
@@ -230,7 +222,6 @@ export class EventsService extends TableService<
     return {
       ...data,
       slug: String(data.slug).trim().toLowerCase(),
-      imageUrls: normalizeEventImageUrls(data.imageUrls),
       startsAt: parseStartsAt(data.startsAt as string | null | undefined),
       status: "draft",
     };
@@ -245,9 +236,6 @@ export class EventsService extends TableService<
       ...data,
       ...(data.slug !== undefined
         ? { slug: String(data.slug).trim().toLowerCase() }
-        : {}),
-      ...(data.imageUrls !== undefined
-        ? { imageUrls: normalizeEventImageUrls(data.imageUrls) }
         : {}),
       ...(data.startsAt !== undefined
         ? { startsAt: parseStartsAt(data.startsAt as string | null | undefined) }

@@ -224,7 +224,6 @@ async function ensureInviteOnlyEvent(
       title: "[E2E] Invite-only checkout",
       summary: "Playwright checkout flow seed.",
       location: "Test",
-      imageUrls: [],
       startsAt,
       status: "published",
       accessMode: "invite_only",

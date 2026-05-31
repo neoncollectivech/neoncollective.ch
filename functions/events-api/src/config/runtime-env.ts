@@ -35,6 +35,11 @@ export type EventsApiEnv = {
   nodeEnv: string | undefined;
   e2eTestMode: boolean;
   e2eTestOtp: string | undefined;
+  r2AccountId: string | undefined;
+  r2AccessKeyId: string | undefined;
+  r2SecretAccessKey: string | undefined;
+  r2BucketName: string | undefined;
+  r2PublicBaseUrl: string | undefined;
 };
 
 export function readEventsApiEnv(source: EnvSource = process.env): EventsApiEnv {
@@ -72,6 +77,11 @@ export function readEventsApiEnv(source: EnvSource = process.env): EventsApiEnv 
     e2eTestMode:
       trim(source, "NODE_ENV") !== "production" && trim(source, "E2E_TEST_MODE") === "1",
     e2eTestOtp: trim(source, "E2E_TEST_OTP"),
+    r2AccountId: trim(source, "R2_ACCOUNT_ID"),
+    r2AccessKeyId: trim(source, "R2_ACCESS_KEY_ID"),
+    r2SecretAccessKey: trim(source, "R2_SECRET_ACCESS_KEY"),
+    r2BucketName: trim(source, "R2_BUCKET_NAME"),
+    r2PublicBaseUrl: trim(source, "R2_PUBLIC_BASE_URL"),
   };
 }
 

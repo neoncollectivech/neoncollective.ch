@@ -1,8 +1,6 @@
-import {
-  normalizeEventImageUrls,
-  type EventAccess,
-} from "../../services/events.service";
+import { type EventAccess } from "../../services/events.service";
 import { eventsService } from "../../services/events.service";
+import { eventImagesService } from "../../services/event-images.service";
 import { eventTiersService } from "../../services/event-tiers.service";
 import { enrichTiersWithCapacityStats } from "../../helpers/tier-capacity";
 
@@ -17,13 +15,14 @@ export async function buildEventPayload(
   if (!ev) {
     return null;
   }
+  const imageUrls = await eventImagesService.listPublicUrlsByEventId(ev.id);
   if (access === "minimal") {
     return {
       slug: ev.slug,
       title: ev.title,
       summary: ev.summary ?? null,
       location: ev.location ?? null,
-      imageUrls: normalizeEventImageUrls(ev.imageUrls),
+      imageUrls,
       startsAt: ev.startsAt?.toISOString() ?? null,
       accessMode: ev.accessMode,
       inviteOnly: ev.accessMode === "invite_only",
@@ -52,7 +51,7 @@ export async function buildEventPayload(
     title: ev.title,
     summary: ev.summary ?? null,
     location: ev.location ?? null,
-    imageUrls: normalizeEventImageUrls(ev.imageUrls),
+    imageUrls,
     startsAt: ev.startsAt?.toISOString() ?? null,
     accessMode: ev.accessMode,
     inviteOnly: ev.accessMode === "invite_only",

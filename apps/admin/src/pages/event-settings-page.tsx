@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { EventForm } from "@/components/event-form";
+import { EventImageManager } from "@/components/event-image-manager";
 import { EventWorkspaceGate } from "@/components/layout/event-workspace-gate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { adminApi } from "@/hooks/use-admin-api";
@@ -37,6 +38,15 @@ export function EventSettingsPage() {
                   })
                 }
               />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Images</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EventImageManager eventId={eventId} />
             </CardContent>
           </Card>
         </div>

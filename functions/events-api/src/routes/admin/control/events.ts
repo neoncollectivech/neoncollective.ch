@@ -1,12 +1,29 @@
-import { actionProvider } from "@neon/resource-api";
+import { actionProvider, ResourceApiError } from "@neon/resource-api";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import {
+  isAllowedEventImageContentType,
+  MAX_EVENT_IMAGE_BYTES,
+} from "../../../config/event-images";
+import {
+  buildEventImageStorageKey,
+  buildPublicUrl,
+  createPresignedPutUrl,
+  deleteObject,
+  isR2Configured,
+} from "../../../helpers/r2-storage";
 import { admissionsService } from "../../../services/admissions.service";
+import { eventImagesService } from "../../../services/event-images.service";
 import { eventTiersService } from "../../../services/event-tiers.service";
 import { eventsService } from "../../../services/events.service";
 import { orderTiersService } from "../../../services/order-tiers.service";
-import { adminEventTiersPutSchema } from "../schemas";
+import {
+  adminEventImageCreateSchema,
+  adminEventImagePresignSchema,
+  adminEventImageReorderSchema,
+  adminEventTiersPutSchema,
+} from "../schemas";
 import {
   createEventPromotionCodeHandler,
   listEventPromotionCodesHandler,
@@ -23,6 +40,29 @@ const REPLACE_TIERS_ERRORS = {
     error: "Tier is used by existing orders. Deactivate it instead.",
   },
 } as const;
+
+function serializeEventImage(image: Awaited<
+  ReturnType<typeof eventImagesService.listByEventId>
+>[number]) {
+  return {
+    id: image.id,
+    eventId: image.eventId,
+    storageKey: image.storageKey,
+    url: image.url,
+    contentType: image.contentType,
+    byteSize: image.byteSize,
+    sortOrder: image.sortOrder,
+    altText: image.altText,
+    createdAt: image.createdAt.toISOString(),
+  };
+}
+
+function mapResourceApiError(c: { json: (body: unknown, status: number) => Response }, err: unknown) {
+  if (err instanceof ResourceApiError) {
+    return c.json({ error: err.message }, err.statusCode as ContentfulStatusCode);
+  }
+  throw err;
+}
 
 export function createEventsControlRouter(): Hono {
   const control = new Hono();
@@ -82,6 +122,116 @@ export function createEventsControlRouter(): Hono {
           method: "patch",
           path: "/:id/promotion-codes/:promotionCodeId",
           handler: patchEventPromotionCodeHandler,
+        },
+        {
+          method: "get",
+          path: "/:id/images",
+          handler: async (c) => {
+            const eventId = c.req.param("id")!;
+            const ev = await eventsService.get(eventId);
+            if (!ev) {
+              return c.json({ error: "Event not found." }, 404);
+            }
+            const images = await eventImagesService.listByEventId(eventId);
+            return c.json({ images: images.map(serializeEventImage) });
+          },
+        },
+        {
+          method: "post",
+          path: "/:id/images/presign",
+          schema: adminEventImagePresignSchema,
+          handler: async (c) => {
+            if (!isR2Configured()) {
+              return c.json({ error: "Image storage is not configured." }, 503);
+            }
+            const eventId = c.req.param("id")!;
+            const ev = await eventsService.get(eventId);
+            if (!ev) {
+              return c.json({ error: "Event not found." }, 404);
+            }
+            const body = adminEventImagePresignSchema.assert(await c.req.json());
+            if (!isAllowedEventImageContentType(body.contentType)) {
+              return c.json({ error: "Unsupported image content type." }, 400);
+            }
+            if (body.byteSize <= 0 || body.byteSize > MAX_EVENT_IMAGE_BYTES) {
+              return c.json({ error: "Image exceeds the maximum allowed size." }, 400);
+            }
+            const storageKey = buildEventImageStorageKey(eventId, body.contentType);
+            const uploadUrl = await createPresignedPutUrl({
+              storageKey,
+              contentType: body.contentType,
+              byteSize: body.byteSize,
+            });
+            return c.json({
+              uploadUrl,
+              storageKey,
+              url: buildPublicUrl(storageKey),
+              contentType: body.contentType,
+            });
+          },
+        },
+        {
+          method: "post",
+          path: "/:id/images",
+          schema: adminEventImageCreateSchema,
+          handler: async (c) => {
+            const eventId = c.req.param("id")!;
+            const ev = await eventsService.get(eventId);
+            if (!ev) {
+              return c.json({ error: "Event not found." }, 404);
+            }
+            const body = adminEventImageCreateSchema.assert(await c.req.json());
+            try {
+              const image = await eventImagesService.createForEvent(eventId, body);
+              return c.json(serializeEventImage(image), 201);
+            } catch (err) {
+              return mapResourceApiError(c, err);
+            }
+          },
+        },
+        {
+          method: "put",
+          path: "/:id/images/reorder",
+          schema: adminEventImageReorderSchema,
+          handler: async (c) => {
+            const eventId = c.req.param("id")!;
+            const ev = await eventsService.get(eventId);
+            if (!ev) {
+              return c.json({ error: "Event not found." }, 404);
+            }
+            const body = adminEventImageReorderSchema.assert(await c.req.json());
+            try {
+              const images = await eventImagesService.reorderForEvent(
+                eventId,
+                body.imageIds,
+              );
+              return c.json({ images: images.map(serializeEventImage) });
+            } catch (err) {
+              return mapResourceApiError(c, err);
+            }
+          },
+        },
+        {
+          method: "delete",
+          path: "/:id/images/:imageId",
+          handler: async (c) => {
+            const eventId = c.req.param("id")!;
+            const imageId = c.req.param("imageId")!;
+            const ev = await eventsService.get(eventId);
+            if (!ev) {
+              return c.json({ error: "Event not found." }, 404);
+            }
+            try {
+              const removed = await eventImagesService.deleteForEvent(
+                eventId,
+                imageId,
+              );
+              await deleteObject(removed.storageKey);
+              return c.body(null, 204);
+            } catch (err) {
+              return mapResourceApiError(c, err);
+            }
+          },
         },
       ],
       [],

@@ -61,3 +61,20 @@ export const adminEventTiersPutSchema = type({
     selectionMode: "'exclusive' | 'addon'",
   }).array(),
 });
+
+export const adminEventImagePresignSchema = type({
+  filename: "string>0",
+  contentType: "string>0",
+  byteSize: "number.integer>0",
+});
+
+export const adminEventImageCreateSchema = type({
+  storageKey: "string>0",
+  contentType: "string>0",
+  byteSize: "number.integer>0",
+  "altText?": "string | null",
+});
+
+export const adminEventImageReorderSchema = type({
+  imageIds: "string.uuid[]>=1",
+});

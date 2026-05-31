@@ -9,6 +9,7 @@ import {
   createEvent,
   createEventPromotionCode,
   createPerson,
+  deleteEventImage,
   deletePromotionCode,
   deleteEventInvitee,
   deletePerson,
@@ -19,6 +20,7 @@ import {
   getOrder,
   getPerson,
   getPersonDeletionEligibility,
+  listEventImages,
   listEventInvitees,
   listEventPromotionCodes,
   listEventTiers,
@@ -33,6 +35,7 @@ import {
   patchInviteLink,
   patchPerson,
   putEventTiers,
+  reorderEventImages,
   deleteInviteLink,
   deleteOrder,
   refundOrder,
@@ -54,6 +57,12 @@ import {
 } from "@/lib/admin-related-list";
 
 import { adminKeys } from "./keys";
+
+async function invalidateEventImages(eventId: string) {
+  await queryClient.invalidateQueries({
+    queryKey: adminKeys.eventImages.forEvent(eventId),
+  });
+}
 
 async function invalidateEvents(eventId?: string) {
   await queryClient.invalidateQueries({ queryKey: adminKeys.events.all });
@@ -272,6 +281,31 @@ export const adminApi = {
         },
         onError: (err) =>
           toast.error(getApiErrorMessage(err, "Failed to save tiers")),
+      }),
+    images: (eventId: string) =>
+      queryOptions({
+        queryKey: adminKeys.eventImages.forEvent(eventId),
+        queryFn: () => listEventImages(eventId),
+        enabled: Boolean(eventId),
+      }),
+    deleteImage: (eventId: string) =>
+      mutationOptions({
+        mutationFn: (imageId: string) => deleteEventImage(eventId, imageId),
+        onSuccess: async () => {
+          await invalidateEventImages(eventId);
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to delete image")),
+      }),
+    reorderImages: (eventId: string) =>
+      mutationOptions({
+        mutationFn: (payload: { imageIds: string[] }) =>
+          reorderEventImages(eventId, payload),
+        onSuccess: async () => {
+          await invalidateEventImages(eventId);
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to reorder images")),
       }),
     promotionCodes: (eventId: string) =>
       queryOptions({

@@ -64,4 +64,9 @@ export const adminKeys = {
       ["admin", "promotion-codes", "event", eventId] as const,
     detail: (id: string) => ["admin", "promotion-codes", id] as const,
   },
+  eventImages: {
+    all: ["admin", "event-images"] as const,
+    forEvent: (eventId: string) =>
+      ["admin", "event-images", "event", eventId] as const,
+  },
 } as const;

@@ -20,12 +20,14 @@
     "db:seed:e2e": "pnpm db:repair-migrations:local && dotenv -e .env.local -- tsx src/scripts/seed-e2e-checkout.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1057.0",
+    "@aws-sdk/s3-request-presigner": "^3.1057.0",
     "@google-cloud/functions-framework": "^3.4.0",
     "@hono/arktype-validator": "^2.0.0",
     "@hono/node-server": "^1.13.0",
-    "@neondatabase/serverless": "^0.10.4",
     "@neon/resource-api": "workspace:*",
     "@neon/server-kit": "workspace:*",
+    "@neondatabase/serverless": "^0.10.4",
     "arktype": "^2.1.0",
     "better-auth": "^1.2.0",
     "csv-stringify": "^6.5.2",

@@ -69,6 +69,18 @@ export type VerifyPeopleMeta = {
 
 export type EventReadRow = EventDetail;
 
+export type EventImageRow = {
+  id: string;
+  eventId: string;
+  storageKey: string;
+  url: string;
+  contentType: string;
+  byteSize: number;
+  sortOrder: number;
+  altText: string | null;
+  createdAt: string;
+};
+
 export type EventSalesAnalyticsDay = {
   date: string;
   revenueCents: number;
@@ -391,6 +403,61 @@ export async function putEventTiers(
   payload: { tiers: Omit<TierRow, "id">[] },
 ) {
   await api.put(`/admin/events/${eventId}/tiers`, payload);
+}
+
+export async function listEventImages(eventId: string) {
+  const res = await api.get<{ images: EventImageRow[] }>(
+    `/admin/events/${eventId}/images`,
+  );
+
+  return res.data.images;
+}
+
+export async function presignEventImage(
+  eventId: string,
+  payload: { filename: string; contentType: string; byteSize: number },
+) {
+  const res = await api.post<{
+    uploadUrl: string;
+    storageKey: string;
+    url: string;
+    contentType: string;
+  }>(`/admin/events/${eventId}/images/presign`, payload);
+
+  return res.data;
+}
+
+export async function createEventImage(
+  eventId: string,
+  payload: {
+    storageKey: string;
+    contentType: string;
+    byteSize: number;
+    altText?: string | null;
+  },
+) {
+  const res = await api.post<EventImageRow>(
+    `/admin/events/${eventId}/images`,
+    payload,
+  );
+
+  return res.data;
+}
+
+export async function reorderEventImages(
+  eventId: string,
+  payload: { imageIds: string[] },
+) {
+  const res = await api.put<{ images: EventImageRow[] }>(
+    `/admin/events/${eventId}/images/reorder`,
+    payload,
+  );
+
+  return res.data.images;
+}
+
+export async function deleteEventImage(eventId: string, imageId: string) {
+  await api.delete(`/admin/events/${eventId}/images/${imageId}`);
 }
 
 export async function listEventPromotionCodes(eventId: string) {
