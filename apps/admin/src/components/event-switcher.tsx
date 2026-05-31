@@ -5,7 +5,6 @@ import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,7 +24,6 @@ import { cn } from "@/lib/utils";
 type EventSwitcherProps = {
   currentEventId: string;
   currentTitle?: string;
-  currentStatus?: string;
   className?: string;
 };
 
@@ -55,7 +53,7 @@ function EventPickerRow({
   return (
     <Button
       className={cn(
-        "flex h-auto w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-normal",
+        "flex h-auto w-full items-center px-3 py-2 text-left text-sm font-normal",
         isCurrent && "bg-muted",
       )}
       type="button"
@@ -68,12 +66,6 @@ function EventPickerRow({
           {event.slug}
         </span>
       </span>
-      <Badge
-        className="shrink-0"
-        variant={event.status === "published" ? "default" : "secondary"}
-      >
-        {event.status}
-      </Badge>
     </Button>
   );
 }
@@ -81,7 +73,6 @@ function EventPickerRow({
 export function EventSwitcher({
   currentEventId,
   currentTitle,
-  currentStatus,
   className,
 }: EventSwitcherProps) {
   const navigate = useNavigate();
@@ -129,14 +120,6 @@ export function EventSwitcher({
         onClick={() => setOpen(true)}
       >
         <span className="truncate">{currentTitle ?? "Select event"}</span>
-        {currentStatus ? (
-          <Badge
-            className="shrink-0"
-            variant={currentStatus === "published" ? "default" : "secondary"}
-          >
-            {currentStatus}
-          </Badge>
-        ) : null}
         <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
       </Button>
 

@@ -25,7 +25,6 @@ export type AdminSidebarModel = {
   back?: { label: string; href: string };
   links: AdminNavLink[];
   eventTitle?: string;
-  eventStatus?: string;
   isEventLoading?: boolean;
 };
 
@@ -97,7 +96,6 @@ export function useAdminSidebarModel(): AdminSidebarModel {
       back: { label: "All events", href: "/events" },
       links,
       eventTitle: event?.title,
-      eventStatus: event?.status,
       isEventLoading: eventQuery.isLoading && !event,
     };
   }, [eventId, eventQuery.data, eventQuery.isLoading]);

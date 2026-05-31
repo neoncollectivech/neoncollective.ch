@@ -55,7 +55,6 @@ export function AdminSidebar() {
               <EventSwitcher
                 className="w-full max-w-none justify-between gap-2"
                 currentEventId={model.eventId}
-                currentStatus={model.eventStatus}
                 currentTitle={model.eventTitle}
               />
               {model.isEventLoading ? (
