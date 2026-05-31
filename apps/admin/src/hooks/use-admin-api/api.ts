@@ -10,6 +10,7 @@ import {
   createEventPromotionCode,
   createPerson,
   deletePromotionCode,
+  deleteEventInvitee,
   deletePerson,
   ensureInviteeLink,
   getEvent,
@@ -199,6 +200,15 @@ export const adminApi = {
         onSuccess: async () => {
           await invalidateEvents(eventId);
         },
+      }),
+    deleteInvitee: (eventId: string) =>
+      mutationOptions({
+        mutationFn: (inviteeId: string) => deleteEventInvitee(inviteeId),
+        onSuccess: async () => {
+          await invalidateEvents(eventId);
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to delete invitee")),
       }),
     ensureInviteeLink: (eventId: string) =>
       mutationOptions({

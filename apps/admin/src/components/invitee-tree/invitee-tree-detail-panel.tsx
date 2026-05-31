@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { InviteeLinkActions } from "@/components/invitee-link-actions";
 import { InviteeNotesForm } from "@/components/invitee-notes-form";
+import { InviteeRemovalActions } from "@/components/invitee-removal-actions";
 import { InviteeStatusBadge } from "@/components/invitee-status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ export function InviteeTreeDetailPanel({
   fk,
 }: InviteeTreeDetailPanelProps) {
   const revokeMutation = useMutation(adminApi.event.revokeInvitee(eventId));
+  const deleteMutation = useMutation(adminApi.event.deleteInvitee(eventId));
   const personLookup = fk.lookups.person;
 
   if (!invitee) {
@@ -109,23 +111,28 @@ export function InviteeTreeDetailPanel({
             inviteeId={invitee.id}
           />
 
-          {!invitee.revokedAt ? (
-            <Button
-              disabled={revokeMutation.isPending}
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                revokeMutation.mutate(invitee.id, {
-                  onSuccess: () => {
-                    toast.success("Invitee revoked");
-                    onOpenChange(false);
-                  },
-                });
-              }}
-            >
-              Revoke invitee
-            </Button>
-          ) : null}
+          <InviteeRemovalActions
+            deletePending={deleteMutation.isPending}
+            fk={fk}
+            invitee={invitee}
+            revokePending={revokeMutation.isPending}
+            onDelete={(inviteeId) => {
+              deleteMutation.mutate(inviteeId, {
+                onSuccess: () => {
+                  toast.success("Invitee deleted");
+                  onOpenChange(false);
+                },
+              });
+            }}
+            onRevoke={(inviteeId) => {
+              revokeMutation.mutate(inviteeId, {
+                onSuccess: () => {
+                  toast.success("Invitee revoked");
+                  onOpenChange(false);
+                },
+              });
+            }}
+          />
         </div>
       </DrawerContent>
     </Drawer>

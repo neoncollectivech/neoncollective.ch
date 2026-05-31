@@ -220,6 +220,20 @@ export class OrdersService extends TableService<
     return Boolean(row);
   }
 
+  async hasOrderForPersonOnEvent(
+    eventId: string,
+    personId: string,
+    tx?: OrderTx,
+  ): Promise<boolean> {
+    const executor = tx ?? getDb();
+    const [row] = await executor
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.eventId, eventId), eq(orders.personId, personId)))
+      .limit(1);
+    return Boolean(row);
+  }
+
   async aggregateSalesByDayForEvent(eventId: string): Promise<EventSalesAnalytics> {
     const db = getDb();
     const paidForEvent = and(eq(orders.eventId, eventId), eq(orders.status, "paid"));

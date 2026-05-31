@@ -349,6 +349,10 @@ export async function revokeEventInvitee(eventId: string, inviteeId: string) {
   await api.post(`/admin/events/${eventId}/invitees/${inviteeId}/revoke`);
 }
 
+export async function deleteEventInvitee(inviteeId: string) {
+  await api.delete(`/admin/event-invitees/${inviteeId}`);
+}
+
 export async function ensureInviteeLink(eventId: string, inviteeId: string) {
   const res = await api.post<{ inviteToken: string }>(
     `/admin/events/${eventId}/invitees/${inviteeId}/ensure-link`,

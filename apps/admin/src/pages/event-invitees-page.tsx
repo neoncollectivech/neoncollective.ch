@@ -41,6 +41,7 @@ export function EventInviteesPage() {
 
   const upsertMutation = useMutation(adminApi.event.upsertInvitees(eventId));
   const revokeMutation = useMutation(adminApi.event.revokeInvitee(eventId));
+  const deleteMutation = useMutation(adminApi.event.deleteInvitee(eventId));
 
   return (
     <EventWorkspaceGate eventId={eventId}>
@@ -51,6 +52,13 @@ export function EventInviteesPage() {
           defaultInviteLinkMaxRedemptions:
             event.defaultInviteLinkMaxRedemptions,
           onEdit: setEditInvitee,
+          deletePending: deleteMutation.isPending,
+          revokePending: revokeMutation.isPending,
+          onDelete: (inviteeId) => {
+            deleteMutation.mutate(inviteeId, {
+              onSuccess: () => toast.success("Invitee deleted"),
+            });
+          },
           onRevoke: (inviteeId) => {
             revokeMutation.mutate(inviteeId, {
               onSuccess: () => toast.success("Invitee revoked"),

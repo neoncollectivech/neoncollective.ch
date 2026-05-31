@@ -1,5 +1,8 @@
 import type { EventInviteeListRow } from "@/lib/admin-api";
-import type { AdminColumnDef } from "@/components/admin-data-table/types";
+import type {
+  AdminColumnDef,
+  AdminDataTableMeta,
+} from "@/components/admin-data-table/types";
 
 import {
   adminActionsColumn,
@@ -8,6 +11,7 @@ import {
   adminTextColumn,
 } from "@/components/admin-data-table/column-helpers";
 import { InviteeLinkActions } from "@/components/invitee-link-actions";
+import { InviteeRemovalActions } from "@/components/invitee-removal-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { orderFkService, personFkService } from "@/lib/admin-fk-services";
@@ -17,7 +21,10 @@ export type EventInviteesColumnsOptions = {
   eventSlug: string;
   defaultInviteLinkMaxRedemptions: number;
   onEdit: (invitee: EventInviteeListRow) => void;
+  onDelete: (inviteeId: string) => void;
   onRevoke: (inviteeId: string) => void;
+  deletePending?: boolean;
+  revokePending?: boolean;
 };
 
 export function eventInviteesColumns(
@@ -80,8 +87,11 @@ export function eventInviteesColumns(
       },
     },
     adminActionsColumn({
-      cell: ({ row }) => {
+      cell: ({ row, table }) => {
         const inv = row.original;
+        const meta = table.options.meta as
+          | AdminDataTableMeta<EventInviteeListRow>
+          | undefined;
 
         return (
           <div className="space-x-2">
@@ -92,15 +102,14 @@ export function eventInviteesColumns(
             >
               Edit
             </Button>
-            {!inv.revokedAt ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => opts.onRevoke(inv.id)}
-              >
-                Revoke
-              </Button>
-            ) : null}
+            <InviteeRemovalActions
+              deletePending={opts.deletePending}
+              fk={meta?.fk}
+              invitee={inv}
+              revokePending={opts.revokePending}
+              onDelete={opts.onDelete}
+              onRevoke={opts.onRevoke}
+            />
           </div>
         );
       },

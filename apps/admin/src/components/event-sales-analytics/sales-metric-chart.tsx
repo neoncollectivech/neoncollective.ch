@@ -1,5 +1,4 @@
 import type { SalesMetric } from "./types";
-
 import type { ComponentProps } from "react";
 
 import {

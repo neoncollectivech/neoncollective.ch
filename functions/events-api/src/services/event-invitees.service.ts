@@ -1,4 +1,5 @@
 import {
+  ConflictError,
   introspectTable,
   parseListQuery,
   type ListQuery,
@@ -16,6 +17,8 @@ import { TableService } from "./base/table-service";
 import type { ServiceContext } from "./base/types";
 import type { EntityTx } from "./transaction";
 import { eventsService } from "./events.service";
+import { inviteLinksService } from "./invite-links.service";
+import { ordersService } from "./orders.service";
 import { peopleService } from "./people.service";
 
 export type EventInviteesTx = EntityTx;
@@ -262,6 +265,40 @@ export class EventInviteesService extends TableService<
       await eventsService.requireInviteOnly(row.eventId);
     }
     return data;
+  }
+
+  protected override async beforeDelete(id: string, _ctx?: ServiceContext): Promise<void> {
+    const row = await this.get(id);
+    if (!row) {
+      return;
+    }
+
+    await eventsService.requireInviteOnly(row.eventId);
+
+    if (!row.personId) {
+      return;
+    }
+
+    if (await ordersService.hasOrderForPersonOnEvent(row.eventId, row.personId)) {
+      throw new ConflictError(
+        "Cannot delete an invitee who has an order — revoke instead.",
+      );
+    }
+
+    const hostLink = await inviteLinksService.findHostLinkByEventAndPerson(
+      row.eventId,
+      row.personId,
+    );
+    if (!hostLink) {
+      return;
+    }
+
+    const used = await ordersService.countPendingOrPaidForInviteLink(hostLink.id);
+    if (used > 0) {
+      throw new ConflictError(
+        "Cannot delete an invitee whose guest invite link has pending or paid orders — revoke instead.",
+      );
+    }
   }
 
   listDefaultSort(): string {

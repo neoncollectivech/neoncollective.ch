@@ -10,6 +10,6 @@ export const eventInviteesResource = defineResource({
   meta: eventInviteesResourceMeta,
   service: tableServiceToBridge(eventInviteesService),
   opts: {
-    operations: ["list", "read", "update"],
+    operations: ["list", "read", "update", "delete"],
   },
 });
