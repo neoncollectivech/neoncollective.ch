@@ -186,7 +186,7 @@ export function ContributionPanel({
       id={id}
       radius="sm"
     >
-      <CardBody className="px-6 py-8">
+      <CardBody className="px-5 py-10 sm:px-7 lg:px-8">
         <ContributionStepper
           changeLevelLabel={labels.changeLevel}
           chooseLabel={labels.checkoutStepChoose}
@@ -225,7 +225,7 @@ export function ContributionPanel({
         {exclusiveTiers.length > 0 ? (
           <RadioGroup
             aria-labelledby="event-checkout-heading"
-            classNames={{ wrapper: "gap-6" }}
+            classNames={{ wrapper: "gap-8" }}
             isDisabled={checkoutLocked}
             value={selectedExclusiveId ?? ""}
             onValueChange={onExclusiveChange}
@@ -245,7 +245,7 @@ export function ContributionPanel({
                 <Radio
                   key={tier.id}
                   classNames={{
-                    base: "max-w-full m-0 p-3 border border-foreground/10 data-[selected=true]:border-neon/40 rounded-sm opacity-100 data-[disabled=true]:opacity-50",
+                    base: "max-w-full m-0 p-4 border border-foreground/10 data-[selected=true]:border-neon/40 rounded-sm opacity-100 data-[disabled=true]:opacity-50",
                     wrapper: "mt-0.5",
                     label: "w-full max-w-full",
                     labelWrapper: "w-full max-w-full",
@@ -292,7 +292,7 @@ export function ContributionPanel({
                 return (
                   <div
                     key={tier.id}
-                    className="p-3 border border-foreground/10 rounded-sm data-[selected=true]:border-neon/40"
+                    className="p-4 border border-foreground/10 rounded-sm data-[selected=true]:border-neon/40"
                     data-selected={isSelected ? true : undefined}
                   >
                     <Checkbox

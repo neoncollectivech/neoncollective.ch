@@ -62,7 +62,7 @@ export function EventHero({
   const mapsUrl = locationLine ? buildMapsUrl(locationLine) : "";
 
   return (
-    <header className="mb-8 md:mb-10">
+    <header className="mb-10 md:mb-12">
       <NeonLink
         className="text-sm text-foreground/45 mb-6 inline-block"
         href={backHref}
