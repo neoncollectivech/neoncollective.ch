@@ -35,7 +35,7 @@ export function EventDetailLayout({
               ) : null}
               {main}
             </div>
-            <aside className="order-1 lg:order-2 min-w-0 w-full max-w-full lg:sticky lg:top-24 lg:mb-0">
+            <aside className="order-1 lg:order-2 min-w-0 w-full max-w-full">
               {aside}
             </aside>
           </div>
