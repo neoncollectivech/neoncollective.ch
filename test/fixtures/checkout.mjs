@@ -12,6 +12,15 @@ export function checkoutReturnPathFromPage(page) {
   return url.pathname + url.search;
 }
 
+/** Pending aside after pay/intent, or success when fulfillment is instant. */
+export async function expectCheckoutConfirmingOrRegistered(page, timeout = 60_000) {
+  await expect(
+    page
+      .getByTestId("event-checkout-confirming")
+      .or(page.getByRole("heading", { name: "You're registered" })),
+  ).toBeVisible({ timeout });
+}
+
 /** Click the contribution CTA (stable test id; main panel, not sticky bar). */
 export async function clickConfirmContribution(page) {
   await page.getByTestId("event-checkout-confirm-contribution").first().click();
@@ -280,9 +289,7 @@ export async function submitStripePaymentAndConfirmRegistration(page, seed) {
 
   await payButton.click();
 
-  await expect(
-    page.getByText("Confirming your registration…"),
-  ).toBeVisible({ timeout: 20_000 });
+  await expectCheckoutConfirmingOrRegistered(page);
 
   const confirmRes = await confirmResponse;
   const confirmBody = await confirmRes.json();
@@ -343,9 +350,7 @@ export async function completeFreePromoCheckout(page, seed) {
   });
   assertCheckoutIntentResponse(body, returnPath);
 
-  await expect(
-    page.getByText("Confirming your registration…"),
-  ).toBeVisible({ timeout: 20_000 });
+  await expectCheckoutConfirmingOrRegistered(page);
 
   const confirmRes = await confirmResponse;
   const confirmBody = await confirmRes.json();

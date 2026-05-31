@@ -218,12 +218,7 @@ export function useCheckoutConfirmation(params: {
     setOrderId(null);
   }, [params.inviteToken, params.slug, queryClient, registrationQuery.data]);
 
-  const isConfirming =
-    Boolean(orderId) &&
-    (confirmQuery.isPending ||
-      confirmQuery.isFetching ||
-      registrationQuery.isPending ||
-      registrationQuery.isFetching);
+  const isConfirming = Boolean(orderId);
 
   const errorMessage = (() => {
     if (confirmQuery.isError) {
