@@ -19,6 +19,7 @@ import { Spinner } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { FormError } from "@/components/form-error";
+import { EventImageGallery } from "@/components/event-image-gallery";
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
 import { absoluteSiteUrl, getSiteOrigin } from "@/helpers/site-url";
 import { NeonButton } from "@/components/neon-button";
@@ -209,12 +210,12 @@ function EventHero({
       </NeonLink>
 
       {imageUrl ? (
-        <div className="mb-6 border border-foreground/10 overflow-hidden bg-foreground/2">
+        <div className="mb-6 flex justify-center border border-foreground/10 overflow-hidden bg-foreground/2">
           <ResponsiveEventImage
             alt={imageAlt}
-            className="w-full h-auto max-h-[min(420px,55vh)] object-cover object-center"
+            className="max-h-[min(85vh,720px)] w-auto max-w-full object-contain"
             loading="eager"
-            sizes="(max-width: 768px) 100vw, 768px"
+            sizes="(max-width: 768px) 100vw, 28rem"
             url={imageUrl}
           />
         </div>
@@ -263,24 +264,11 @@ function EventAboutSection({
         </p>
       ) : null}
       {gallery.length > 0 ? (
-        <div
-          className={`grid grid-cols-2 sm:grid-cols-3 gap-2 ${summaryLine ? "mt-6" : ""}`}
-        >
-          {gallery.map((url, i) => (
-            <div
-              key={`${url}-${i}`}
-              className="border border-foreground/10 overflow-hidden aspect-4/3"
-            >
-              <ResponsiveEventImage
-                alt={`${imageAlt} (${i + 2})`}
-                className="w-full h-full object-cover"
-                loading="lazy"
-                sizes="(max-width: 640px) 50vw, 33vw"
-                url={url}
-              />
-            </div>
-          ))}
-        </div>
+        <EventImageGallery
+          className={summaryLine ? "mt-6" : undefined}
+          imageAlt={imageAlt}
+          urls={gallery}
+        />
       ) : null}
     </section>
   );
