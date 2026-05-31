@@ -308,20 +308,22 @@ export function ContributionPanel({
                           onAddonChange(tier.id, checked)
                         }
                       >
-                        <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                          <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
-                            {tier.name}
+                        <div className="w-full min-w-0">
+                          <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                            <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
+                              {tier.name}
+                            </span>
+                            <span className="text-xs font-mono text-foreground/45 shrink-0">
+                              {priceLabel} · {placesLabel}
+                            </span>
                           </span>
-                          <span className="text-xs font-mono text-foreground/45 shrink-0">
-                            {priceLabel} · {placesLabel}
-                          </span>
-                        </span>
+                          {isSelected && tierDescription ? (
+                            <p className="text-xs text-foreground/45 leading-relaxed mt-1.5">
+                              {tierDescription}
+                            </p>
+                          ) : null}
+                        </div>
                       </Checkbox>
-                      {isSelected && tierDescription ? (
-                        <p className="text-xs text-foreground/45 leading-relaxed mt-1.5 pl-7">
-                          {tierDescription}
-                        </p>
-                      ) : null}
                     </div>
                   );
                 })}
