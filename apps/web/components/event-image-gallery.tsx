@@ -13,7 +13,11 @@ import clsx from "clsx";
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { NeonButton } from "@/components/neon-button";
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
-import { neonModalChrome, neonModalClassName } from "@/config/modal-chrome";
+import {
+  neonModalChrome,
+  neonModalClassName,
+  neonPanelBodyPaddingClass,
+} from "@/config/modal-chrome";
 import { useDictionary } from "@/i18n/DictionaryContext";
 
 type EventImageGalleryProps = {
@@ -128,7 +132,12 @@ export function EventImageGallery({
               {counter}
             </span>
           </ModalHeader>
-          <ModalBody className="flex items-center justify-center py-8">
+          <ModalBody
+            className={clsx(
+              neonPanelBodyPaddingClass,
+              "flex items-center justify-center",
+            )}
+          >
             <ResponsiveEventImage
               alt={`${imageAlt} (${index + 2})`}
               className="max-h-[min(85vh,720px)] w-auto max-w-full object-contain"

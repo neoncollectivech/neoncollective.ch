@@ -6,7 +6,11 @@ import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
 
-import { neonModalChrome, neonModalClassName } from "@/config/modal-chrome";
+import {
+  neonModalChrome,
+  neonModalClassName,
+  neonPanelBodyPaddingClass,
+} from "@/config/modal-chrome";
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
@@ -237,7 +241,7 @@ export function ParticipantProfileModal({
               : verifyHint}
           </p>
         </ModalHeader>
-        <ModalBody className="py-8">
+        <ModalBody className={neonPanelBodyPaddingClass}>
           {step === "details" ? (
             <form
               className="space-y-4 max-w-md"

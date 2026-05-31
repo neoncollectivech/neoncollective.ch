@@ -1,3 +1,9 @@
+/** Shared content inset: HeroUI ModalBody defaults to px-6 py-2; CardBody to p-3. */
+export const neonPanelBodyPaddingClass = "px-6 py-8";
+
+/** Inset for nested bordered rows inside a panel (e.g. checkout tier cards). */
+export const neonPanelInsetPaddingClass = "p-4";
+
 /** Shared HeroUI modal panel chrome (sharp corners, subtle border). */
 export const neonModalClassName =
   "bg-background border border-foreground/10 rounded-none";

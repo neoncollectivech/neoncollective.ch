@@ -1,9 +1,14 @@
 "use client";
 
 import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
+import clsx from "clsx";
 
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
-import { neonModalChrome, neonModalClassName } from "@/config/modal-chrome";
+import {
+  neonModalChrome,
+  neonModalClassName,
+  neonPanelBodyPaddingClass,
+} from "@/config/modal-chrome";
 
 type EventImageLightboxProps = {
   isOpen: boolean;
@@ -41,7 +46,12 @@ export function EventImageLightbox({
             </span>
           </ModalHeader>
         ) : null}
-        <ModalBody className="flex items-center justify-center py-8">
+        <ModalBody
+          className={clsx(
+            neonPanelBodyPaddingClass,
+            "flex items-center justify-center",
+          )}
+        >
           <ResponsiveEventImage
             alt={alt}
             className="max-h-[min(85vh,720px)] w-auto max-w-full object-contain"

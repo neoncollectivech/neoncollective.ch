@@ -4,6 +4,8 @@ import { Card, CardBody, type CardProps } from "@heroui/card";
 import clsx from "clsx";
 import { tv, type VariantProps } from "tailwind-variants";
 
+import { neonPanelBodyPaddingClass } from "@/config/modal-chrome";
+
 const neonCard = tv({
   base: "neon-surface shadow-none bg-background w-full min-w-0 max-w-full",
   variants: {
@@ -22,10 +24,11 @@ const neonCardBody = tv({
   base: "min-w-0 w-full overflow-x-clip",
   variants: {
     padding: {
-      default: "neon-surface-padding-default",
-      session: "neon-surface-padding-session",
-      checkout: "neon-surface-padding-checkout",
-      compact: "neon-surface-compact",
+      // Must be Tailwind utilities (not @layer components) so twMerge overrides HeroUI CardBody p-3.
+      default: "px-8 py-10 sm:px-10",
+      session: "px-8 py-8 sm:px-10",
+      checkout: neonPanelBodyPaddingClass,
+      compact: "px-3 py-2.5",
       none: "p-0",
     },
   },

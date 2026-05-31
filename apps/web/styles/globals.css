@@ -127,8 +127,9 @@
     @apply px-8 py-8 sm:px-10;
   }
 
+  /* Prefer NeonCardBody padding variants (utilities) — component-layer padding loses to HeroUI CardBody p-3. */
   .neon-surface-padding-checkout {
-    @apply px-8 py-14 sm:px-10;
+    @apply px-6 py-8;
   }
 }
 

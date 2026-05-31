@@ -6,11 +6,13 @@ import type { EventTier } from "@/helpers/eventsApi";
 
 import { Elements } from "@stripe/react-stripe-js";
 import { AxiosError } from "axios";
+import clsx from "clsx";
 import { useCallback, useRef } from "react";
 import { Checkbox } from "@heroui/react";
 import { Radio, RadioGroup } from "@heroui/radio";
 
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
+import { neonPanelInsetPaddingClass } from "@/config/modal-chrome";
 import { ContributionStepper } from "@/components/event/contribution-stepper";
 import { ContributionSummary } from "@/components/event/contribution-summary";
 import { PaymentStep } from "@/components/event/payment-step";
@@ -192,7 +194,7 @@ export function ContributionPanel({
           />
 
           <div>
-            <h2 className="neon-title-section mb-2" id="event-checkout-heading">
+            <h2 className="neon-title-section mb-3" id="event-checkout-heading">
               {labels.contributionTitle}
             </h2>
             <p className="neon-meta">{labels.contributionSubtitle}</p>
@@ -208,7 +210,7 @@ export function ContributionPanel({
             <RadioGroup
               aria-labelledby="event-checkout-heading"
               className="min-w-0"
-              classNames={{ wrapper: "gap-8 min-w-0 w-full" }}
+              classNames={{ wrapper: "gap-6 min-w-0 w-full" }}
               isDisabled={checkoutLocked}
               value={selectedExclusiveId ?? ""}
               onValueChange={onExclusiveChange}
@@ -226,34 +228,43 @@ export function ContributionPanel({
                 const disabled = !isSelectableTier(tier);
 
                 return (
-                  <Radio
+                  <div
                     key={tier.id}
-                    classNames={{
-                      base: "neon-surface-default p-6 w-full min-w-0 !max-w-full m-0 data-[selected=true]:border-neon/40 opacity-100 data-[disabled=true]:opacity-50",
-                      wrapper: "mt-0.5",
-                      label: "w-full max-w-full",
-                      labelWrapper: "w-full max-w-full",
-                      description:
-                        "text-xs text-foreground/45 leading-relaxed mt-1.5",
-                    }}
-                    data-testid={`event-checkout-exclusive-${tier.id}`}
-                    description={
-                      isSelected && tierDescription
-                        ? tierDescription
-                        : undefined
-                    }
-                    isDisabled={disabled || checkoutLocked}
-                    value={tier.id}
+                    className={clsx(
+                      "neon-surface-default",
+                      neonPanelInsetPaddingClass,
+                      isSelected && "border-neon/40",
+                      (disabled || checkoutLocked) && "opacity-50",
+                    )}
                   >
-                    <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                      <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
-                        {tier.name}
+                    <Radio
+                      classNames={{
+                        base: "flex p-0 m-0 w-full max-w-full gap-4 items-start justify-start",
+                        wrapper: "mt-0.5 shrink-0",
+                        label: "w-full max-w-full min-w-0",
+                        labelWrapper: "w-full max-w-full min-w-0",
+                        description:
+                          "text-xs text-foreground/45 leading-relaxed mt-1.5",
+                      }}
+                      data-testid={`event-checkout-exclusive-${tier.id}`}
+                      description={
+                        isSelected && tierDescription
+                          ? tierDescription
+                          : undefined
+                      }
+                      isDisabled={disabled || checkoutLocked}
+                      value={tier.id}
+                    >
+                      <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
+                          {tier.name}
+                        </span>
+                        <span className="text-xs font-mono text-foreground/45 shrink-0">
+                          {priceLabel} · {placesLabel}
+                        </span>
                       </span>
-                      <span className="text-xs font-mono text-foreground/45 shrink-0">
-                        {priceLabel} · {placesLabel}
-                      </span>
-                    </span>
-                  </Radio>
+                    </Radio>
+                  </div>
                 );
               })}
             </RadioGroup>
@@ -278,12 +289,16 @@ export function ContributionPanel({
                   return (
                     <div
                       key={tier.id}
-                      className="neon-surface-default p-6 data-[selected=true]:border-neon/40"
-                      data-selected={isSelected ? true : undefined}
+                      className={clsx(
+                        "neon-surface-default",
+                        neonPanelInsetPaddingClass,
+                        isSelected && "border-neon/40",
+                        (disabled || checkoutLocked) && "opacity-50",
+                      )}
                     >
                       <Checkbox
                         classNames={{
-                          base: "w-full min-w-0 !max-w-full m-0 items-start",
+                          base: "flex p-0 m-0 w-full max-w-full items-start gap-4",
                           label: "w-full max-w-full min-w-0",
                         }}
                         data-testid={`event-checkout-addon-${tier.id}`}
