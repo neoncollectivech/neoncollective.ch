@@ -1,15 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import NextLink from "next/link";
 import { useMemo } from "react";
 import { Suspense } from "react";
 
+import { NeonButton } from "@/components/neon-button";
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { FormError } from "@/components/form-error";
 import { PageHeader } from "@/components/page-header";
 import { PageSpinner } from "@/components/page-spinner";
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
-import { NeonLink } from "@/components/neon-link";
 import {
   ParticipantProfileGateModal,
   useParticipantProfileGate,
@@ -219,14 +220,14 @@ function EventsIndexInner() {
                                 </p>
                               ) : null}
                             </div>
-                            <NeonLink
+                            <NeonButton
                               aria-label={`${openLabel}: ${ev.title}`}
+                              as={NextLink}
                               className="w-full sm:w-auto sm:self-start"
                               href={detailHref}
-                              neonStyle="listAction"
                             >
                               {openLabel}
-                            </NeonLink>
+                            </NeonButton>
                           </div>
                         </div>
                       </NeonCardBody>
