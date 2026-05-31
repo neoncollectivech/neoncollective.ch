@@ -20,7 +20,6 @@ type ContributionSummaryProps = {
     checkoutSubtotal: string;
     checkoutTotal: string;
     promoDiscount: string;
-    costTransparencyDisclaimer: string;
     promoInvalid: string;
   };
 };
@@ -40,7 +39,10 @@ export function ContributionSummary({
   }
 
   return (
-    <div className="mt-6 space-y-2" data-testid="contribution-summary">
+    <div
+      className="space-y-3 border-t border-foreground/10 pt-8"
+      data-testid="contribution-summary"
+    >
       {promo ? (
         <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 break-all">
           {labels.promoCodeLabel}: {promo}
@@ -75,9 +77,6 @@ export function ContributionSummary({
       {promoInvalid ? (
         <p className="text-xs text-red-400">{labels.promoInvalid}</p>
       ) : null}
-      <p className="text-xs text-foreground/40 leading-relaxed">
-        {labels.costTransparencyDisclaimer}
-      </p>
     </div>
   );
 }

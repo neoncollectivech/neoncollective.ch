@@ -66,7 +66,7 @@ export function PaymentStep({
   return (
     <form
       ref={formRef}
-      className="mt-6 min-w-0 w-full space-y-4 overflow-x-clip"
+      className="min-w-0 w-full space-y-4 overflow-x-clip"
       data-testid="event-checkout-payment-step"
       onSubmit={handlePay}
     >

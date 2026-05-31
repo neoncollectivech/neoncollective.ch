@@ -16,7 +16,7 @@ export function ContributionStepper({
   changeLevelLabel,
 }: ContributionStepperProps) {
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-3 mb-4">
+    <div className="flex min-w-0 flex-wrap items-center gap-3 mb-0">
       <div className="neon-label flex items-center gap-2 normal-case tracking-wider">
         <span
           className={

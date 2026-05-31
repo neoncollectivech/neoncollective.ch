@@ -13,7 +13,6 @@ import { Radio, RadioGroup } from "@heroui/radio";
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { ContributionStepper } from "@/components/event/contribution-stepper";
 import { ContributionSummary } from "@/components/event/contribution-summary";
-import { EventCostTransparency } from "@/components/event/event-cost-transparency";
 import { PaymentStep } from "@/components/event/payment-step";
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
@@ -47,15 +46,11 @@ type ContributionPanelLabels = {
   checkoutOnePersonHint: string;
   pay: string;
   intentError: string;
-  checkoutOrderSummary: string;
   checkoutTotal: string;
   checkoutSubtotal: string;
   promoCodeLabel: string;
   promoDiscount: string;
   promoInvalid: string;
-  costTransparencyTitle: string;
-  costTransparencyBullets: string[];
-  costTransparencyDisclaimer: string;
   completeRegistration: string;
   confirmContribution: string;
   allTiersSoldOut: string;
@@ -107,7 +102,6 @@ type ContributionPanelProps = {
   onConfirmContribution: () => void;
   onChangeLevel: () => void;
   onPaymentSucceeded: () => void;
-  welcomeLine?: string;
 };
 
 export function ContributionPanel({
@@ -154,7 +148,6 @@ export function ContributionPanel({
   onConfirmContribution,
   onChangeLevel,
   onPaymentSucceeded,
-  welcomeLine,
 }: ContributionPanelProps) {
   const paymentRef = useRef<HTMLDivElement>(null);
   const step: 1 | 2 = clientSecret ? 2 : 1;
@@ -172,6 +165,9 @@ export function ContributionPanel({
     exclusiveTiers.length > 0 &&
     exclusiveTiers.every((tier) => !isSelectableTier(tier));
 
+  const showActionsSection =
+    !hasCheckoutProfile || showContactForm || !clientSecret;
+
   return (
     <NeonCard
       className="overflow-x-clip"
@@ -184,92 +180,40 @@ export function ContributionPanel({
       surface="default"
     >
       <NeonCardBody padding="checkout">
-        <ContributionStepper
-          changeLevelLabel={labels.changeLevel}
-          chooseLabel={labels.checkoutStepChoose}
-          completeLabel={labels.checkoutStepPay}
-          step={step}
-          onChangeLevel={step === 2 ? onChangeLevel : undefined}
-        />
+        <div className="space-y-8">
+          <ContributionStepper
+            changeLevelLabel={labels.changeLevel}
+            chooseLabel={labels.checkoutStepChoose}
+            completeLabel={labels.checkoutStepPay}
+            step={step}
+            onChangeLevel={step === 2 ? onChangeLevel : undefined}
+          />
 
-        <EventCostTransparency
-          bullets={labels.costTransparencyBullets}
-          title={labels.costTransparencyTitle}
-        />
+          <div>
+            <h2 className="neon-title-section mb-2" id="event-checkout-heading">
+              {labels.contributionTitle}
+            </h2>
+            <p className="neon-meta">{labels.contributionSubtitle}</p>
+          </div>
 
-        <h2 className="neon-title-section mb-1" id="event-checkout-heading">
-          {labels.contributionTitle}
-        </h2>
-        <p className="neon-meta mb-6">{labels.contributionSubtitle}</p>
+          {allExclusiveSoldOut ? (
+            <p className="text-sm text-foreground/50">
+              {labels.allTiersSoldOut}
+            </p>
+          ) : null}
 
-        {welcomeLine ? (
-          <p className="text-sm font-semibold text-foreground/80 mb-4">
-            {welcomeLine}
-          </p>
-        ) : null}
-
-        {allExclusiveSoldOut ? (
-          <p className="text-sm text-foreground/50 mb-6">
-            {labels.allTiersSoldOut}
-          </p>
-        ) : null}
-
-        {exclusiveTiers.length > 0 ? (
-          <RadioGroup
-            aria-labelledby="event-checkout-heading"
-            className="min-w-0"
-            classNames={{ wrapper: "gap-8 min-w-0 w-full" }}
-            isDisabled={checkoutLocked}
-            value={selectedExclusiveId ?? ""}
-            onValueChange={onExclusiveChange}
-          >
-            {exclusiveTiers.map((tier) => {
-              const tierDescription = tier.description.trim();
-              const priceLabel = formatTierPrice(tier);
-              const placesLabel = formatPlacesRemaining(
-                tier,
-                labels.placesRemaining,
-                labels.placesUnlimited,
-                labels.soldOut,
-              );
-              const disabled = !isSelectableTier(tier);
-
-              return (
-                <Radio
-                  key={tier.id}
-                  classNames={{
-                    base: "neon-surface-default p-4 w-full min-w-0 !max-w-full m-0 data-[selected=true]:border-neon/40 opacity-100 data-[disabled=true]:opacity-50",
-                    wrapper: "mt-0.5",
-                    label: "w-full max-w-full",
-                    labelWrapper: "w-full max-w-full",
-                    description:
-                      "text-xs text-foreground/45 leading-relaxed mt-1.5",
-                  }}
-                  data-testid={`event-checkout-exclusive-${tier.id}`}
-                  description={tierDescription || undefined}
-                  isDisabled={disabled || checkoutLocked}
-                  value={tier.id}
-                >
-                  <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
-                      {tier.name}
-                    </span>
-                    <span className="text-xs font-mono text-foreground/45 shrink-0">
-                      {priceLabel} · {placesLabel}
-                    </span>
-                  </span>
-                </Radio>
-              );
-            })}
-          </RadioGroup>
-        ) : null}
-
-        {addonTiers.length > 0 ? (
-          <div className="mt-8 space-y-4">
-            <p className="neon-label">{labels.addonsTitle}</p>
-            <div className="space-y-3">
-              {addonTiers.map((tier) => {
+          {exclusiveTiers.length > 0 ? (
+            <RadioGroup
+              aria-labelledby="event-checkout-heading"
+              className="min-w-0"
+              classNames={{ wrapper: "gap-8 min-w-0 w-full" }}
+              isDisabled={checkoutLocked}
+              value={selectedExclusiveId ?? ""}
+              onValueChange={onExclusiveChange}
+            >
+              {exclusiveTiers.map((tier) => {
                 const tierDescription = tier.description.trim();
+                const isSelected = selectedExclusiveId === tier.id;
                 const priceLabel = formatTierPrice(tier);
                 const placesLabel = formatPlacesRemaining(
                   tier,
@@ -277,182 +221,226 @@ export function ContributionPanel({
                   labels.placesUnlimited,
                   labels.soldOut,
                 );
-                const isSelected = selectedAddonIds.has(tier.id);
                 const disabled = !isSelectableTier(tier);
 
                 return (
-                  <div
+                  <Radio
                     key={tier.id}
-                    className="neon-surface-default p-4 data-[selected=true]:border-neon/40"
-                    data-selected={isSelected ? true : undefined}
+                    classNames={{
+                      base: "neon-surface-default p-6 w-full min-w-0 !max-w-full m-0 data-[selected=true]:border-neon/40 opacity-100 data-[disabled=true]:opacity-50",
+                      wrapper: "mt-0.5",
+                      label: "w-full max-w-full",
+                      labelWrapper: "w-full max-w-full",
+                      description:
+                        "text-xs text-foreground/45 leading-relaxed mt-1.5",
+                    }}
+                    data-testid={`event-checkout-exclusive-${tier.id}`}
+                    description={
+                      isSelected && tierDescription
+                        ? tierDescription
+                        : undefined
+                    }
+                    isDisabled={disabled || checkoutLocked}
+                    value={tier.id}
                   >
-                    <Checkbox
-                      classNames={{
-                        base: "w-full min-w-0 !max-w-full m-0 items-start",
-                        label: "w-full max-w-full min-w-0",
-                      }}
-                      data-testid={`event-checkout-addon-${tier.id}`}
-                      isDisabled={disabled || checkoutLocked}
-                      isSelected={isSelected}
-                      onValueChange={(checked) =>
-                        onAddonChange(tier.id, checked)
-                      }
-                    >
-                      <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
-                          {tier.name}
-                        </span>
-                        <span className="text-xs font-mono text-foreground/45 shrink-0">
-                          {priceLabel} · {placesLabel}
-                        </span>
+                    <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
+                        {tier.name}
                       </span>
-                    </Checkbox>
-                    {tierDescription ? (
-                      <p className="text-xs text-foreground/45 leading-relaxed mt-1.5 pl-7">
-                        {tierDescription}
-                      </p>
-                    ) : null}
-                  </div>
+                      <span className="text-xs font-mono text-foreground/45 shrink-0">
+                        {priceLabel} · {placesLabel}
+                      </span>
+                    </span>
+                  </Radio>
                 );
               })}
-            </div>
-          </div>
-        ) : null}
+            </RadioGroup>
+          ) : null}
 
-        <ContributionSummary
-          displayTotalCents={displayTotalCents}
-          labels={{
-            checkoutSubtotal: labels.checkoutSubtotal,
-            checkoutTotal: labels.checkoutTotal,
-            costTransparencyDisclaimer: labels.costTransparencyDisclaimer,
-            promoCodeLabel: labels.promoCodeLabel,
-            promoDiscount: labels.promoDiscount,
-            promoInvalid: labels.promoInvalid,
-          }}
-          previewDiscountCents={previewDiscountCents}
-          previewSubtotalCents={previewSubtotalCents}
-          promo={promo}
-          promoInvalid={promoInvalid}
-          selectedTiers={selectedTiers}
-          showPromoSubtotal={showPromoSubtotal}
-        />
+          {addonTiers.length > 0 ? (
+            <div className="space-y-4">
+              <p className="neon-label">{labels.addonsTitle}</p>
+              <div className="space-y-3">
+                {addonTiers.map((tier) => {
+                  const tierDescription = tier.description.trim();
+                  const priceLabel = formatTierPrice(tier);
+                  const placesLabel = formatPlacesRemaining(
+                    tier,
+                    labels.placesRemaining,
+                    labels.placesUnlimited,
+                    labels.soldOut,
+                  );
+                  const isSelected = selectedAddonIds.has(tier.id);
+                  const disabled = !isSelectableTier(tier);
 
-        {!hasCheckoutProfile ? (
-          <div ref={signInSectionRef} className="mt-6">
-            <NeonTextButton
-              onClick={() => onSignInExpandedChange(!signInExpanded)}
-            >
-              {labels.alreadyRegistered}
-            </NeonTextButton>
-            {signInExpanded ? (
-              <div className="mt-4 pt-4 border-t border-foreground/10">
-                <ParticipantSessionPanel
-                  embedded
-                  codeExchangePending={!codeHandled}
-                  returnPath={sessionReturnPath}
-                  sessionEstablishedQueryKeys={sessionQueryKeys}
-                />
+                  return (
+                    <div
+                      key={tier.id}
+                      className="neon-surface-default p-6 data-[selected=true]:border-neon/40"
+                      data-selected={isSelected ? true : undefined}
+                    >
+                      <Checkbox
+                        classNames={{
+                          base: "w-full min-w-0 !max-w-full m-0 items-start",
+                          label: "w-full max-w-full min-w-0",
+                        }}
+                        data-testid={`event-checkout-addon-${tier.id}`}
+                        isDisabled={disabled || checkoutLocked}
+                        isSelected={isSelected}
+                        onValueChange={(checked) =>
+                          onAddonChange(tier.id, checked)
+                        }
+                      >
+                        <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                          <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
+                            {tier.name}
+                          </span>
+                          <span className="text-xs font-mono text-foreground/45 shrink-0">
+                            {priceLabel} · {placesLabel}
+                          </span>
+                        </span>
+                      </Checkbox>
+                      {isSelected && tierDescription ? (
+                        <p className="text-xs text-foreground/45 leading-relaxed mt-1.5 pl-7">
+                          {tierDescription}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
-            ) : null}
-          </div>
-        ) : null}
+            </div>
+          ) : null}
 
-        {showContactForm ? (
-          <div
-            className="mt-6 space-y-3"
-            data-testid="event-checkout-contact-form"
-          >
-            <NeonInput
-              isRequired
-              label={labels.email}
-              type="email"
-              value={email}
-              onValueChange={onEmailChange}
-            />
-            <NeonInput
-              label={labels.phone}
-              type="tel"
-              value={phone}
-              onValueChange={onPhoneChange}
-            />
-            <p className="text-xs text-foreground/40 leading-relaxed">
-              {labels.contactPrivacyHint}
-            </p>
-          </div>
-        ) : null}
+          <ContributionSummary
+            displayTotalCents={displayTotalCents}
+            labels={{
+              checkoutSubtotal: labels.checkoutSubtotal,
+              checkoutTotal: labels.checkoutTotal,
+              promoCodeLabel: labels.promoCodeLabel,
+              promoDiscount: labels.promoDiscount,
+              promoInvalid: labels.promoInvalid,
+            }}
+            previewDiscountCents={previewDiscountCents}
+            previewSubtotalCents={previewSubtotalCents}
+            promo={promo}
+            promoInvalid={promoInvalid}
+            selectedTiers={selectedTiers}
+            showPromoSubtotal={showPromoSubtotal}
+          />
 
-        {!clientSecret ? (
-          <div className="mt-6 space-y-2">
-            <NeonButton
-              className="w-full"
-              data-testid="event-checkout-confirm-contribution"
-              isDisabled={
-                intentMutationPending ||
-                !tierSelectionReady ||
-                profileLoading ||
-                !checkoutContactReady ||
-                allExclusiveSoldOut
-              }
-              type="button"
-              onPress={onConfirmContribution}
+          {showActionsSection ? (
+            <div className="space-y-8 border-t border-foreground/10 pt-8">
+              {!hasCheckoutProfile ? (
+                <div ref={signInSectionRef}>
+                  <NeonTextButton
+                    onClick={() => onSignInExpandedChange(!signInExpanded)}
+                  >
+                    {labels.alreadyRegistered}
+                  </NeonTextButton>
+                  {signInExpanded ? (
+                    <div className="mt-4 pt-4 border-t border-foreground/10">
+                      <ParticipantSessionPanel
+                        embedded
+                        codeExchangePending={!codeHandled}
+                        returnPath={sessionReturnPath}
+                        sessionEstablishedQueryKeys={sessionQueryKeys}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {showContactForm ? (
+                <div
+                  className="space-y-4"
+                  data-testid="event-checkout-contact-form"
+                >
+                  <NeonInput
+                    isRequired
+                    label={labels.email}
+                    type="email"
+                    value={email}
+                    onValueChange={onEmailChange}
+                  />
+                  <NeonInput
+                    label={labels.phone}
+                    type="tel"
+                    value={phone}
+                    onValueChange={onPhoneChange}
+                  />
+                  <p className="text-xs text-foreground/40 leading-relaxed">
+                    {labels.contactPrivacyHint}
+                  </p>
+                </div>
+              ) : null}
+
+              {!clientSecret ? (
+                <div className="space-y-2">
+                  <NeonButton
+                    className="w-full"
+                    data-testid="event-checkout-confirm-contribution"
+                    isDisabled={
+                      intentMutationPending ||
+                      !tierSelectionReady ||
+                      profileLoading ||
+                      !checkoutContactReady ||
+                      allExclusiveSoldOut
+                    }
+                    type="button"
+                    onPress={onConfirmContribution}
+                  >
+                    {intentMutationPending ? "…" : ctaLabel}
+                  </NeonButton>
+                  {checkoutDisabledReason &&
+                  (intentMutationPending ||
+                    !tierSelectionReady ||
+                    profileLoading ||
+                    !checkoutContactReady) ? (
+                    <p className="text-xs text-foreground/40">
+                      {checkoutDisabledReason}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {intentMutationError ? (
+            <FormError>
+              {intentMutationError instanceof AxiosError &&
+              intentMutationError.response?.data &&
+              typeof (intentMutationError.response.data as { error?: string })
+                .error === "string"
+                ? (intentMutationError.response.data as { error: string }).error
+                : labels.intentError}
+            </FormError>
+          ) : null}
+
+          {clientSecret &&
+          checkoutOrderId &&
+          stripePromise &&
+          elementsOptions ? (
+            <div
+              ref={paymentRef}
+              className="min-w-0 overflow-x-clip border-t border-foreground/10 pt-8"
             >
-              {intentMutationPending ? "…" : ctaLabel}
-            </NeonButton>
-            {checkoutDisabledReason &&
-            (intentMutationPending ||
-              !tierSelectionReady ||
-              profileLoading ||
-              !checkoutContactReady) ? (
-              <p className="text-xs text-foreground/40">
-                {checkoutDisabledReason}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {intentMutationError ? (
-          <FormError className="mt-4">
-            {intentMutationError instanceof AxiosError &&
-            intentMutationError.response?.data &&
-            typeof (intentMutationError.response.data as { error?: string })
-              .error === "string"
-              ? (intentMutationError.response.data as { error: string }).error
-              : labels.intentError}
-          </FormError>
-        ) : null}
-
-        {checkoutLocked && selectedTiers.length > 0 && clientSecret ? (
-          <div className="mt-6 pt-6 border-t border-foreground/10">
-            <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-1">
-              {labels.checkoutOrderSummary}
-            </p>
-            <ul className="text-sm font-medium text-foreground/80 mb-2 space-y-1">
-              {selectedTiers.map((tier) => (
-                <li key={tier.id}>
-                  {tier.name} — {formatTierPrice(tier)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {clientSecret && checkoutOrderId && stripePromise && elementsOptions ? (
-          <div ref={paymentRef} className="min-w-0 overflow-x-clip">
-            <Elements
-              key={clientSecret}
-              options={elementsOptions}
-              stripe={stripePromise}
-            >
-              <PaymentStep
-                onePersonHint={labels.checkoutOnePersonHint}
-                payLabel={labels.pay}
-                returnUrl={checkoutReturnUrl ?? returnUrl}
-                onMounted={scrollToPayment}
-                onPaymentSucceeded={onPaymentSucceeded}
-              />
-            </Elements>
-          </div>
-        ) : null}
+              <Elements
+                key={clientSecret}
+                options={elementsOptions}
+                stripe={stripePromise}
+              >
+                <PaymentStep
+                  onePersonHint={labels.checkoutOnePersonHint}
+                  payLabel={labels.pay}
+                  returnUrl={checkoutReturnUrl ?? returnUrl}
+                  onMounted={scrollToPayment}
+                  onPaymentSucceeded={onPaymentSucceeded}
+                />
+              </Elements>
+            </div>
+          ) : null}
+        </div>
       </NeonCardBody>
     </NeonCard>
   );

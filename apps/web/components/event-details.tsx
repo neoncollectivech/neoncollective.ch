@@ -487,19 +487,11 @@ function EventDetailsInner({ slug }: { slug: string }) {
     checkoutOnePersonHint: t.checkoutOnePersonHint,
     pay: t.pay,
     intentError: t.intentError,
-    checkoutOrderSummary: t.checkoutOrderSummary,
     checkoutTotal: t.checkoutTotal,
     checkoutSubtotal: t.checkoutSubtotal,
     promoCodeLabel: t.promoCodeLabel,
     promoDiscount: t.promoDiscount,
     promoInvalid: t.promoInvalid,
-    costTransparencyTitle: t.costTransparencyTitle,
-    costTransparencyBullets: [
-      t.costTransparencyBullet1,
-      t.costTransparencyBullet2,
-      t.costTransparencyBullet3,
-    ],
-    costTransparencyDisclaimer: t.costTransparencyDisclaimer,
     completeRegistration: t.completeRegistration,
     confirmContribution: t.confirmContribution,
     allTiersSoldOut: t.allTiersSoldOut,
@@ -514,17 +506,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
     selectedTiers.length > 0
       ? `${t.checkoutTotal}: CHF ${(displayTotalCents / 100).toFixed(0)}`
       : t.contributionTitle;
-
-  const welcomeLine = (() => {
-    if (!hasCheckoutProfile) {
-      return undefined;
-    }
-    const givenName = profileGate.profile?.givenName?.trim();
-
-    return givenName
-      ? t.sessionWelcomeBack.replaceAll("{name}", givenName)
-      : t.sessionWelcomeBackNoName;
-  })();
 
   const contributionPanel = showCheckout ? (
     <ContributionPanel
@@ -562,7 +543,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
       signInSectionRef={signInSectionRef}
       stripePromise={stripePromise}
       tierSelectionReady={tierSelectionReady}
-      welcomeLine={welcomeLine}
       onAddonChange={(tierId, checked) => {
         setSelectedAddonIds((prev) => {
           const next = new Set(prev);

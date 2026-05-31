@@ -195,7 +195,7 @@ function EventsIndexInner() {
                               />
                             </div>
                           ) : null}
-                          <div className="flex-1 min-w-0 p-5 flex flex-col gap-4">
+                          <div className="flex-1 min-w-0 p-8 flex flex-col gap-4">
                             <div>
                               <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <h2 className="neon-title-card">{ev.title}</h2>

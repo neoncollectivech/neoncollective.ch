@@ -71,7 +71,7 @@ function DonationPickerInner() {
   if (success) {
     return (
       <NeonCard surface="accent">
-        <NeonCardBody className="px-8 py-10 text-center">
+        <NeonCardBody className="text-center">
           <p className="text-lg text-neon font-mono uppercase tracking-widest mb-2">
             ✓
           </p>
@@ -139,7 +139,7 @@ function DonationPickerInner() {
               surface="default"
               onPress={() => handleDonate(tier)}
             >
-              <NeonCardBody className="px-6 py-10 text-center">
+              <NeonCardBody className="text-center">
                 <span className="neon-title-page mb-2 block group-hover:text-neon transition-colors duration-300">
                   {formatAmount(tier.amount)}
                 </span>
