@@ -68,7 +68,7 @@ test.describe("invite-only checkout", () => {
     });
 
     test("sees host invite link", async () => {
-      await expect(state.pageA.getByText("Bring your friends")).toBeVisible();
+      await expect(state.pageA.getByText("Invite someone from your circle")).toBeVisible();
       state.inviteUrl = await extractInviteUrlFromPage(state.pageA);
       expect(state.inviteUrl).toContain("invite=");
     });
@@ -110,7 +110,7 @@ test.describe("invite-only checkout", () => {
         );
       } else {
         await state.pageB
-          .getByRole("button", { name: "Continue to payment" })
+          .getByTestId("event-checkout-confirm-contribution")
           .waitFor({ timeout: 60_000 });
       }
       await expectMinimalCheckout(state.pageB, state.seed);
@@ -146,7 +146,7 @@ test.describe("invite-only checkout", () => {
       // Abandon/retry test leaves the payment step open — do not click Continue again.
       await waitForStripePaymentElement(state.pageB);
       await submitStripePaymentAndConfirmRegistration(state.pageB, state.seed);
-      await expect(state.pageB.getByText("Bring your friends")).not.toBeVisible();
+      await expect(state.pageB.getByText("Invite someone from your circle")).not.toBeVisible();
     });
 
     test("API detail has no hostInvite", async () => {

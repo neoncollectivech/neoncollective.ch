@@ -12,19 +12,21 @@ export function checkoutReturnPathFromPage(page) {
   return url.pathname + url.search;
 }
 
-/** Tier picker only — no inline email/phone and no sign-in panel under checkout. */
+/** Click the contribution CTA (stable test id; main panel, not sticky bar). */
+export async function clickConfirmContribution(page) {
+  await page.getByTestId("event-checkout-confirm-contribution").first().click();
+}
+
+/** Tier picker for a signed-in user with a complete profile — no contact fields or sign-in panel. */
 export async function expectMinimalCheckout(page, seed) {
   await expect(page.getByTestId("event-checkout-minimal")).toBeVisible();
   await expect(page.getByTestId("event-checkout-contact-form")).not.toBeVisible();
   await expect(page.getByTestId("event-checkout-with-contact")).not.toBeVisible();
   await expect(page.getByText("Enter your email or phone to continue")).not.toBeVisible();
-  await expect(page.getByText(/Welcome back/i)).not.toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Continue to payment" }),
-  ).toBeVisible();
+  await expect(page.getByTestId("event-checkout-confirm-contribution")).toBeVisible();
 
   if (seed?.addon1TierName ?? seed?.addonTierName) {
-    await expect(page.getByText("Add-ons", { exact: true })).toBeVisible();
+    await expect(page.getByText("Optional extras", { exact: true })).toBeVisible();
     await expect(
       page.getByRole("checkbox", {
         name: new RegExp(seed.addon1TierName ?? seed.addonTierName, "i"),
@@ -39,7 +41,7 @@ export async function expectMinimalCheckout(page, seed) {
 }
 
 export async function assertCheckoutTotalChf(page, totalChf, opts = {}) {
-  const totalLabel = `Total: CHF ${totalChf}`;
+  const totalLabel = `Your contribution: CHF ${totalChf}`;
   const totals = page.getByText(totalLabel);
   const expectedCount = opts.count;
 
@@ -48,7 +50,7 @@ export async function assertCheckoutTotalChf(page, totalChf, opts = {}) {
     return;
   }
 
-  // After intent, total appears in tier picker and order summary — either is fine.
+  // Total is shown once in the contribution summary (desktop); sticky bar is mobile-only.
   await expect(totals.first()).toBeVisible();
 }
 
@@ -86,7 +88,7 @@ export async function clickContinueAndExpectIntent(page, seed, opts = {}) {
     timeout: 60_000,
   });
 
-  await page.getByRole("button", { name: "Continue to payment" }).click();
+  await clickConfirmContribution(page);
 
   const response = await intentResponse;
   const body = await response.json();
@@ -135,7 +137,7 @@ export async function openInviteOnlyDossier(page, seed, inviteToken, dossierUrl)
   await page.goto(url.toString());
   await page.waitForURL(/\/events\/private/, { timeout: 30_000 });
   await page
-    .getByRole("button", { name: "Continue to payment" })
+    .getByTestId("event-checkout-confirm-contribution")
     .waitFor({ timeout: 60_000 });
 }
 
@@ -224,7 +226,7 @@ export async function startCheckoutPaymentStep(page, seed, opts = {}) {
     timeout: 60_000,
   });
 
-  await page.getByRole("button", { name: "Continue to payment" }).click();
+  await clickConfirmContribution(page);
 
   const response = await intentResponse;
   const body = await response.json();
@@ -250,7 +252,7 @@ export async function startCheckoutPaymentStep(page, seed, opts = {}) {
 export async function submitStripePaymentAndConfirmRegistration(page, seed) {
   await fillStripePaymentElement(page);
 
-  const payButton = page.getByRole("button", { name: "Pay now" });
+  const payButton = page.getByTestId("event-checkout-pay");
   await expect(payButton).toBeEnabled({ timeout: 30_000 });
 
   const confirmResponse = page.waitForResponse(isCheckoutConfirmResponse, {
@@ -279,7 +281,7 @@ export async function submitStripePaymentAndConfirmRegistration(page, seed) {
   await payButton.click();
 
   await expect(
-    page.getByText("Confirming your payment…"),
+    page.getByText("Confirming your registration…"),
   ).toBeVisible({ timeout: 20_000 });
 
   const confirmRes = await confirmResponse;
@@ -330,7 +332,7 @@ export async function completeFreePromoCheckout(page, seed) {
     { timeout: 90_000 },
   );
 
-  await page.getByRole("button", { name: "Continue to payment" }).click();
+  await clickConfirmContribution(page);
 
   const response = await intentResponse;
   const body = await response.json();
@@ -342,7 +344,7 @@ export async function completeFreePromoCheckout(page, seed) {
   assertCheckoutIntentResponse(body, returnPath);
 
   await expect(
-    page.getByText("Confirming your payment…"),
+    page.getByText("Confirming your registration…"),
   ).toBeVisible({ timeout: 20_000 });
 
   const confirmRes = await confirmResponse;

@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { ParticipantProfileModal } from "@/components/participant-profile-modal";
+import { useDictionary } from "@/i18n/DictionaryContext";
 import {
   useProfileBootstrap,
   writeParticipantProfileCache,
@@ -46,20 +47,28 @@ export function useParticipantProfileGate(inviteToken?: string) {
     showProfileGateModal,
     profileLabels,
     onProfileComplete,
-    dimmedContentClassName: showProfileGateModal
-      ? "pointer-events-none opacity-40 select-none"
-      : undefined,
+    dimmedContentClassName: undefined,
   };
 }
 
 type ParticipantProfileGateModalProps = {
   inviteToken?: string;
+  eventTitle?: string;
   gate: ReturnType<typeof useParticipantProfileGate>;
 };
 
 export function ParticipantProfileGateModal({
   gate,
+  eventTitle,
 }: ParticipantProfileGateModalProps) {
+  const { dictionary } = useDictionary();
+  const contextTitle =
+    eventTitle?.trim() &&
+    dictionary.events.profileModalContextJoin.replaceAll(
+      "{eventTitle}",
+      eventTitle.trim(),
+    );
+
   if (!gate.showProfileGateModal) {
     return null;
   }
@@ -67,6 +76,7 @@ export function ParticipantProfileGateModal({
   return (
     <ParticipantProfileModal
       open
+      contextTitle={contextTitle || undefined}
       dismissable={false}
       initialProfile={gate.profile ?? undefined}
       labels={gate.profileLabels}

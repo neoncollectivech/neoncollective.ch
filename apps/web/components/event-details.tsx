@@ -1,40 +1,46 @@
 "use client";
 
 import type { StripeElementsOptions } from "@stripe/stripe-js";
-import type { Locale } from "@/i18n/config";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, Suspense } from "react";
-import { AxiosError } from "axios";
 import {
-  Elements,
-  PaymentElement,
-  useElements,
-  useStripe,
-} from "@stripe/react-stripe-js";
-import { Card, CardBody } from "@heroui/card";
-import { Checkbox } from "@heroui/react";
-import { Radio, RadioGroup } from "@heroui/radio";
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Suspense,
+} from "react";
 import { Spinner } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { ContributionPanel } from "@/components/event/contribution-panel";
+import { EventAboutSection } from "@/components/event/event-about-section";
+import { EventDetailLayout } from "@/components/event/event-detail-layout";
+import { EventHero } from "@/components/event/event-hero";
+import { InviteOnlyEmptyState } from "@/components/event/invite-only-empty-state";
+import { RegistrationConfirmedCard } from "@/components/event/registration-confirmed-card";
+import { StickyContributionBar } from "@/components/event/sticky-contribution-bar";
 import { FormError } from "@/components/form-error";
-import { EventImageGallery } from "@/components/event-image-gallery";
-import { ResponsiveEventImage } from "@/components/responsive-event-image";
-import { absoluteSiteUrl, getSiteOrigin } from "@/helpers/site-url";
-import { NeonButton } from "@/components/neon-button";
-import { NeonInput } from "@/components/neon-input";
-import { NeonLink } from "@/components/neon-link";
+import { ParticipantSessionPanel } from "@/components/participant-session-panel";
+import { absoluteSiteUrl } from "@/helpers/site-url";
+import { formatContributionCta } from "@/helpers/contribution-labels";
+import {
+  defaultExclusiveTierId,
+  hasEventAboutContent,
+  heroSummaryText,
+  isAddonTier,
+  isExclusiveTier,
+} from "@/helpers/event-tier-utils";
+import { buildReturnPath } from "@/helpers/event-link-query";
+import { eventDetailPath } from "@/helpers/eventRoutes";
 import {
   ParticipantProfileGateModal,
   useParticipantProfileGate,
 } from "@/hooks/use-participant-profile-gate";
-import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useEventLinkState } from "@/hooks/use-event-link-state";
 import { useLocale } from "@/hooks/use-locale";
-import { eventDetailPath } from "@/helpers/eventRoutes";
-import { buildReturnPath } from "@/helpers/event-link-query";
 import { useStripePromise } from "@/hooks/use-stripe-promise";
 import {
   eventsApi,
@@ -42,415 +48,7 @@ import {
   useCheckoutConfirmation,
   useExchangeRegistrationCode,
   type EventPayload,
-  type EventTier,
-  type InviteLinkConversion,
-  type RegisteredOrderTier,
 } from "@/hooks/use-events-api";
-import {
-  formatLocaleDate,
-  formatLocaleDateTime,
-} from "@/helpers/format-locale-datetime";
-
-function formatTierPrice(tier: EventTier): string {
-  return `${(tier.priceCents / 100).toFixed(0)} ${tier.currency.toUpperCase()}`;
-}
-
-function formatRegisteredTierPrice(tier: RegisteredOrderTier): string {
-  return `${(tier.priceCents / 100).toFixed(0)} ${tier.currency.toUpperCase()}`;
-}
-
-function RegistrationConfirmedSummary({
-  viewerGivenName,
-  eventStartsAt,
-  tiers,
-  locale,
-  labels,
-}: {
-  viewerGivenName?: string;
-  eventStartsAt: string | null;
-  tiers: RegisteredOrderTier[];
-  locale: Locale;
-  labels: {
-    intro: string;
-    introNoName: string;
-    bodyNoTier: string;
-    addon: string;
-  };
-}) {
-  if (tiers.length === 0) {
-    return (
-      <p className="text-base text-neon/80 leading-relaxed">
-        {labels.bodyNoTier}
-      </p>
-    );
-  }
-
-  const when = eventStartsAt
-    ? formatLocaleDateTime(eventStartsAt, locale)
-    : null;
-  const hasName = Boolean(viewerGivenName?.trim());
-  const intro = (hasName ? labels.intro : labels.introNoName).replaceAll(
-    "{name}",
-    viewerGivenName ?? "",
-  );
-
-  return (
-    <div className="space-y-4">
-      <p className="text-base text-neon/80 leading-relaxed">{intro}</p>
-      <ul className="space-y-4" data-testid="registration-confirmed-tiers">
-        {tiers.map((tier) => {
-          const description = tier.description.trim();
-          const metaParts = [
-            when,
-            tier.priceCents > 0 ? formatRegisteredTierPrice(tier) : null,
-            tier.selectionMode === "addon" ? labels.addon : null,
-          ].filter((part): part is string => Boolean(part));
-
-          return (
-            <li
-              key={tier.id}
-              className="border-t border-foreground/10 pt-4 first:border-t-0 first:pt-0"
-            >
-              <p className="text-sm font-semibold text-foreground/85">
-                {tier.name}
-              </p>
-              {metaParts.length > 0 ? (
-                <p className="text-xs font-mono text-foreground/45 mt-1">
-                  {metaParts.join(" · ")}
-                </p>
-              ) : null}
-              {description ? (
-                <p className="text-sm text-foreground/50 leading-relaxed mt-2">
-                  {description}
-                </p>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function formatPlacesRemaining(
-  tier: EventTier,
-  placesRemainingLabel: string,
-  placesUnlimitedLabel: string,
-): string {
-  if (tier.placesRemaining == null) {
-    return placesUnlimitedLabel;
-  }
-
-  return `${tier.placesRemaining} ${placesRemainingLabel}`;
-}
-
-function isAddonTier(tier: EventTier): boolean {
-  return tier.selectionMode === "addon";
-}
-
-function isExclusiveTier(tier: EventTier): boolean {
-  return !isAddonTier(tier);
-}
-
-function isSelectableTier(tier: EventTier): boolean {
-  return tier.placesRemaining == null || tier.placesRemaining > 0;
-}
-
-/** Auto-pick when there is exactly one exclusive tier, or only one that still has capacity. */
-function defaultExclusiveTierId(tiers: EventTier[]): string | null {
-  const exclusive = tiers.filter(isExclusiveTier);
-
-  if (exclusive.length === 1) {
-    return exclusive[0]!.id;
-  }
-  const selectableExclusive = exclusive.filter(isSelectableTier);
-
-  if (selectableExclusive.length === 1) {
-    return selectableExclusive[0]!.id;
-  }
-
-  return null;
-}
-
-function EventHero({
-  title,
-  startsAt,
-  location,
-  imageUrl,
-  imageAlt,
-  locale,
-  backHref,
-  backLabel,
-  locationLabel,
-}: {
-  title: string;
-  startsAt: string | null;
-  location: string | null;
-  imageUrl: string | undefined;
-  imageAlt: string;
-  locale: Locale;
-  backHref: string;
-  backLabel: string;
-  locationLabel: string;
-}) {
-  const locationLine = location?.trim();
-  const metaParts = [
-    startsAt ? formatLocaleDateTime(startsAt, locale) : null,
-    locationLine,
-  ].filter(Boolean);
-
-  return (
-    <header className="mb-10 md:mb-12">
-      <NeonLink
-        className="text-sm text-foreground/45 mb-6 inline-block"
-        href={backHref}
-        neonStyle="inline"
-      >
-        ← {backLabel}
-      </NeonLink>
-
-      {imageUrl ? (
-        <div className="mb-6 flex justify-center border border-foreground/10 overflow-hidden bg-foreground/2">
-          <ResponsiveEventImage
-            alt={imageAlt}
-            className="max-h-[min(85vh,720px)] w-auto max-w-full object-contain"
-            loading="eager"
-            sizes="(max-width: 768px) 100vw, 28rem"
-            url={imageUrl}
-          />
-        </div>
-      ) : null}
-
-      <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground/90 mb-2">
-        {title}
-      </h1>
-
-      {metaParts.length > 0 ? (
-        <p className="text-sm font-mono text-foreground/45">
-          {metaParts.join(" · ")}
-        </p>
-      ) : null}
-
-      {locationLine && !startsAt ? (
-        <p className="sr-only">
-          {locationLabel}: {locationLine}
-        </p>
-      ) : null}
-    </header>
-  );
-}
-
-function EventAboutSection({
-  summary,
-  imageUrls,
-  imageAlt,
-}: {
-  summary: string | null;
-  imageUrls: string[];
-  imageAlt: string;
-}) {
-  const summaryLine = summary?.trim();
-  const gallery = imageUrls.length > 1 ? imageUrls.slice(1) : [];
-
-  if (!summaryLine && gallery.length === 0) {
-    return null;
-  }
-
-  return (
-    <section className="mb-10 md:mb-12 max-w-2xl">
-      {summaryLine ? (
-        <p className="text-base text-foreground/50 leading-relaxed whitespace-pre-wrap">
-          {summaryLine}
-        </p>
-      ) : null}
-      {gallery.length > 0 ? (
-        <EventImageGallery
-          className={summaryLine ? "mt-6" : undefined}
-          imageAlt={imageAlt}
-          urls={gallery}
-        />
-      ) : null}
-    </section>
-  );
-}
-
-function buildHostInviteUrl(
-  locale: string,
-  slug: string,
-  token: string,
-): string {
-  const url = new URL(`/${locale}/events/private`, getSiteOrigin());
-
-  url.searchParams.set("slug", slug);
-  url.searchParams.set("invite", token);
-
-  return url.toString();
-}
-
-function HostInviteShareBlock({
-  locale,
-  slug,
-  token,
-  remaining,
-  conversions,
-  labels,
-}: {
-  locale: Locale;
-  slug: string;
-  token: string;
-  remaining: number;
-  conversions: InviteLinkConversion[];
-  labels: {
-    linkLabel: string;
-    copy: string;
-    copied: string;
-    invitesLeft: string;
-    conversionsTitle: string;
-    conversionsEmpty: string;
-  };
-}) {
-  const inviteUrl = useMemo(
-    () => buildHostInviteUrl(locale, slug, token),
-    [locale, slug, token],
-  );
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
-        {labels.linkLabel}
-      </p>
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
-        <div className="flex-1 min-w-0 border border-foreground/10 bg-foreground/[0.02] px-3 py-2.5">
-          <p className="text-xs font-mono text-foreground/55 break-all leading-relaxed">
-            {inviteUrl}
-          </p>
-        </div>
-        <NeonButton
-          aria-label={labels.copy}
-          className="shrink-0 px-4 py-2.5 text-[10px] tracking-[0.15em]"
-          type="button"
-          onPress={() => void handleCopy()}
-        >
-          {copied ? labels.copied : labels.copy}
-        </NeonButton>
-      </div>
-      <p className="text-sm font-mono text-neon/70">
-        {labels.invitesLeft.replaceAll("{count}", String(remaining))}
-      </p>
-
-      <div className="pt-4 border-t border-foreground/10">
-        <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-3">
-          {labels.conversionsTitle}
-        </p>
-        {conversions.length === 0 ? (
-          <p className="text-sm text-foreground/45">
-            {labels.conversionsEmpty}
-          </p>
-        ) : (
-          <ul className="space-y-2" data-testid="host-invite-conversions">
-            {conversions.map((guest) => {
-              const name = [guest.givenName, guest.familyName]
-                .filter(Boolean)
-                .join(" ");
-              const dateLabel = formatLocaleDate(guest.registeredAt, locale);
-
-              return (
-                <li
-                  key={guest.orderId}
-                  data-testid={`host-invite-conversion-${guest.orderId}`}
-                >
-                  <p className="text-sm text-foreground/75">{name}</p>
-                  <p className="text-xs font-mono text-foreground/40 mt-0.5">
-                    {guest.tierName}
-                    {dateLabel ? ` · ${dateLabel}` : ""}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PaymentStep({
-  payLabel,
-  onePersonHint,
-  returnUrl,
-  onPaymentSucceeded,
-}: {
-  payLabel: string;
-  onePersonHint: string;
-  returnUrl: string;
-  onPaymentSucceeded: () => void;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  async function handlePay(e: React.FormEvent) {
-    e.preventDefault();
-    if (!stripe || !elements) {
-      return;
-    }
-    setBusy(true);
-    setErr(null);
-    const redirectReturnUrl =
-      returnUrl.trim() ||
-      (typeof window !== "undefined" ? window.location.href : "");
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: redirectReturnUrl },
-      redirect: "if_required",
-    });
-
-    if (error) {
-      setBusy(false);
-      setErr(error.message ?? "Payment failed.");
-
-      return;
-    }
-
-    onPaymentSucceeded();
-    setBusy(false);
-  }
-
-  return (
-    <form className="mt-6 space-y-4" onSubmit={handlePay}>
-      <PaymentElement
-        options={{
-          wallets: {
-            link: "never",
-          },
-        }}
-      />
-      <p className="text-xs text-foreground/40">{onePersonHint}</p>
-      {err ? <FormError>{err}</FormError> : null}
-      <NeonButton
-        className="w-full sm:w-auto"
-        data-testid="event-checkout-pay"
-        isDisabled={!stripe || busy}
-        type="submit"
-      >
-        {busy ? "…" : payLabel}
-      </NeonButton>
-    </form>
-  );
-}
 
 function EventDetailsInner({ slug }: { slug: string }) {
   const locale = useLocale();
@@ -462,12 +60,14 @@ function EventDetailsInner({ slug }: { slug: string }) {
     inviteToken: urlInviteToken,
     promo,
     code: initialCode,
-    appendToHref,
     linkQuery,
   } = useEventLinkState();
   const { dictionary } = useDictionary();
   const t = dictionary.events;
+  const nav = dictionary.nav;
   const stripePromise = useStripePromise();
+  const signInSectionRef = useRef<HTMLDivElement>(null);
+  const [signInExpanded, setSignInExpanded] = useState(false);
 
   const { codeHandled, codeError } = useExchangeRegistrationCode({
     code: initialCode,
@@ -482,13 +82,13 @@ function EventDetailsInner({ slug }: { slug: string }) {
     },
   });
 
-  const eventDetailOptions = eventsApi.event.detail({
-    slug,
-    inviteToken: urlInviteToken,
-    enabled: codeHandled,
-  });
-
-  const eventQuery = useQuery(eventDetailOptions);
+  const eventQuery = useQuery(
+    eventsApi.event.detail({
+      slug,
+      inviteToken: urlInviteToken,
+      enabled: codeHandled,
+    }),
+  );
 
   const detailReturnPath = useMemo(() => {
     const inviteOnly = eventQuery.data?.inviteOnly ?? true;
@@ -506,30 +106,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
       : urlInviteToken;
 
   const profileGate = useParticipantProfileGate(effectiveInviteToken);
-
-  useEffect(() => {
-    const ev = eventQuery.data;
-
-    if (!ev || eventQuery.isLoading || !codeHandled) {
-      return;
-    }
-    const accessDenied =
-      ev.inviteOnly &&
-      !ev.registrationConfirmed &&
-      (ev.access === "minimal" || !ev.tiers || ev.tiers.length === 0);
-
-    if (!accessDenied) {
-      return;
-    }
-    router.replace(`/${locale}/events`);
-  }, [
-    appendToHref,
-    codeHandled,
-    eventQuery.data,
-    eventQuery.isLoading,
-    locale,
-    router,
-  ]);
 
   useEffect(() => {
     const ev = eventQuery.data;
@@ -571,6 +147,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const [chargedTotalCents, setChargedTotalCents] = useState<number | null>(
     null,
   );
+
   const checkoutConfirmation = useCheckoutConfirmation({
     slug,
     inviteToken: effectiveInviteToken,
@@ -674,6 +251,13 @@ function EventDetailsInner({ slug }: { slug: string }) {
     previewPricing != null &&
     previewPricing.discountCents > 0 &&
     chargedTotalCents == null;
+  const promoInvalid =
+    Boolean(promo) &&
+    (pricingPreviewQuery.isError ||
+      (pricingPreviewQuery.isSuccess &&
+        previewPricing != null &&
+        previewPricing.discountCents === 0 &&
+        previewPricing.subtotalCents > 0));
 
   const confirmingRegistration = checkoutConfirmation.isConfirming;
   const checkoutConfirmError = checkoutConfirmation.errorMessage;
@@ -743,6 +327,84 @@ function EventDetailsInner({ slug }: { slug: string }) {
       }
     : undefined;
 
+  const scrollToContribution = useCallback(() => {
+    document
+      .getElementById("event-contribution")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const focusSignIn = useCallback(() => {
+    setSignInExpanded(true);
+    signInSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
+  const handleConfirmContribution = useCallback(() => {
+    const useProfileContact = Boolean(profileGate.profile?.profileComplete);
+    const profileEmail = profileGate.profile?.email?.trim() ?? "";
+    const profilePhone = profileGate.profile?.phoneE164?.trim() ?? "";
+
+    intentMutation.mutate(
+      {
+        slug,
+        email: useProfileContact
+          ? profileEmail || null
+          : email.trim()
+            ? email.trim()
+            : null,
+        locale,
+        phoneE164: useProfileContact
+          ? profilePhone || null
+          : phone.trim()
+            ? phone.trim()
+            : null,
+        inviteToken: effectiveInviteToken ?? null,
+        promotionCode: promo ?? null,
+        exclusiveTierId: selectedExclusiveId ?? "",
+        addonTierIds: Array.from(selectedAddonIds),
+        returnPath: detailReturnPath,
+      },
+      {
+        onSuccess: (data) => {
+          setChargedTotalCents(data.amountCents);
+          setCheckoutOrderId(data.orderId);
+          setCheckoutReturnUrl(data.returnUrl);
+          eventsApi.storage.stashCheckoutOrderId(slug, data.orderId);
+          if (data.requiresPayment) {
+            if (!data.clientSecret) {
+              return;
+            }
+            setClientSecret(data.clientSecret);
+
+            return;
+          }
+          startCheckoutAfterPayment(data.orderId);
+        },
+      },
+    );
+  }, [
+    detailReturnPath,
+    effectiveInviteToken,
+    email,
+    intentMutation,
+    locale,
+    phone,
+    profileGate.profile,
+    promo,
+    selectedAddonIds,
+    selectedExclusiveId,
+    slug,
+  ]);
+
+  const handleChangeLevel = useCallback(() => {
+    setClientSecret(null);
+    setCheckoutOrderId(null);
+    setCheckoutReturnUrl(null);
+    intentMutation.reset();
+  }, [intentMutation]);
+
   if (eventQuery.isLoading || !codeHandled) {
     return (
       <div className="flex justify-center py-16">
@@ -790,456 +452,232 @@ function EventDetailsInner({ slug }: { slug: string }) {
     );
   }
 
+  const accessDenied =
+    ev.inviteOnly &&
+    !ev.registrationConfirmed &&
+    (ev.access === "minimal" || !ev.tiers || ev.tiers.length === 0);
+
+  const showCheckout =
+    !ev.registrationConfirmed &&
+    !confirmingRegistration &&
+    Boolean(ev.tiers?.length) &&
+    !accessDenied;
+
   const backHref = `/${locale}/events`;
   const heroImage = ev.imageUrls?.[0];
+  const donateHref = `/${locale}/donate`;
+  const imageUrls = ev.imageUrls ?? [];
+  const hasAboutContent = hasEventAboutContent(ev.summary ?? null, imageUrls);
+  const heroSummary = heroSummaryText(ev.summary ?? null, hasAboutContent);
+
+  const contributionLabels = {
+    contributionTitle: t.contributionTitle,
+    contributionSubtitle: t.contributionSubtitle,
+    checkoutStepChoose: t.checkoutStepChoose,
+    checkoutStepPay: t.checkoutStepPay,
+    changeLevel: t.changeLevel,
+    addonsTitle: t.addonsTitle,
+    placesRemaining: t.placesRemaining,
+    placesUnlimited: t.placesUnlimited,
+    soldOut: t.soldOut,
+    checkoutSelectTier: t.checkoutSelectTier,
+    checkoutEnterContact: t.checkoutEnterContact,
+    loading: t.loading,
+    email: t.email,
+    phone: t.phone,
+    contactPrivacyHint: t.contactPrivacyHint,
+    alreadyRegistered: t.alreadyRegistered,
+    checkoutOnePersonHint: t.checkoutOnePersonHint,
+    pay: t.pay,
+    intentError: t.intentError,
+    checkoutOrderSummary: t.checkoutOrderSummary,
+    checkoutTotal: t.checkoutTotal,
+    checkoutSubtotal: t.checkoutSubtotal,
+    promoCodeLabel: t.promoCodeLabel,
+    promoDiscount: t.promoDiscount,
+    promoInvalid: t.promoInvalid,
+    costTransparencyTitle: t.costTransparencyTitle,
+    costTransparencyBullets: [
+      t.costTransparencyBullet1,
+      t.costTransparencyBullet2,
+      t.costTransparencyBullet3,
+    ],
+    costTransparencyDisclaimer: t.costTransparencyDisclaimer,
+    completeRegistration: t.completeRegistration,
+    confirmContribution: t.confirmContribution,
+    allTiersSoldOut: t.allTiersSoldOut,
+    solidarityCodeToggle: t.solidarityCodeToggle,
+    solidarityCodePlaceholder: t.solidarityCodePlaceholder,
+    solidarityCodeApply: t.solidarityCodeApply,
+  };
+
+  const ctaLabel = formatContributionCta(displayTotalCents, {
+    completeRegistration: t.completeRegistration,
+    confirmContribution: t.confirmContribution,
+  });
+
+  const stickySummary =
+    selectedTiers.length > 0
+      ? `${t.checkoutTotal}: CHF ${(displayTotalCents / 100).toFixed(0)}`
+      : t.contributionTitle;
+
+  const welcomeLine = (() => {
+    if (!hasCheckoutProfile) {
+      return undefined;
+    }
+    const givenName = profileGate.profile?.givenName?.trim();
+
+    return givenName
+      ? t.sessionWelcomeBack.replaceAll("{name}", givenName)
+      : t.sessionWelcomeBackNoName;
+  })();
+
+  const contributionPanel = showCheckout ? (
+    <ContributionPanel
+      addonTiers={addonTiers}
+      checkoutContactReady={checkoutContactReady}
+      checkoutDisabledReason={checkoutDisabledReason}
+      checkoutLocked={checkoutLocked}
+      checkoutOrderId={checkoutOrderId}
+      checkoutReturnUrl={checkoutReturnUrl}
+      clientSecret={clientSecret}
+      codeHandled={codeHandled}
+      displayTotalCents={displayTotalCents}
+      elementsOptions={elementsOptions}
+      email={email}
+      exclusiveTiers={exclusiveTiers}
+      hasCheckoutProfile={hasCheckoutProfile}
+      intentMutationError={intentMutation.error}
+      intentMutationPending={intentMutation.isPending}
+      labels={contributionLabels}
+      phone={phone}
+      previewDiscountCents={previewPricing?.discountCents}
+      previewSubtotalCents={previewPricing?.subtotalCents}
+      profileLoading={profileGate.profileLoading}
+      promo={promo}
+      promoInvalid={promoInvalid}
+      returnUrl={returnUrl}
+      selectedAddonIds={selectedAddonIds}
+      selectedExclusiveId={selectedExclusiveId}
+      selectedTiers={selectedTiers}
+      sessionQueryKeys={[eventsKeys.detail(slug, effectiveInviteToken)]}
+      sessionReturnPath={detailReturnPath}
+      showContactForm={showContactForm}
+      showPromoSubtotal={showPromoSubtotal}
+      signInExpanded={signInExpanded}
+      signInSectionRef={signInSectionRef}
+      stripePromise={stripePromise}
+      tierSelectionReady={tierSelectionReady}
+      welcomeLine={welcomeLine}
+      onAddonChange={(tierId, checked) => {
+        setSelectedAddonIds((prev) => {
+          const next = new Set(prev);
+
+          if (checked) {
+            next.add(tierId);
+          } else {
+            next.delete(tierId);
+          }
+
+          return next;
+        });
+      }}
+      onChangeLevel={handleChangeLevel}
+      onConfirmContribution={handleConfirmContribution}
+      onEmailChange={setEmail}
+      onExclusiveChange={setSelectedExclusiveId}
+      onPaymentSucceeded={() => {
+        if (checkoutOrderId) {
+          startCheckoutAfterPayment(checkoutOrderId);
+        }
+      }}
+      onPhoneChange={setPhone}
+      onSignInExpandedChange={setSignInExpanded}
+    />
+  ) : null;
+
+  const sideBySideCheckout = Boolean(contributionPanel) && hasAboutContent;
+
+  const eventHero = (
+    <EventHero
+      backHref={backHref}
+      imageAlt={t.detailImageAlt}
+      inviteOnly={ev.inviteOnly}
+      labels={{
+        backToEvents: t.backToEvents,
+        contributionOpen: t.contributionOpen,
+        costTransparencyDisclaimer: t.costTransparencyDisclaimer,
+        detailLocation: t.detailLocation,
+        eventPassed: t.eventPassed,
+        galleryClose: t.galleryClose,
+        heroContributionCta: t.heroContributionCta,
+        inviteOnly: t.inviteOnly,
+        openInMaps: t.openInMaps,
+        viewFullPoster: t.viewFullPoster,
+      }}
+      locale={locale}
+      location={ev.location ?? null}
+      posterUrl={heroImage}
+      showContributionAnchor={showCheckout && hasAboutContent}
+      showTrustDisclaimer={!showCheckout}
+      startsAt={ev.startsAt}
+      summary={ev.summary ?? null}
+      summaryText={heroSummary}
+      title={ev.title}
+      onContributionAnchorClick={scrollToContribution}
+    />
+  );
 
   return (
     <>
-      <ParticipantProfileGateModal gate={profileGate} />
-      <div className={profileGate.dimmedContentClassName}>
-        <EventHero
-          backHref={backHref}
-          backLabel={t.backToEvents}
-          imageAlt={t.detailImageAlt}
-          imageUrl={heroImage}
-          locale={locale}
-          location={ev.location ?? null}
-          locationLabel={t.detailLocation}
-          startsAt={ev.startsAt}
-          title={ev.title}
-        />
+      <ParticipantProfileGateModal eventTitle={ev.title} gate={profileGate} />
 
-        {registrationSettled ? (
-          <Card
-            className="mb-10 md:mb-12 border border-neon/30 bg-transparent max-w-xl"
-            radius="sm"
-          >
-            <CardBody className="px-6 py-8">
-              <h2 className="text-xl font-bold tracking-tight text-foreground/90 mb-3">
-                {t.registrationConfirmedTitle}
-              </h2>
-              {ev.registeredTiers && ev.registeredTiers.length > 0 ? (
-                <RegistrationConfirmedSummary
-                  eventStartsAt={ev.startsAt}
-                  labels={{
-                    addon: t.registrationConfirmedTierAddon,
-                    bodyNoTier: t.registrationConfirmedBodyNoTier,
-                    intro: t.registrationConfirmedIntro,
-                    introNoName: t.registrationConfirmedIntroNoName,
-                  }}
-                  locale={locale}
-                  tiers={ev.registeredTiers}
-                  viewerGivenName={ev.viewerGivenName}
+      <EventDetailLayout
+        aside={registrationSettled || accessDenied ? null : contributionPanel}
+        header={
+          <>
+            {registrationSettled ? (
+              <RegistrationConfirmedCard
+                donateHref={donateHref}
+                ev={ev}
+                labels={{
+                  addToCalendar: t.addToCalendar,
+                  donateCta: nav.donate,
+                  hostInviteConversionsEmpty: t.hostInviteConversionsEmpty,
+                  hostInviteConversionsTitle: t.hostInviteConversionsTitle,
+                  hostInviteCopied: t.hostInviteCopied,
+                  hostInviteCopy: t.hostInviteCopy,
+                  hostInviteGuestsTitle: t.hostInviteGuestsTitle,
+                  hostInviteLinkLabel: t.hostInviteLinkLabel,
+                  hostInviteShare: t.hostInviteShare,
+                  hostInvitesLeft: t.hostInvitesLeft,
+                  openInMaps: t.openInMaps,
+                  registrationConfirmedBodyNoTier:
+                    t.registrationConfirmedBodyNoTier,
+                  registrationConfirmedIntro: t.registrationConfirmedIntro,
+                  registrationConfirmedIntroNoName:
+                    t.registrationConfirmedIntroNoName,
+                  registrationConfirmedTierAddon:
+                    t.registrationConfirmedTierAddon,
+                  registrationConfirmedTitle: t.registrationConfirmedTitle,
+                  supportNeonBeyondEvent: t.supportNeonBeyondEvent,
+                }}
+                locale={locale}
+                slug={slug}
+              />
+            ) : null}
+
+            {accessDenied ? (
+              <>
+                <InviteOnlyEmptyState
+                  backHref={backHref}
+                  backLabel={t.backToEvents}
+                  body={t.inviteOnlyEmptyBody}
+                  signInCta={t.inviteOnlySignInCta}
+                  title={t.inviteOnlyEmptyTitle}
+                  onSignInClick={focusSignIn}
                 />
-              ) : ev.registeredTierName ? (
-                <RegistrationConfirmedSummary
-                  eventStartsAt={ev.startsAt}
-                  labels={{
-                    addon: t.registrationConfirmedTierAddon,
-                    bodyNoTier: t.registrationConfirmedBodyNoTier,
-                    intro: t.registrationConfirmedIntro,
-                    introNoName: t.registrationConfirmedIntroNoName,
-                  }}
-                  locale={locale}
-                  tiers={[
-                    {
-                      id: "legacy",
-                      name: ev.registeredTierName,
-                      description: "",
-                      selectionMode: "exclusive",
-                      priceCents: 0,
-                      currency: "chf",
-                    },
-                  ]}
-                  viewerGivenName={ev.viewerGivenName}
-                />
-              ) : (
-                <p className="text-base text-neon/80 leading-relaxed">
-                  {t.registrationConfirmedBodyNoTier}
-                </p>
-              )}
-              {ev.inviteOnly && ev.hostInvite ? (
-                <details open className="mt-6 group">
-                  <summary className="cursor-pointer text-sm font-semibold text-foreground/70 list-none flex items-center gap-2">
-                    <span className="group-open:rotate-90 transition-transform">
-                      ›
-                    </span>
-                    {t.hostInviteGuestsTitle}
-                  </summary>
-                  <div className="mt-4 pl-4">
-                    <HostInviteShareBlock
-                      conversions={ev.hostInvite.conversions}
-                      labels={{
-                        copied: t.hostInviteCopied,
-                        conversionsEmpty: t.hostInviteConversionsEmpty,
-                        conversionsTitle: t.hostInviteConversionsTitle,
-                        copy: t.hostInviteCopy,
-                        invitesLeft: t.hostInvitesLeft,
-                        linkLabel: t.hostInviteLinkLabel,
-                      }}
-                      locale={locale}
-                      remaining={ev.hostInvite.remaining}
-                      slug={slug}
-                      token={ev.hostInvite.token}
-                    />
-                  </div>
-                </details>
-              ) : null}
-            </CardBody>
-          </Card>
-        ) : null}
-
-        {ev.inviteOnly && !ev.tiers && !ev.registrationConfirmed ? (
-          <p className="text-base text-foreground/50 leading-relaxed max-w-2xl mb-10">
-            {t.needInvite}
-          </p>
-        ) : null}
-
-        {confirmingRegistration && !registrationSettled ? (
-          <div className="flex flex-col items-center gap-4 py-12 mb-10 max-w-xl">
-            <Spinner color="success" size="lg" />
-            <p className="text-sm font-mono text-foreground/50 text-center">
-              {t.checkoutConfirming}
-            </p>
-          </div>
-        ) : null}
-
-        {checkoutConfirmError &&
-        !confirmingRegistration &&
-        !registrationSettled ? (
-          <FormError className="mb-10 max-w-xl">
-            {checkoutConfirmError}
-          </FormError>
-        ) : null}
-
-        {!ev.registrationConfirmed &&
-        !confirmingRegistration &&
-        ev.tiers &&
-        ev.tiers.length > 0 ? (
-          <Card
-            className="mb-10 md:mb-12 border border-foreground/10 bg-foreground/[0.02] max-w-xl"
-            data-testid={
-              hasCheckoutProfile
-                ? "event-checkout-minimal"
-                : "event-checkout-with-contact"
-            }
-            radius="sm"
-          >
-            <CardBody className="px-6 py-8">
-              <p className="text-xs font-mono text-foreground/40 mb-4">
-                {clientSecret ? t.checkoutStepPay : t.checkoutStepChoose}
-              </p>
-              <h2
-                className="text-xl font-bold tracking-tight text-foreground/90 mb-1"
-                id="event-checkout-heading"
-              >
-                {t.contributionTitle}
-              </h2>
-              <p className="text-sm text-foreground/45 mb-6">
-                {t.contributionSubtitle}
-              </p>
-
-              {exclusiveTiers.length > 0 ? (
-                <RadioGroup
-                  aria-labelledby="event-checkout-heading"
-                  classNames={{ wrapper: "gap-6" }}
-                  isDisabled={checkoutLocked}
-                  value={selectedExclusiveId ?? ""}
-                  onValueChange={setSelectedExclusiveId}
-                >
-                  {exclusiveTiers.map((tier) => {
-                    const tierDescription = tier.description.trim();
-                    const priceLabel = formatTierPrice(tier);
-                    const placesLabel = formatPlacesRemaining(
-                      tier,
-                      t.placesRemaining,
-                      t.placesUnlimited,
-                    );
-
-                    return (
-                      <Radio
-                        key={tier.id}
-                        classNames={{
-                          base: "max-w-full m-0 p-3 border border-foreground/10 data-[selected=true]:border-neon/40 rounded-sm",
-                          wrapper: "mt-0.5",
-                          label: "w-full max-w-full",
-                          labelWrapper: "w-full max-w-full",
-                          description:
-                            "text-xs text-foreground/45 leading-relaxed mt-1.5",
-                        }}
-                        data-testid={`event-checkout-exclusive-${tier.id}`}
-                        description={tierDescription || undefined}
-                        value={tier.id}
-                      >
-                        <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                          <span className="text-sm font-medium text-foreground/80">
-                            {tier.name}
-                          </span>
-                          <span className="text-xs font-mono text-foreground/45 shrink-0">
-                            {priceLabel} · {placesLabel}
-                          </span>
-                        </span>
-                      </Radio>
-                    );
-                  })}
-                </RadioGroup>
-              ) : null}
-
-              {addonTiers.length > 0 ? (
-                <div className="mt-8 space-y-4">
-                  <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
-                    {t.addonsTitle}
-                  </p>
-                  <div className="space-y-3">
-                    {addonTiers.map((tier) => {
-                      const tierDescription = tier.description.trim();
-                      const priceLabel = formatTierPrice(tier);
-                      const placesLabel = formatPlacesRemaining(
-                        tier,
-                        t.placesRemaining,
-                        t.placesUnlimited,
-                      );
-                      const isSelected = selectedAddonIds.has(tier.id);
-
-                      return (
-                        <div
-                          key={tier.id}
-                          className="p-3 border border-foreground/10 rounded-sm data-[selected=true]:border-neon/40"
-                          data-selected={isSelected ? true : undefined}
-                        >
-                          <Checkbox
-                            classNames={{
-                              base: "max-w-full m-0 items-start",
-                              label: "w-full max-w-full",
-                            }}
-                            data-testid={`event-checkout-addon-${tier.id}`}
-                            isDisabled={checkoutLocked}
-                            isSelected={isSelected}
-                            onValueChange={(checked) => {
-                              setSelectedAddonIds((prev) => {
-                                const next = new Set(prev);
-
-                                if (checked) {
-                                  next.add(tier.id);
-                                } else {
-                                  next.delete(tier.id);
-                                }
-
-                                return next;
-                              });
-                            }}
-                          >
-                            <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                              <span className="text-sm font-medium text-foreground/80">
-                                {tier.name}
-                              </span>
-                              <span className="text-xs font-mono text-foreground/45 shrink-0">
-                                {priceLabel} · {placesLabel}
-                              </span>
-                            </span>
-                          </Checkbox>
-                          {tierDescription ? (
-                            <p className="text-xs text-foreground/45 leading-relaxed mt-1.5 pl-7">
-                              {tierDescription}
-                            </p>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-
-              {selectedTiers.length > 0 ? (
-                <div className="mt-6 space-y-1">
-                  {promo ? (
-                    <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
-                      {t.promoCodeLabel}: {promo}
-                    </p>
-                  ) : null}
-                  {showPromoSubtotal ? (
-                    <p className="text-xs text-foreground/45 line-through">
-                      {t.checkoutSubtotal}: CHF{" "}
-                      {(previewPricing!.subtotalCents / 100).toFixed(0)}
-                    </p>
-                  ) : null}
-                  <p className="text-sm font-mono text-foreground/55">
-                    {t.checkoutTotal}: CHF{" "}
-                    {(displayTotalCents / 100).toFixed(0)}
-                  </p>
-                  {showPromoSubtotal ? (
-                    <p className="text-xs text-neon/80">
-                      {t.promoDiscount}: CHF{" "}
-                      {(previewPricing!.discountCents / 100).toFixed(0)}
-                    </p>
-                  ) : null}
-                  {promo && pricingPreviewQuery.isError ? (
-                    <p className="text-xs text-red-400">{t.promoInvalid}</p>
-                  ) : null}
-                  {promo &&
-                  pricingPreviewQuery.isSuccess &&
-                  previewPricing &&
-                  previewPricing.discountCents === 0 &&
-                  previewPricing.subtotalCents > 0 ? (
-                    <p className="text-xs text-red-400">{t.promoInvalid}</p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {showContactForm ? (
-                <div
-                  className="mt-6 space-y-3"
-                  data-testid="event-checkout-contact-form"
-                >
-                  <NeonInput
-                    isRequired
-                    label={t.email}
-                    type="email"
-                    value={email}
-                    onValueChange={setEmail}
-                  />
-                  <NeonInput
-                    label={t.phone}
-                    type="tel"
-                    value={phone}
-                    onValueChange={setPhone}
-                  />
-                </div>
-              ) : null}
-
-              {!clientSecret ? (
-                <div className="mt-6 space-y-2">
-                  <NeonButton
-                    className="w-full sm:w-auto"
-                    isDisabled={
-                      intentMutation.isPending ||
-                      !tierSelectionReady ||
-                      profileGate.profileLoading ||
-                      !checkoutContactReady
-                    }
-                    type="button"
-                    onPress={() => {
-                      const useProfileContact = Boolean(
-                        profileGate.profile?.profileComplete,
-                      );
-                      const profileEmail =
-                        profileGate.profile?.email?.trim() ?? "";
-                      const profilePhone =
-                        profileGate.profile?.phoneE164?.trim() ?? "";
-
-                      intentMutation.mutate(
-                        {
-                          slug,
-                          email: useProfileContact
-                            ? profileEmail || null
-                            : email.trim()
-                              ? email.trim()
-                              : null,
-                          locale,
-                          phoneE164: useProfileContact
-                            ? profilePhone || null
-                            : phone.trim()
-                              ? phone.trim()
-                              : null,
-                          inviteToken: effectiveInviteToken ?? null,
-                          promotionCode: promo ?? null,
-                          exclusiveTierId: selectedExclusiveId ?? "",
-                          addonTierIds: Array.from(selectedAddonIds),
-                          returnPath: detailReturnPath,
-                        },
-                        {
-                          onSuccess: (data) => {
-                            setChargedTotalCents(data.amountCents);
-                            setCheckoutOrderId(data.orderId);
-                            setCheckoutReturnUrl(data.returnUrl);
-                            eventsApi.storage.stashCheckoutOrderId(
-                              slug,
-                              data.orderId,
-                            );
-                            if (data.requiresPayment) {
-                              if (!data.clientSecret) {
-                                return;
-                              }
-                              setClientSecret(data.clientSecret);
-
-                              return;
-                            }
-                            startCheckoutAfterPayment(data.orderId);
-                          },
-                        },
-                      );
-                    }}
-                  >
-                    {intentMutation.isPending ? "…" : t.ctaIntent}
-                  </NeonButton>
-                  {checkoutDisabledReason &&
-                  (intentMutation.isPending ||
-                    !tierSelectionReady ||
-                    profileGate.profileLoading ||
-                    !checkoutContactReady) ? (
-                    <p className="text-xs text-foreground/40">
-                      {checkoutDisabledReason}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {intentMutation.isError ? (
-                <FormError className="mt-4">
-                  {intentMutation.error instanceof AxiosError &&
-                  intentMutation.error.response?.data &&
-                  typeof (
-                    intentMutation.error.response.data as { error?: string }
-                  ).error === "string"
-                    ? (intentMutation.error.response.data as { error: string })
-                        .error
-                    : t.intentError}
-                </FormError>
-              ) : null}
-
-              {checkoutLocked && selectedTiers.length > 0 ? (
-                <div className="mt-6 pt-6 border-t border-foreground/10">
-                  <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-1">
-                    {t.checkoutOrderSummary}
-                  </p>
-                  <ul className="text-sm font-medium text-foreground/80 mb-2 space-y-1">
-                    {selectedTiers.map((tier) => (
-                      <li key={tier.id}>
-                        {tier.name} — {formatTierPrice(tier)}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-sm font-mono text-foreground/55">
-                    {t.checkoutTotal}: CHF{" "}
-                    {(displayTotalCents / 100).toFixed(0)}
-                  </p>
-                </div>
-              ) : null}
-
-              {clientSecret &&
-              checkoutOrderId &&
-              stripePromise &&
-              elementsOptions ? (
-                <Elements
-                  key={clientSecret}
-                  options={elementsOptions}
-                  stripe={stripePromise}
-                >
-                  <PaymentStep
-                    onePersonHint={t.checkoutOnePersonHint}
-                    payLabel={t.pay}
-                    returnUrl={checkoutReturnUrl ?? returnUrl}
-                    onPaymentSucceeded={() => {
-                      if (checkoutOrderId) {
-                        startCheckoutAfterPayment(checkoutOrderId);
-                      }
-                    }}
-                  />
-                </Elements>
-              ) : null}
-
-              {!hasCheckoutProfile ? (
-                <div className="mt-8 pt-6 border-t border-foreground/10">
+                <div ref={signInSectionRef} className="mb-10 max-w-xl">
                   <ParticipantSessionPanel
                     embedded
                     codeExchangePending={!codeHandled}
@@ -1249,17 +687,69 @@ function EventDetailsInner({ slug }: { slug: string }) {
                     ]}
                   />
                 </div>
-              ) : null}
-            </CardBody>
-          </Card>
-        ) : null}
+              </>
+            ) : null}
 
-        <EventAboutSection
-          imageAlt={t.detailImageAlt}
-          imageUrls={ev.imageUrls ?? []}
-          summary={ev.summary ?? null}
+            {confirmingRegistration && !registrationSettled ? (
+              <div className="flex flex-col items-center gap-4 py-12 mb-8 max-w-xl">
+                <Spinner color="success" size="lg" />
+                <p className="text-sm font-mono text-foreground/50 text-center">
+                  {t.checkoutConfirming}
+                </p>
+                <p className="text-xs text-foreground/40 text-center max-w-sm">
+                  {t.confirmingNextSteps}
+                </p>
+              </div>
+            ) : null}
+
+            {checkoutConfirmError &&
+            !confirmingRegistration &&
+            !registrationSettled ? (
+              <FormError className="mb-8 max-w-xl">
+                {checkoutConfirmError}
+              </FormError>
+            ) : null}
+
+            {!sideBySideCheckout ? eventHero : null}
+          </>
+        }
+        main={
+          <EventAboutSection
+            className="mb-10 md:mb-12"
+            imageAlt={t.detailImageAlt}
+            imageUrls={imageUrls}
+            summary={ev.summary ?? null}
+          />
+        }
+        mainLead={sideBySideCheckout ? eventHero : null}
+        stickyBarPadding={
+          showCheckout &&
+          tierSelectionReady &&
+          !clientSecret &&
+          !profileGate.showProfileGateModal &&
+          !confirmingRegistration
+        }
+        twoColumn={hasAboutContent}
+      />
+
+      {showCheckout &&
+      tierSelectionReady &&
+      !clientSecret &&
+      !profileGate.showProfileGateModal &&
+      !confirmingRegistration ? (
+        <StickyContributionBar
+          busy={intentMutation.isPending}
+          ctaLabel={ctaLabel}
+          disabled={
+            intentMutation.isPending ||
+            !tierSelectionReady ||
+            profileGate.profileLoading ||
+            !checkoutContactReady
+          }
+          summaryLabel={stickySummary}
+          onPress={handleConfirmContribution}
         />
-      </div>
+      ) : null}
     </>
   );
 }

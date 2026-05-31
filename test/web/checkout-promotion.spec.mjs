@@ -58,7 +58,7 @@ test.describe("promotion free checkout", () => {
     });
 
     await assertCheckoutTotalChf(state.page, state.seed.promoAllTiersTotalChf, {
-      count: 2,
+      count: 1,
     });
   });
 
@@ -66,7 +66,7 @@ test.describe("promotion free checkout", () => {
     await state.page.goto(state.seed.freePromoUrl);
     await state.page.waitForURL(/\/events\/private/, { timeout: 30_000 });
     await state.page
-      .getByRole("button", { name: "Continue to payment" })
+      .getByTestId("event-checkout-confirm-contribution")
       .waitFor({ timeout: 60_000 });
   });
 

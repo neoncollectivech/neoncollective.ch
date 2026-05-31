@@ -3,6 +3,7 @@ export { E2E_OTP, signInWithPhone, completeProfileWithPhone } from "./participan
 export {
   assertCheckoutTotalChf,
   checkoutReturnPathFromPage,
+  clickConfirmContribution,
   clickContinueAndExpectIntent,
   completeEventCheckout,
   completeFreePromoCheckout,

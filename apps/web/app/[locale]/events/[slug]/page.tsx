@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
-import { locales } from "@/i18n/config";
+import { locales, type Locale } from "@/i18n/config";
+import { getDictionary } from "@/i18n/getDictionary";
 import { EventDetailsClient } from "@/components/event-details";
 
 type PageProps = {
@@ -45,11 +46,12 @@ export function generateStaticParams(): { locale: string; slug: string }[] {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, locale } = await params;
+  const dictionary = await getDictionary(locale as Locale);
 
   return {
     title: `Event — ${slug}`,
-    description: "Register for this NEON event.",
+    description: dictionary.meta.eventDetailDescription,
   };
 }
 
@@ -58,7 +60,7 @@ export default async function EventPage({ params }: PageProps) {
 
   return (
     <article className="py-16 md:py-28 px-6">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl lg:max-w-5xl mx-auto">
         <EventDetailsClient slug={slug} />
       </div>
     </article>

@@ -23,6 +23,8 @@ type ParticipantProfileModalProps = {
   dismissable?: boolean;
   initialProfile?: ParticipantProfile;
   labels: ProfileModalLabels;
+  /** Event-scoped heading, e.g. "Join {eventTitle}". */
+  contextTitle?: string;
   onComplete: (profile: ParticipantProfile) => void;
   onDismiss?: () => void;
 };
@@ -80,6 +82,7 @@ export function ParticipantProfileModal({
   dismissable = false,
   initialProfile,
   labels,
+  contextTitle,
   onComplete,
   onDismiss,
 }: ParticipantProfileModalProps) {
@@ -220,10 +223,16 @@ export function ParticipantProfileModal({
       <ModalContent className="bg-background border border-foreground/10 rounded-none">
         <ModalHeader className="flex flex-col gap-1 border-b border-foreground/10">
           <h2 className="text-lg font-bold uppercase tracking-tight text-foreground/90">
-            {step === "details" ? labels.title : labels.verifyTitle}
+            {step === "details"
+              ? (contextTitle ?? labels.title)
+              : labels.verifyTitle}
           </h2>
           <p className="text-sm font-normal text-foreground/45">
-            {step === "details" ? labels.subtitle : verifyHint}
+            {step === "details"
+              ? contextTitle
+                ? labels.subtitle
+                : labels.subtitle
+              : verifyHint}
           </p>
         </ModalHeader>
         <ModalBody className="py-8">
