@@ -1,6 +1,8 @@
 import { eventsService } from "../../services/events.service";
 import { eventTiersService } from "../../services/event-tiers.service";
 import { enrichTiersWithCapacityStats } from "../../helpers/tier-capacity";
+import { resolveInviteOnlyEntitlement } from "../shared/invite-only-entitlement";
+import type { ResolvedParticipantSession } from "../registrations/session";
 
 export type EventAvailabilityCapacity = {
   quota: number | null;
@@ -23,11 +25,26 @@ export type PublishedEventAvailability = {
 
 export async function getPublishedEventAvailability(
   slug: string,
+  opts?: {
+    inviteToken?: string | null;
+    session?: ResolvedParticipantSession | null;
+  },
 ): Promise<PublishedEventAvailability | null> {
   const ev = await eventsService.getPublishedBySlug(slug);
 
   if (!ev) {
     return null;
+  }
+
+  if (ev.accessMode === "invite_only") {
+    const entitlement = await resolveInviteOnlyEntitlement({
+      eventId: ev.id,
+      inviteToken: opts?.inviteToken,
+      session: opts?.session ?? null,
+    });
+    if (!entitlement.entitled) {
+      return null;
+    }
   }
 
   const tiers = await eventTiersService.listActiveForEvent(ev.id);

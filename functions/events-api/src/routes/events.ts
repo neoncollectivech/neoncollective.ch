@@ -44,7 +44,11 @@ export function createEventsRouter(): Hono {
     if (!requireDatabase(c)) {
       return databaseUnavailableResponse(c);
     }
-    const body = await getPublishedEventAvailability(c.req.param("slug"));
+    const session = await resolveParticipantSessionFromCookie(c.req.header("Cookie"));
+    const body = await getPublishedEventAvailability(c.req.param("slug"), {
+      inviteToken: c.req.query("invite"),
+      session,
+    });
 
     if (!body) {
       return c.json({ error: "Event not found." }, 404);

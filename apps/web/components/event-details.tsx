@@ -18,12 +18,11 @@ import { ContributionPanel } from "@/components/event/contribution-panel";
 import { EventAboutSection } from "@/components/event/event-about-section";
 import { EventDetailLayout } from "@/components/event/event-detail-layout";
 import { EventHero } from "@/components/event/event-hero";
-import { InviteOnlyEmptyState } from "@/components/event/invite-only-empty-state";
+import { InviteOnlyGate } from "@/components/event/invite-only-gate";
 import { RegistrationConfirmedCard } from "@/components/event/registration-confirmed-card";
 import { RegistrationPendingPanel } from "@/components/event/registration-pending-panel";
 import { StickyContributionBar } from "@/components/event/sticky-contribution-bar";
 import { FormError } from "@/components/form-error";
-import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { absoluteSiteUrl } from "@/helpers/site-url";
 import { formatContributionCta } from "@/helpers/contribution-labels";
 import {
@@ -334,14 +333,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const focusSignIn = useCallback(() => {
-    setSignInExpanded(true);
-    signInSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }, []);
-
   const handleConfirmContribution = useCallback(() => {
     const useProfileContact = Boolean(profileGate.profile?.profileComplete);
     const profileEmail = profileGate.profile?.email?.trim() ?? "";
@@ -421,6 +412,30 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const ev = eventQuery.data as EventPayload;
   const registrationSettled =
     Boolean(ev.registrationConfirmed) && !confirmingRegistration;
+
+  const showInviteOnlyGate =
+    ev.inviteOnly && ev.access === "minimal" && !registrationSettled;
+
+  if (showInviteOnlyGate) {
+    return (
+      <>
+        <ParticipantProfileGateModal eventTitle={ev.title} gate={profileGate} />
+        <InviteOnlyGate
+          backHref={`/${locale}/events`}
+          backLabel={t.backToEvents}
+          codeExchangePending={!codeHandled}
+          eventTitle={ev.title}
+          gateTitle={t.inviteOnlyEmptyTitle}
+          needInviteCopy={t.needInvite}
+          returnPath={detailReturnPath}
+          sessionEstablishedQueryKeys={[
+            eventsKeys.detail(slug, effectiveInviteToken),
+          ]}
+        />
+      </>
+    );
+  }
+
   const hasCheckoutProfile = Boolean(profileGate.profile?.profileComplete);
   const showContactForm = !profileGate.profileLoading && !hasCheckoutProfile;
   const checkoutContactReady = hasCheckoutProfile
@@ -675,29 +690,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
                 locale={locale}
                 slug={slug}
               />
-            ) : null}
-
-            {accessDenied ? (
-              <>
-                <InviteOnlyEmptyState
-                  backHref={backHref}
-                  backLabel={t.backToEvents}
-                  body={t.inviteOnlyEmptyBody}
-                  signInCta={t.inviteOnlySignInCta}
-                  title={t.inviteOnlyEmptyTitle}
-                  onSignInClick={focusSignIn}
-                />
-                <div ref={signInSectionRef} className="mb-10 max-w-xl">
-                  <ParticipantSessionPanel
-                    embedded
-                    codeExchangePending={!codeHandled}
-                    returnPath={detailReturnPath}
-                    sessionEstablishedQueryKeys={[
-                      eventsKeys.detail(slug, effectiveInviteToken),
-                    ]}
-                  />
-                </div>
-              </>
             ) : null}
 
             {!sideBySideCheckout ? eventHero : null}

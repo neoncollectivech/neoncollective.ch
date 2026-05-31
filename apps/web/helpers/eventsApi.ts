@@ -34,6 +34,7 @@ export type EventPayload = {
   startsAt: string | null;
   accessMode: "public" | "invite_only";
   inviteOnly: boolean;
+  /** When `"minimal"` (invite-only, not entitled), dossier fields are null/empty except title. */
   access?: "full" | "minimal";
   inviteRemaining?: number;
   tiers?: EventTier[];

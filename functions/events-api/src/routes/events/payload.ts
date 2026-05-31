@@ -15,20 +15,20 @@ export async function buildEventPayload(
   if (!ev) {
     return null;
   }
-  const imageUrls = await eventImagesService.listPublicUrlsByEventId(ev.id);
   if (access === "minimal") {
     return {
       slug: ev.slug,
       title: ev.title,
-      summary: ev.summary ?? null,
-      location: ev.location ?? null,
-      imageUrls,
-      startsAt: ev.startsAt?.toISOString() ?? null,
+      summary: null,
+      location: null,
+      imageUrls: [],
+      startsAt: null,
       accessMode: ev.accessMode,
       inviteOnly: ev.accessMode === "invite_only",
       inviteRemaining: opts?.inviteRemaining,
     };
   }
+  const imageUrls = await eventImagesService.listPublicUrlsByEventId(ev.id);
   const tiers = await eventTiersService.listActiveForEvent(ev.id);
   const { tiers: tiersWithSold } = await enrichTiersWithCapacityStats(
     ev.id,

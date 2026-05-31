@@ -22,6 +22,8 @@ type ParticipantSessionPanelProps = {
   codeExchangePending?: boolean;
   /** Parent provides section title (e.g. on events index card). */
   embedded?: boolean;
+  /** Suppress default intro when parent supplies gate copy. */
+  hideIntro?: boolean;
   contact?: string;
   onContactChange?: (value: string) => void;
   sessionEstablishedQueryKeys?: QueryKey[];
@@ -32,6 +34,7 @@ export function ParticipantSessionPanel({
   returnPath,
   codeExchangePending,
   embedded,
+  hideIntro,
   contact: controlledContact,
   onContactChange,
   sessionEstablishedQueryKeys = [],
@@ -202,12 +205,14 @@ export function ParticipantSessionPanel({
   }
 
   return (
-    <section className="max-w-xl">
-      {!embedded ? (
-        <h2 className="neon-body mb-4 max-w-md">{t.sessionIntro}</h2>
-      ) : (
-        <p className="neon-body mb-4 max-w-md">{t.sessionIntro}</p>
-      )}
+    <section className={embedded && hideIntro ? "w-full" : "max-w-xl"}>
+      {!hideIntro ? (
+        !embedded ? (
+          <h2 className="neon-body mb-4 max-w-md">{t.sessionIntro}</h2>
+        ) : (
+          <p className="neon-body mb-4 max-w-md">{t.sessionIntro}</p>
+        )
+      ) : null}
       <form
         className="flex flex-col gap-4 max-w-md"
         onSubmit={(e) => {
