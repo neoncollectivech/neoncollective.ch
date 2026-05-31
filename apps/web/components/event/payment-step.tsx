@@ -66,17 +66,19 @@ export function PaymentStep({
   return (
     <form
       ref={formRef}
-      className="mt-6 space-y-4"
+      className="mt-6 min-w-0 w-full space-y-4 overflow-x-clip"
       data-testid="event-checkout-payment-step"
       onSubmit={handlePay}
     >
-      <PaymentElement
-        options={{
-          wallets: {
-            link: "never",
-          },
-        }}
-      />
+      <div className="min-w-0 w-full overflow-x-clip">
+        <PaymentElement
+          options={{
+            wallets: {
+              link: "never",
+            },
+          }}
+        />
+      </div>
       <p className="text-xs text-foreground/40">{onePersonHint}</p>
       {err ? <FormError>{err}</FormError> : null}
       <NeonButton

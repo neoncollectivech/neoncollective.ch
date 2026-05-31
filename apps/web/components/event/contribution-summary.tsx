@@ -42,7 +42,7 @@ export function ContributionSummary({
   return (
     <div className="mt-6 space-y-2" data-testid="contribution-summary">
       {promo ? (
-        <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
+        <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 break-all">
           {labels.promoCodeLabel}: {promo}
         </p>
       ) : null}

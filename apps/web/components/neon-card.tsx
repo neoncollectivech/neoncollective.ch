@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { tv, type VariantProps } from "tailwind-variants";
 
 const neonCard = tv({
-  base: "neon-surface shadow-none bg-background",
+  base: "neon-surface shadow-none bg-background w-full min-w-0 max-w-full",
   variants: {
     surface: {
       default: "neon-surface-default",
@@ -19,6 +19,7 @@ const neonCard = tv({
 });
 
 const neonCardBody = tv({
+  base: "min-w-0 w-full overflow-x-clip",
   variants: {
     padding: {
       default: "neon-surface-padding-default",

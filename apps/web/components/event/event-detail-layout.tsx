@@ -25,21 +25,23 @@ export function EventDetailLayout({
 
       {aside != null && twoColumn ? (
         <>
-          {mainLead ? <div className="lg:hidden">{mainLead}</div> : null}
-          <div className="flex flex-col gap-10 lg:grid lg:grid-cols-[1fr_min(22rem,36vw)] lg:gap-10 lg:items-start">
+          {mainLead ? (
+            <div className="lg:hidden min-w-0">{mainLead}</div>
+          ) : null}
+          <div className="flex w-full min-w-0 flex-col gap-10 lg:grid lg:grid-cols-[minmax(0,1fr)_min(22rem,36vw)] lg:gap-10 lg:items-start">
             <div className="order-2 lg:order-1 min-w-0">
               {mainLead ? (
-                <div className="hidden lg:block">{mainLead}</div>
+                <div className="hidden lg:block min-w-0">{mainLead}</div>
               ) : null}
               {main}
             </div>
-            <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:mb-0">
+            <aside className="order-1 lg:order-2 min-w-0 w-full max-w-full lg:sticky lg:top-24 lg:mb-0">
               {aside}
             </aside>
           </div>
         </>
       ) : aside != null ? (
-        <div className="w-full sm:max-w-xl mx-auto">{aside}</div>
+        <div className="w-full min-w-0 sm:max-w-xl mx-auto">{aside}</div>
       ) : (
         <div>
           {mainLead}

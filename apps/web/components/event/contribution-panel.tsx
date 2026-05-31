@@ -174,6 +174,7 @@ export function ContributionPanel({
 
   return (
     <NeonCard
+      className="overflow-x-clip"
       data-testid={
         hasCheckoutProfile
           ? "event-checkout-minimal"
@@ -216,7 +217,8 @@ export function ContributionPanel({
         {exclusiveTiers.length > 0 ? (
           <RadioGroup
             aria-labelledby="event-checkout-heading"
-            classNames={{ wrapper: "gap-8" }}
+            className="min-w-0"
+            classNames={{ wrapper: "gap-8 min-w-0 w-full" }}
             isDisabled={checkoutLocked}
             value={selectedExclusiveId ?? ""}
             onValueChange={onExclusiveChange}
@@ -236,7 +238,7 @@ export function ContributionPanel({
                 <Radio
                   key={tier.id}
                   classNames={{
-                    base: "neon-surface-default p-4 max-w-full m-0 data-[selected=true]:border-neon/40 opacity-100 data-[disabled=true]:opacity-50",
+                    base: "neon-surface-default p-4 w-full min-w-0 !max-w-full m-0 data-[selected=true]:border-neon/40 opacity-100 data-[disabled=true]:opacity-50",
                     wrapper: "mt-0.5",
                     label: "w-full max-w-full",
                     labelWrapper: "w-full max-w-full",
@@ -249,7 +251,7 @@ export function ContributionPanel({
                   value={tier.id}
                 >
                   <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <span className="text-sm font-medium text-foreground/80">
+                    <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
                       {tier.name}
                     </span>
                     <span className="text-xs font-mono text-foreground/45 shrink-0">
@@ -286,8 +288,8 @@ export function ContributionPanel({
                   >
                     <Checkbox
                       classNames={{
-                        base: "max-w-full m-0 items-start",
-                        label: "w-full max-w-full",
+                        base: "w-full min-w-0 !max-w-full m-0 items-start",
+                        label: "w-full max-w-full min-w-0",
                       }}
                       data-testid={`event-checkout-addon-${tier.id}`}
                       isDisabled={disabled || checkoutLocked}
@@ -297,7 +299,7 @@ export function ContributionPanel({
                       }
                     >
                       <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-sm font-medium text-foreground/80">
+                        <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
                           {tier.name}
                         </span>
                         <span className="text-xs font-mono text-foreground/45 shrink-0">
@@ -435,7 +437,7 @@ export function ContributionPanel({
         ) : null}
 
         {clientSecret && checkoutOrderId && stripePromise && elementsOptions ? (
-          <div ref={paymentRef}>
+          <div ref={paymentRef} className="min-w-0 overflow-x-clip">
             <Elements
               key={clientSecret}
               options={elementsOptions}
