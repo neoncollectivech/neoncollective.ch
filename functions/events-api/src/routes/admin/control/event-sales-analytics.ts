@@ -16,7 +16,10 @@ export async function getEventSalesAnalyticsHandler(c: Context): Promise<Respons
     return jsonReasonFailure(c, { reason: "event_not_found" }, SALES_ANALYTICS_ERRORS);
   }
 
-  const analytics = await ordersService.aggregateSalesByDayForEvent(eventId);
+  const analytics = await ordersService.aggregateSalesByDayForEvent(
+    eventId,
+    ev.startsAt,
+  );
 
   return c.json({
     bucket: "day" as const,

@@ -234,7 +234,10 @@ export class OrdersService extends TableService<
     return Boolean(row);
   }
 
-  async aggregateSalesByDayForEvent(eventId: string): Promise<EventSalesAnalytics> {
+  async aggregateSalesByDayForEvent(
+    eventId: string,
+    eventStartsAt: Date | null,
+  ): Promise<EventSalesAnalytics> {
     const db = getDb();
     const paidForEvent = and(eq(orders.eventId, eventId), eq(orders.status, "paid"));
 
@@ -281,7 +284,7 @@ export class OrdersService extends TableService<
 
     const dates = [...byDate.keys()].sort();
     const start = parseUtcDayKey(dates[0]!);
-    const end = parseUtcDayKey(dates[dates.length - 1]!);
+    const end = resolveSalesChartEndMs(start, eventStartsAt);
     const series: EventSalesAnalyticsDay[] = [];
 
     for (let cursor = start; cursor <= end; cursor += 86_400_000) {
@@ -532,6 +535,22 @@ function formatUtcDayKey(value: Date | string): string {
 
 function parseUtcDayKey(value: string): number {
   return Date.parse(`${value}T00:00:00.000Z`);
+}
+
+function utcTodayMs(): number {
+  return parseUtcDayKey(formatUtcDayKey(new Date()));
+}
+
+function resolveSalesChartEndMs(
+  startMs: number,
+  eventStartsAt: Date | null,
+): number {
+  let endMs = utcTodayMs();
+  if (eventStartsAt) {
+    endMs = Math.min(endMs, parseUtcDayKey(formatUtcDayKey(eventStartsAt)));
+  }
+
+  return Math.max(endMs, startMs);
 }
 
 /** Column refs for admin route filters (orders table only). */
