@@ -3,10 +3,10 @@ import type { EventFormValues } from "@/lib/admin-types";
 import { useState } from "react";
 
 import { FormField } from "@/components/form-field";
+import { MarkdownField } from "@/components/markdown-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 type EventFormProps = {
   mode: "create" | "update";
@@ -69,12 +69,12 @@ export function EventForm({
       </FormField>
 
       <FormField htmlFor="summary" label="Summary">
-        <Textarea
+        <MarkdownField
           id="summary"
-          rows={3}
           value={values.summary}
-          onChange={(e) => set("summary", e.target.value)}
+          onChange={(v) => set("summary", v)}
         />
+        <p className="text-xs text-muted-foreground">Markdown supported.</p>
       </FormField>
 
       <FormField htmlFor="location" label="Location">

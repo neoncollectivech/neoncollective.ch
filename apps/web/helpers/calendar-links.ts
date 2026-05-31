@@ -1,3 +1,5 @@
+import { markdownPlainText } from "@/helpers/markdown-plain-text";
+
 export function buildGoogleCalendarUrl(opts: {
   title: string;
   startsAt: string;
@@ -28,7 +30,9 @@ export function buildGoogleCalendarUrl(opts: {
   if (location) {
     params.set("location", location);
   }
-  const details = opts.summary?.trim();
+  const details = opts.summary?.trim()
+    ? markdownPlainText(opts.summary)
+    : undefined;
 
   if (details) {
     params.set("details", details);

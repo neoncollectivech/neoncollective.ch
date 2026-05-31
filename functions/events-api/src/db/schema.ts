@@ -63,7 +63,7 @@ export const events = pgTable("events", {
   id: uuid("id").defaultRandom().primaryKey(),
   slug: text("slug").notNull().unique(),
   title: text("title").notNull(),
-  /** Short plain-text description for listings and the event page. */
+  /** Markdown description for listings and the event page (plain text is valid markdown). */
   summary: text("summary"),
   /** Venue / city line (plain text). */
   location: text("location"),

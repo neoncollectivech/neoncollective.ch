@@ -28,7 +28,7 @@ import { formatContributionCta } from "@/helpers/contribution-labels";
 import {
   defaultExclusiveTierId,
   hasEventAboutContent,
-  heroSummaryText,
+  heroSummaryDisplay,
   isAddonTier,
   isExclusiveTier,
 } from "@/helpers/event-tier-utils";
@@ -480,7 +480,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const donateHref = `/${locale}/donate`;
   const imageUrls = ev.imageUrls ?? [];
   const hasAboutContent = hasEventAboutContent(ev.summary ?? null, imageUrls);
-  const heroSummary = heroSummaryText(ev.summary ?? null, hasAboutContent);
+  const heroSummary = heroSummaryDisplay(ev.summary ?? null, hasAboutContent);
 
   const contributionLabels = {
     contributionTitle: t.contributionTitle,
@@ -648,7 +648,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       showTrustDisclaimer={!showCheckout}
       startsAt={ev.startsAt}
       summary={ev.summary ?? null}
-      summaryText={heroSummary}
+      summaryDisplay={heroSummary}
       title={ev.title}
       onContributionAnchorClick={scrollToContribution}
     />

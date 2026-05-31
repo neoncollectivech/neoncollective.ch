@@ -1,5 +1,7 @@
 import type { EventTier } from "@/helpers/eventsApi";
 
+import { markdownPlainText } from "@/helpers/markdown-plain-text";
+
 export function formatTierPrice(tier: EventTier): string {
   return `${(tier.priceCents / 100).toFixed(0)} ${tier.currency.toUpperCase()}`;
 }
@@ -61,11 +63,17 @@ export function summaryTeaser(
   if (!line) {
     return null;
   }
-  if (line.length <= max) {
-    return line;
+
+  const plain = markdownPlainText(line);
+
+  if (!plain) {
+    return null;
+  }
+  if (plain.length <= max) {
+    return plain;
   }
 
-  return `${line.slice(0, max).trimEnd()}…`;
+  return `${plain.slice(0, max).trimEnd()}…`;
 }
 
 const SUMMARY_TEASER_MAX = 160;
@@ -81,23 +89,36 @@ export function hasEventAboutContent(
   return (imageUrls?.length ?? 0) > 1;
 }
 
-export function heroSummaryText(
+export type HeroSummaryDisplay = {
+  text: string;
+  format: "markdown" | "plain";
+};
+
+export function heroSummaryDisplay(
   summary: string | null,
   hasAboutContent: boolean,
-): string | null {
+): HeroSummaryDisplay | null {
   const line = summary?.trim();
 
   if (!line) {
     return null;
   }
-  if (hasAboutContent && line.length <= SUMMARY_TEASER_MAX) {
+
+  const plain = markdownPlainText(line);
+
+  if (!plain) {
+    return null;
+  }
+  if (hasAboutContent && plain.length <= SUMMARY_TEASER_MAX) {
     return null;
   }
   if (hasAboutContent) {
-    return summaryTeaser(line, SUMMARY_TEASER_MAX);
+    const teaser = summaryTeaser(line, SUMMARY_TEASER_MAX);
+
+    return teaser ? { text: teaser, format: "plain" } : null;
   }
 
-  return line;
+  return { text: line, format: "markdown" };
 }
 
 export type EventRegistrationStatus = "open" | "passed";

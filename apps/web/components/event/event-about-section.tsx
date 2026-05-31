@@ -1,6 +1,7 @@
 "use client";
 
 import { EventImageGallery } from "@/components/event-image-gallery";
+import { Markdown } from "@/components/markdown";
 
 type EventAboutSectionProps = {
   summary: string | null;
@@ -25,7 +26,9 @@ export function EventAboutSection({
   return (
     <section className={className}>
       {summaryLine ? (
-        <p className="neon-body whitespace-pre-wrap">{summaryLine}</p>
+        <div className="neon-body">
+          <Markdown content={summaryLine} />
+        </div>
       ) : null}
       {gallery.length > 0 ? (
         <EventImageGallery

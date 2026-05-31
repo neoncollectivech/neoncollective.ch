@@ -5,9 +5,13 @@ import type { Locale } from "@/i18n/config";
 import clsx from "clsx";
 
 import { EventPosterHero } from "@/components/event/event-poster-hero";
+import { Markdown } from "@/components/markdown";
 import { NeonLink } from "@/components/neon-link";
 import { NeonTextButton } from "@/components/neon-text-button";
-import { eventRegistrationStatus } from "@/helpers/event-tier-utils";
+import {
+  eventRegistrationStatus,
+  type HeroSummaryDisplay,
+} from "@/helpers/event-tier-utils";
 import { formatLocaleDateTime } from "@/helpers/format-locale-datetime";
 
 type EventHeroProps = {
@@ -35,7 +39,8 @@ type EventHeroProps = {
   onContributionAnchorClick?: () => void;
   /** Omit when checkout panel already shows cost transparency copy. */
   showTrustDisclaimer?: boolean;
-  summaryText?: string | null;
+  /** When set, overrides default summary rendering from `summary`. */
+  summaryDisplay?: HeroSummaryDisplay | null;
 };
 
 export function EventHero({
@@ -52,12 +57,16 @@ export function EventHero({
   showContributionAnchor,
   onContributionAnchorClick,
   showTrustDisclaimer = true,
-  summaryText,
+  summaryDisplay,
 }: EventHeroProps) {
   const locationLine = location?.trim();
   const status = eventRegistrationStatus(startsAt);
-  const summaryLine =
-    summaryText !== undefined ? summaryText : summary?.trim() || null;
+  const resolvedSummaryDisplay: HeroSummaryDisplay | null =
+    summaryDisplay !== undefined
+      ? summaryDisplay
+      : summary?.trim()
+        ? { text: summary.trim(), format: "markdown" }
+        : null;
 
   return (
     <header className="mb-10 md:mb-12">
@@ -110,7 +119,15 @@ export function EventHero({
             </p>
           ) : null}
 
-          {summaryLine ? <p className="neon-body mt-4">{summaryLine}</p> : null}
+          {resolvedSummaryDisplay ? (
+            resolvedSummaryDisplay.format === "markdown" ? (
+              <div className="neon-body mt-4">
+                <Markdown content={resolvedSummaryDisplay.text} />
+              </div>
+            ) : (
+              <p className="neon-body mt-4">{resolvedSummaryDisplay.text}</p>
+            )
+          ) : null}
 
           {showTrustDisclaimer ? (
             <p className="text-sm text-foreground/45 leading-relaxed mt-3">

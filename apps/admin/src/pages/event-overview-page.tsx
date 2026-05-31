@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { MarkdownContent } from "@/components/markdown-field";
 import { EventCapacityStats } from "@/components/event-capacity-stats";
 import { EventSalesAnalytics } from "@/components/event-sales-analytics/event-sales-analytics";
 import { EventWorkspaceGate } from "@/components/layout/event-workspace-gate";
@@ -54,7 +55,12 @@ export function EventOverviewPage() {
                   {new Date(event.startsAt).toLocaleString()}
                 </p>
               ) : null}
-              {event.summary ? <p>{event.summary}</p> : null}
+              {event.summary ? (
+                <MarkdownContent
+                  className="text-foreground/90"
+                  source={event.summary}
+                />
+              ) : null}
             </CardContent>
           </Card>
 

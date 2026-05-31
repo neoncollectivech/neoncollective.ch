@@ -26,6 +26,7 @@ import {
 } from "@/hooks/use-events-api";
 import { formatLocaleDateTime } from "@/helpers/format-locale-datetime";
 import { eventDetailHref } from "@/helpers/eventRoutes";
+import { markdownPlainText } from "@/helpers/markdown-plain-text";
 
 function filterUpcoming(events: EventCatalogItem[]): EventCatalogItem[] {
   const now = Date.now();
@@ -163,7 +164,9 @@ function EventsIndexInner() {
             <ul className="space-y-6">
               {rows.map((ev) => {
                 const thumb = ev.imageUrls[0];
-                const summaryLine = ev.summary?.trim();
+                const summaryLine = ev.summary?.trim()
+                  ? markdownPlainText(ev.summary)
+                  : null;
                 const locationLine = ev.location?.trim();
                 const detailHref = appendToHref(
                   eventDetailHref(locale, ev.slug, ev.inviteOnly),
