@@ -15,6 +15,8 @@ type ContributionSummaryProps = {
   previewSubtotalCents: number | undefined;
   previewDiscountCents: number | undefined;
   promoInvalid: boolean;
+  /** Omit top border when embedded in pending panel (section already divided). */
+  unbordered?: boolean;
   labels: {
     promoCodeLabel: string;
     checkoutSubtotal: string;
@@ -32,6 +34,7 @@ export function ContributionSummary({
   previewSubtotalCents,
   previewDiscountCents,
   promoInvalid,
+  unbordered = false,
   labels,
 }: ContributionSummaryProps) {
   if (selectedTiers.length === 0) {
@@ -40,7 +43,11 @@ export function ContributionSummary({
 
   return (
     <div
-      className="space-y-3 border-t border-foreground/10 pt-8"
+      className={
+        unbordered
+          ? "space-y-3"
+          : "space-y-3 border-t border-foreground/10 pt-8"
+      }
       data-testid="contribution-summary"
     >
       {promo ? (

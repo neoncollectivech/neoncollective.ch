@@ -11,7 +11,6 @@ import {
   useState,
   Suspense,
 } from "react";
-import { Spinner } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { PageSpinner } from "@/components/page-spinner";
@@ -21,6 +20,7 @@ import { EventDetailLayout } from "@/components/event/event-detail-layout";
 import { EventHero } from "@/components/event/event-hero";
 import { InviteOnlyEmptyState } from "@/components/event/invite-only-empty-state";
 import { RegistrationConfirmedCard } from "@/components/event/registration-confirmed-card";
+import { RegistrationPendingPanel } from "@/components/event/registration-pending-panel";
 import { StickyContributionBar } from "@/components/event/sticky-contribution-bar";
 import { FormError } from "@/components/form-error";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
@@ -472,6 +472,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
     contributionSubtitle: t.contributionSubtitle,
     checkoutStepChoose: t.checkoutStepChoose,
     checkoutStepPay: t.checkoutStepPay,
+    checkoutStepConfirm: t.checkoutStepConfirm,
     changeLevel: t.changeLevel,
     addonsTitle: t.addonsTitle,
     placesRemaining: t.placesRemaining,
@@ -506,6 +507,27 @@ function EventDetailsInner({ slug }: { slug: string }) {
     selectedTiers.length > 0
       ? `${t.checkoutTotal}: CHF ${(displayTotalCents / 100).toFixed(0)}`
       : t.contributionTitle;
+
+  const pendingPanelLabels = {
+    checkoutStepChoose: t.checkoutStepChoose,
+    checkoutStepPay: t.checkoutStepPay,
+    checkoutStepConfirm: t.checkoutStepConfirm,
+    checkoutPaymentReceived: t.checkoutPaymentReceived,
+    checkoutConfirming: t.checkoutConfirming,
+    confirmingNextSteps: t.confirmingNextSteps,
+    checkoutTotal: t.checkoutTotal,
+    checkoutSubtotal: t.checkoutSubtotal,
+    promoCodeLabel: t.promoCodeLabel,
+    promoDiscount: t.promoDiscount,
+    promoInvalid: t.promoInvalid,
+  };
+
+  const checkoutEligible =
+    !registrationSettled && !accessDenied && Boolean(ev.tiers?.length);
+
+  const showPendingAside =
+    confirmingRegistration ||
+    Boolean(checkoutConfirmError && !registrationSettled);
 
   const contributionPanel = showCheckout ? (
     <ContributionPanel
@@ -570,7 +592,23 @@ function EventDetailsInner({ slug }: { slug: string }) {
     />
   ) : null;
 
-  const sideBySideCheckout = Boolean(contributionPanel) && hasAboutContent;
+  const checkoutAside = !checkoutEligible ? null : showPendingAside ? (
+    <RegistrationPendingPanel
+      displayTotalCents={displayTotalCents}
+      errorMessage={checkoutConfirmError}
+      labels={pendingPanelLabels}
+      previewDiscountCents={previewPricing?.discountCents}
+      previewSubtotalCents={previewPricing?.subtotalCents}
+      promo={promo}
+      promoInvalid={promoInvalid}
+      selectedTiers={selectedTiers}
+      showPromoSubtotal={showPromoSubtotal}
+    />
+  ) : (
+    contributionPanel
+  );
+
+  const sideBySideCheckout = Boolean(checkoutAside) && hasAboutContent;
 
   const eventHero = (
     <EventHero
@@ -606,7 +644,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       <ParticipantProfileGateModal eventTitle={ev.title} gate={profileGate} />
 
       <EventDetailLayout
-        aside={registrationSettled || accessDenied ? null : contributionPanel}
+        aside={checkoutAside}
         header={
           <>
             {registrationSettled ? (
@@ -660,26 +698,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   />
                 </div>
               </>
-            ) : null}
-
-            {confirmingRegistration && !registrationSettled ? (
-              <div className="flex flex-col items-center gap-4 py-12 mb-8 max-w-xl">
-                <Spinner color="success" size="lg" />
-                <p className="text-sm font-mono text-foreground/50 text-center">
-                  {t.checkoutConfirming}
-                </p>
-                <p className="text-xs text-foreground/40 text-center max-w-sm">
-                  {t.confirmingNextSteps}
-                </p>
-              </div>
-            ) : null}
-
-            {checkoutConfirmError &&
-            !confirmingRegistration &&
-            !registrationSettled ? (
-              <FormError className="mb-8 max-w-xl">
-                {checkoutConfirmError}
-              </FormError>
             ) : null}
 
             {!sideBySideCheckout ? eventHero : null}

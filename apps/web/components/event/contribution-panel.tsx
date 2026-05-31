@@ -31,6 +31,7 @@ type ContributionPanelLabels = {
   contributionSubtitle: string;
   checkoutStepChoose: string;
   checkoutStepPay: string;
+  checkoutStepConfirm: string;
   changeLevel: string;
   addonsTitle: string;
   placesRemaining: string;
@@ -185,6 +186,7 @@ export function ContributionPanel({
             changeLevelLabel={labels.changeLevel}
             chooseLabel={labels.checkoutStepChoose}
             completeLabel={labels.checkoutStepPay}
+            confirmLabel={labels.checkoutStepConfirm}
             step={step}
             onChangeLevel={step === 2 ? onChangeLevel : undefined}
           />
