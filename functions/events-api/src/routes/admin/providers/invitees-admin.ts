@@ -262,6 +262,19 @@ export async function revokeEventInvitee(
   return eventInviteesService.revokeInTx(eventId, inviteeId);
 }
 
+export async function deleteEventInvitee(
+  eventId: string,
+  inviteeId: string,
+): Promise<boolean> {
+  await eventsService.requireInviteOnly(eventId);
+  const row = await eventInviteesService.get(inviteeId);
+  if (!row || row.eventId !== eventId) {
+    return false;
+  }
+  await eventInviteesService.delete(inviteeId);
+  return true;
+}
+
 export async function ensureInviteeHostLink(
   eventId: string,
   inviteeId: string,

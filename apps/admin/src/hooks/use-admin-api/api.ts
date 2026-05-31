@@ -203,7 +203,8 @@ export const adminApi = {
       }),
     deleteInvitee: (eventId: string) =>
       mutationOptions({
-        mutationFn: (inviteeId: string) => deleteEventInvitee(inviteeId),
+        mutationFn: (inviteeId: string) =>
+          deleteEventInvitee(eventId, inviteeId),
         onSuccess: async () => {
           await invalidateEvents(eventId);
         },

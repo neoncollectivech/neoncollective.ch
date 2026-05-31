@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { InviteMechanismDisabledError } from "../../../services/events.service";
 import {
   InviteeUpsertError,
+  deleteEventInvitee,
   ensureInviteeHostLink,
   regenerateInviteeHostLink,
   revokeEventInvitee,
@@ -79,6 +80,20 @@ export function createInviteesProvider(): Hono {
               return c.json({ error: "Invitee not found." }, 404);
             }
             return c.json({ ok: true });
+          },
+        },
+        {
+          method: "delete",
+          path: "/:inviteeId",
+          handler: async (c) => {
+            const ok = await deleteEventInvitee(
+              c.req.param("eventId"),
+              c.req.param("inviteeId"),
+            );
+            if (!ok) {
+              return c.json({ error: "Invitee not found." }, 404);
+            }
+            return c.body(null, 204);
           },
         },
         {
