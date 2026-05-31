@@ -51,13 +51,6 @@ export function resolveCheckoutReturnUrl(params: {
   return `${origin}${normalized}`;
 }
 
-/** True when this PI can be confirmed without a redirect `return_url`. */
-export function paymentIntentAllowsElementsConfirm(
-  pi: Stripe.PaymentIntent,
-): boolean {
-  return pi.automatic_payment_methods?.allow_redirects === "never";
-}
-
 export function resetStripeClient(): void {
   stripeClient = null;
 }

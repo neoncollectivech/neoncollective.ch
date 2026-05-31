@@ -11,6 +11,20 @@ export const STRIPE_CHF_SUCCESS_CARD = {
 const PAYMENT_ELEMENT_FRAME =
   'iframe[title*="Secure payment input frame"], iframe[src*="js.stripe.com"]';
 
+async function selectCardTab(frame) {
+  const cardTab = frame.getByRole("tab", { name: /^card$/i });
+  if (await cardTab.isVisible().catch(() => false)) {
+    await cardTab.click();
+    await cardTab.waitFor({ state: "visible", timeout: 10_000 });
+  }
+}
+
+async function typeStripeField(field, value) {
+  await field.click();
+  await field.fill("");
+  await field.pressSequentially(value, { delay: 40 });
+}
+
 /** Wait until Stripe.js has mounted the Payment Element (iframe + Pay button). */
 export async function waitForStripePaymentElement(page) {
   await page.getByTestId("event-checkout-pay").waitFor({
@@ -19,6 +33,8 @@ export async function waitForStripePaymentElement(page) {
   });
 
   const frame = page.frameLocator(PAYMENT_ELEMENT_FRAME).first();
+  await selectCardTab(frame);
+
   const cardNumber = frame.getByPlaceholder(/1234|card number/i);
   await cardNumber.waitFor({ state: "visible", timeout: 60_000 });
 
@@ -32,12 +48,13 @@ export async function fillStripePaymentElement(
 ) {
   const frame = await waitForStripePaymentElement(page);
 
-  const cardNumber = frame.getByPlaceholder(/1234|card number/i);
-  await cardNumber.fill(card.number);
-
-  const expiry = frame.getByPlaceholder(/MM|expir/i);
-  await expiry.fill(card.exp);
-
-  const cvc = frame.getByPlaceholder(/CVC|cvc|security code/i);
-  await cvc.fill(card.cvc);
+  await typeStripeField(
+    frame.getByPlaceholder(/1234|card number/i),
+    card.number,
+  );
+  await typeStripeField(frame.getByPlaceholder(/MM|expir/i), card.exp);
+  await typeStripeField(
+    frame.getByPlaceholder(/CVC|cvc|security code/i),
+    card.cvc,
+  );
 }

@@ -2,9 +2,8 @@ import type Stripe from "stripe";
 
 import { runTransaction, type EntityTx } from "../../services/transaction";
 import { normalizeOptionalPhoneE164, phoneToStoredDigits } from "../../helpers/contact";
-import { PAYMENT_INTENT_AUTOMATIC_METHODS } from "../../config/stripe";
+import { PAYMENT_INTENT_METHOD_TYPES } from "../../config/stripe";
 import {
-  paymentIntentAllowsElementsConfirm,
   resolveCheckoutReturnUrl,
   stripe,
 } from "../../helpers/stripe";
@@ -45,7 +44,7 @@ export type CheckoutIntentInput = {
   inviteToken: string | null;
   exclusiveTierId: string;
   addonTierIds: string[];
-  /** Browser path (+ query) for Stripe `return_url` after redirect-capable PMs (we disable those). */
+  /** Browser path (+ query) for Stripe `return_url` after redirect PMs (e.g. TWINT). */
   returnPath?: string | null;
   promotionCode?: string | null;
   session: ResolvedParticipantSession;
@@ -265,10 +264,6 @@ async function resolveExistingOrderForCheckoutTx(
     pi.amount === pricing.amountCents &&
     (await pendingOrderMatchesCheckoutTx(tx, existingOrder, selectedTiers, pricing))
   ) {
-    if (!paymentIntentAllowsElementsConfirm(pi)) {
-      await supersedePendingOrderTx(tx, existingOrder);
-      return { action: "continue" };
-    }
     return {
       action: "resume",
       clientSecret: pi.client_secret,
@@ -544,7 +539,7 @@ export async function createCheckoutIntent(
         amount: pricing.amountCents,
         currency,
         metadata: { orderId, eventId: ev.id },
-        automatic_payment_methods: PAYMENT_INTENT_AUTOMATIC_METHODS,
+        payment_method_types: PAYMENT_INTENT_METHOD_TYPES,
       });
       await ordersService.attachStripePaymentIntentInTx(tx, orderId, pi.id);
       return intentSuccess({

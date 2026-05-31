@@ -14,11 +14,19 @@ export function checkoutReturnPathFromPage(page) {
 
 /** Pending aside after pay/intent, or success when fulfillment is instant. */
 export async function expectCheckoutConfirmingOrRegistered(page, timeout = 60_000) {
-  await expect(
-    page
-      .getByTestId("event-checkout-confirming")
-      .or(page.getByRole("heading", { name: "You're registered" })),
-  ).toBeVisible({ timeout });
+  const confirming = page
+    .getByTestId("event-checkout-confirming")
+    .or(page.getByRole("heading", { name: "You're registered" }));
+  const paymentError = page.getByTestId("event-checkout-payment-error");
+
+  await expect(async () => {
+    if (await paymentError.isVisible().catch(() => false)) {
+      throw new Error(
+        `Stripe payment error: ${(await paymentError.innerText()).trim()}`,
+      );
+    }
+    await expect(confirming).toBeVisible();
+  }).toPass({ timeout });
 }
 
 /** Click the contribution CTA (stable test id; main panel, not sticky bar). */

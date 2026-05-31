@@ -46,21 +46,34 @@ export function PaymentStep({
       returnUrl.trim() ||
       (typeof window !== "undefined" ? window.location.href : "");
 
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: redirectReturnUrl },
-      redirect: "if_required",
-    });
+    try {
+      const { error: submitError } = await elements.submit();
 
-    if (error) {
+      if (submitError) {
+        setBusy(false);
+        setErr(submitError.message ?? "Payment failed.");
+
+        return;
+      }
+
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: redirectReturnUrl },
+        redirect: "if_required",
+      });
+
+      if (error) {
+        setBusy(false);
+        setErr(error.message ?? "Payment failed.");
+
+        return;
+      }
+
+      onPaymentSucceeded();
+    } catch (cause) {
       setBusy(false);
-      setErr(error.message ?? "Payment failed.");
-
-      return;
+      setErr(cause instanceof Error ? cause.message : "Payment failed.");
     }
-
-    onPaymentSucceeded();
-    setBusy(false);
   }
 
   return (
@@ -73,6 +86,8 @@ export function PaymentStep({
       <div className="min-w-0 w-full overflow-x-clip">
         <PaymentElement
           options={{
+            layout: "tabs",
+            paymentMethodOrder: ["card", "twint"],
             wallets: {
               link: "never",
             },
@@ -80,7 +95,11 @@ export function PaymentStep({
         />
       </div>
       <p className="text-xs text-foreground/40">{onePersonHint}</p>
-      {err ? <FormError>{err}</FormError> : null}
+      {err ? (
+        <div data-testid="event-checkout-payment-error">
+          <FormError>{err}</FormError>
+        </div>
+      ) : null}
       <NeonButton
         className="w-full"
         data-testid="event-checkout-pay"
