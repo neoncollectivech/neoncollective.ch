@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Card, CardBody } from "@heroui/card";
 import {
   Modal,
   ModalBody,
@@ -11,8 +10,10 @@ import {
 } from "@heroui/react";
 import clsx from "clsx";
 
+import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { NeonButton } from "@/components/neon-button";
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
+import { neonModalChrome, neonModalClassName } from "@/config/modal-chrome";
 import { useDictionary } from "@/i18n/DictionaryContext";
 
 type EventImageGalleryProps = {
@@ -87,18 +88,18 @@ export function EventImageGallery({
     <>
       <div className={clsx("grid grid-cols-2 sm:grid-cols-3 gap-2", className)}>
         {urls.map((url, i) => (
-          <Card
+          <NeonCard
             key={`${url}-${i}`}
             isPressable
             aria-label={t.galleryOpenImage.replace("{n}", String(i + 1))}
             className={clsx(
-              "border border-foreground/10 bg-transparent overflow-hidden aspect-4/3",
+              "overflow-hidden aspect-4/3",
               "transition-all duration-300 hover:border-neon/20",
             )}
-            radius="sm"
+            surface="default"
             onPress={() => openAt(i)}
           >
-            <CardBody className="p-0 overflow-hidden">
+            <NeonCardBody className="overflow-hidden" padding="none">
               <ResponsiveEventImage
                 alt={`${imageAlt} (${i + 2})`}
                 className="w-full h-full object-cover"
@@ -106,12 +107,13 @@ export function EventImageGallery({
                 sizes="(max-width: 640px) 50vw, 33vw"
                 url={url}
               />
-            </CardBody>
-          </Card>
+            </NeonCardBody>
+          </NeonCard>
         ))}
       </div>
 
       <Modal
+        {...neonModalChrome}
         isDismissable
         aria-label={t.galleryClose}
         isOpen={isOpen}
@@ -120,7 +122,7 @@ export function EventImageGallery({
         size="3xl"
         onClose={onClose}
       >
-        <ModalContent className="bg-background border border-foreground/10 rounded-none">
+        <ModalContent className={neonModalClassName}>
           <ModalHeader className="border-b border-foreground/10">
             <span className="text-sm font-mono uppercase tracking-widest text-foreground/50">
               {counter}

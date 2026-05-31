@@ -80,7 +80,7 @@ export function PaymentStep({
       <p className="text-xs text-foreground/40">{onePersonHint}</p>
       {err ? <FormError>{err}</FormError> : null}
       <NeonButton
-        className="w-full sm:w-auto"
+        className="w-full"
         data-testid="event-checkout-pay"
         isDisabled={!stripe || busy}
         type="submit"

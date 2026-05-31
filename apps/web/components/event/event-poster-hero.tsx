@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardBody } from "@heroui/card";
 import clsx from "clsx";
 
+import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { EventImageLightbox } from "@/components/event/event-image-lightbox";
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
 
@@ -26,18 +26,17 @@ export function EventPosterHero({
 
   return (
     <>
-      <Card
+      <NeonCard
         isPressable
         aria-label={viewFullPosterLabel}
         className={clsx(
-          "border border-foreground/10 bg-foreground/2 overflow-hidden",
-          "transition-all duration-300 hover:border-neon/20",
+          "overflow-hidden transition-all duration-300 hover:border-neon/20",
           className,
         )}
-        radius="sm"
+        surface="default"
         onPress={() => setIsOpen(true)}
       >
-        <CardBody className="p-0 flex justify-center">
+        <NeonCardBody className="flex justify-center" padding="none">
           <ResponsiveEventImage
             alt={alt}
             className="max-h-[min(45vh,20rem)] lg:max-h-72 w-auto max-w-full object-contain"
@@ -45,8 +44,8 @@ export function EventPosterHero({
             sizes="(max-width: 768px) 90vw, 20rem"
             url={url}
           />
-        </CardBody>
-      </Card>
+        </NeonCardBody>
+      </NeonCard>
 
       <EventImageLightbox
         alt={alt}

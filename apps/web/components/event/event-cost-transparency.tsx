@@ -13,9 +13,7 @@ export function EventCostTransparency({
 
   return (
     <div className="mb-8 pb-8 border-b border-foreground/10">
-      <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-2">
-        {title}
-      </p>
+      <p className="neon-label mb-2">{title}</p>
       <ul className="space-y-1.5">
         {bullets.map((bullet) => (
           <li

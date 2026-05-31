@@ -3,12 +3,10 @@
 import type { Locale } from "@/i18n/config";
 import type { EventPayload, RegisteredOrderTier } from "@/helpers/eventsApi";
 
-import { Card, CardBody } from "@heroui/card";
-
+import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { HostInviteShareBlock } from "@/components/event/host-invite-share-block";
 import { NeonLink } from "@/components/neon-link";
 import { buildGoogleCalendarUrl } from "@/helpers/calendar-links";
-import { buildMapsUrl } from "@/helpers/maps-link";
 import { formatLocaleDateTime } from "@/helpers/format-locale-datetime";
 
 function formatRegisteredTierPrice(tier: RegisteredOrderTier): string {
@@ -108,7 +106,6 @@ type RegistrationConfirmedCardProps = {
     hostInviteConversionsTitle: string;
     hostInviteConversionsEmpty: string;
     addToCalendar: string;
-    openInMaps: string;
     supportNeonBeyondEvent: string;
     donateCta: string;
   };
@@ -130,8 +127,6 @@ export function RegistrationConfirmedCard({
           summary: ev.summary,
         })
       : "";
-  const mapsUrl = ev.location ? buildMapsUrl(ev.location) : "";
-
   const tierLabels = {
     addon: labels.registrationConfirmedTierAddon,
     bodyNoTier: labels.registrationConfirmedBodyNoTier,
@@ -156,12 +151,9 @@ export function RegistrationConfirmedCard({
         : [];
 
   return (
-    <Card
-      className="mb-8 md:mb-10 border border-neon/30 bg-transparent"
-      radius="sm"
-    >
-      <CardBody className="px-6 py-8">
-        <h2 className="text-xl font-bold tracking-tight text-foreground/90 mb-3">
+    <NeonCard className="mb-8 md:mb-10" surface="accent">
+      <NeonCardBody>
+        <h2 className="neon-title-section mb-3">
           {labels.registrationConfirmedTitle}
         </h2>
 
@@ -179,8 +171,8 @@ export function RegistrationConfirmedCard({
           </p>
         )}
 
-        <div className="mt-6 flex flex-wrap gap-4 text-sm">
-          {calendarUrl ? (
+        {calendarUrl ? (
+          <div className="mt-6">
             <a
               className="text-neon/80 hover:text-neon underline-offset-2 hover:underline font-mono text-xs uppercase tracking-wider"
               href={calendarUrl}
@@ -189,22 +181,12 @@ export function RegistrationConfirmedCard({
             >
               {labels.addToCalendar}
             </a>
-          ) : null}
-          {mapsUrl ? (
-            <a
-              className="text-neon/80 hover:text-neon underline-offset-2 hover:underline font-mono text-xs uppercase tracking-wider"
-              href={mapsUrl}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              {labels.openInMaps}
-            </a>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {ev.inviteOnly && ev.hostInvite ? (
           <div className="mt-8 pt-6 border-t border-foreground/10">
-            <h3 className="text-sm font-semibold text-foreground/70 mb-4">
+            <h3 className="neon-title-card mb-4 text-foreground/70">
               {labels.hostInviteGuestsTitle}
             </h3>
             <HostInviteShareBlock
@@ -233,7 +215,7 @@ export function RegistrationConfirmedCard({
             {labels.donateCta}
           </NeonLink>
         </p>
-      </CardBody>
-    </Card>
+      </NeonCardBody>
+    </NeonCard>
   );
 }

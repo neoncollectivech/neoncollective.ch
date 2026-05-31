@@ -5,12 +5,12 @@ import type { DonationTier } from "@/helpers/stripeApi";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Card, CardBody } from "@heroui/card";
-import { Spinner } from "@heroui/react";
 import clsx from "clsx";
 
+import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
+import { PageSpinner } from "@/components/page-spinner";
 import { absoluteSiteUrl, navigateExternally } from "@/helpers/site-url";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useLocale } from "@/hooks/use-locale";
@@ -70,25 +70,21 @@ function DonationPickerInner() {
 
   if (success) {
     return (
-      <Card className="border border-neon/30 bg-transparent" radius="sm">
-        <CardBody className="px-8 py-10 text-center">
+      <NeonCard surface="accent">
+        <NeonCardBody className="px-8 py-10 text-center">
           <p className="text-lg text-neon font-mono uppercase tracking-widest mb-2">
             ✓
           </p>
           <p className="text-base md:text-lg text-foreground/60 leading-relaxed">
             {t.successMessage}
           </p>
-        </CardBody>
-      </Card>
+        </NeonCardBody>
+      </NeonCard>
     );
   }
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Spinner color="success" size="lg" />
-      </div>
-    );
+    return <PageSpinner />;
   }
 
   if (isError || !tiers) {
@@ -106,7 +102,7 @@ function DonationPickerInner() {
       <div className="flex gap-0 mb-12">
         <NeonButton
           className={clsx(
-            "px-6 rounded-none rounded-l-sm",
+            "px-6",
             mode === "recurring" ? "bg-neon/10" : toggleInactive,
           )}
           type="button"
@@ -116,7 +112,7 @@ function DonationPickerInner() {
         </NeonButton>
         <NeonButton
           className={clsx(
-            "px-6 rounded-none rounded-r-sm -ml-px",
+            "px-6 -ml-px",
             mode === "onetime" ? "bg-neon/10" : toggleInactive,
           )}
           type="button"
@@ -131,20 +127,20 @@ function DonationPickerInner() {
           const isItemLoading = loadingPriceId === tier.priceId;
 
           return (
-            <Card
+            <NeonCard
               key={tier.priceId}
               isPressable
               className={clsx(
-                "border border-foreground/10 bg-transparent transition-all duration-300",
+                "bg-transparent transition-all duration-300",
                 "hover:border-neon/60 hover:bg-neon/5",
                 isItemLoading && "opacity-60",
               )}
               isDisabled={loadingPriceId !== null}
-              radius="none"
+              surface="default"
               onPress={() => handleDonate(tier)}
             >
-              <CardBody className="px-6 py-10 text-center">
-                <span className="block text-2xl md:text-3xl font-bold text-foreground/90 mb-2 group-hover:text-neon transition-colors duration-300">
+              <NeonCardBody className="px-6 py-10 text-center">
+                <span className="neon-title-page mb-2 block group-hover:text-neon transition-colors duration-300">
                   {formatAmount(tier.amount)}
                 </span>
                 {mode === "recurring" && (
@@ -155,8 +151,8 @@ function DonationPickerInner() {
                 <span className="block mt-6 font-mono text-xs uppercase tracking-widest text-foreground/25 group-hover:text-neon/60 transition-colors duration-300">
                   {isItemLoading ? "…" : t.ctaLabel}
                 </span>
-              </CardBody>
-            </Card>
+              </NeonCardBody>
+            </NeonCard>
           );
         })}
       </div>
@@ -166,13 +162,7 @@ function DonationPickerInner() {
 
 export function DonationPicker() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center py-16">
-          <Spinner color="success" size="lg" />
-        </div>
-      }
-    >
+    <Suspense fallback={<PageSpinner />}>
       <DonationPickerInner />
     </Suspense>
   );

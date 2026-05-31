@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { locales, type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/getDictionary";
 import { EventDetailsClient } from "@/components/event-details";
+import { PageShell } from "@/components/page-shell";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -59,10 +60,8 @@ export default async function EventPage({ params }: PageProps) {
   const { slug } = await params;
 
   return (
-    <article className="py-16 md:py-28 px-6">
-      <div className="max-w-3xl lg:max-w-5xl mx-auto">
-        <EventDetailsClient slug={slug} />
-      </div>
-    </article>
+    <PageShell width="eventDetail">
+      <EventDetailsClient slug={slug} />
+    </PageShell>
   );
 }

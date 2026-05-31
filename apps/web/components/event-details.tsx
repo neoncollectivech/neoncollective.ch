@@ -14,6 +14,7 @@ import {
 import { Spinner } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { PageSpinner } from "@/components/page-spinner";
 import { ContributionPanel } from "@/components/event/contribution-panel";
 import { EventAboutSection } from "@/components/event/event-about-section";
 import { EventDetailLayout } from "@/components/event/event-detail-layout";
@@ -406,11 +407,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
   }, [intentMutation]);
 
   if (eventQuery.isLoading || !codeHandled) {
-    return (
-      <div className="flex justify-center py-16">
-        <Spinner color="success" size="lg" />
-      </div>
-    );
+    return <PageSpinner />;
   }
 
   if (codeError) {
@@ -506,9 +503,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
     completeRegistration: t.completeRegistration,
     confirmContribution: t.confirmContribution,
     allTiersSoldOut: t.allTiersSoldOut,
-    solidarityCodeToggle: t.solidarityCodeToggle,
-    solidarityCodePlaceholder: t.solidarityCodePlaceholder,
-    solidarityCodeApply: t.solidarityCodeApply,
   };
 
   const ctaLabel = formatContributionCta(displayTotalCents, {
@@ -612,7 +606,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
         galleryClose: t.galleryClose,
         heroContributionCta: t.heroContributionCta,
         inviteOnly: t.inviteOnly,
-        openInMaps: t.openInMaps,
         viewFullPoster: t.viewFullPoster,
       }}
       locale={locale}
@@ -651,7 +644,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   hostInviteLinkLabel: t.hostInviteLinkLabel,
                   hostInviteShare: t.hostInviteShare,
                   hostInvitesLeft: t.hostInvitesLeft,
-                  openInMaps: t.openInMaps,
                   registrationConfirmedBodyNoTier:
                     t.registrationConfirmedBodyNoTier,
                   registrationConfirmedIntro: t.registrationConfirmedIntro,
@@ -756,13 +748,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
 export function EventDetailsClient({ slug }: { slug: string }) {
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center py-16">
-          <Spinner color="success" size="lg" />
-        </div>
-      }
-    >
+    <Suspense fallback={<PageSpinner />}>
       <EventDetailsInner slug={slug} />
     </Suspense>
   );

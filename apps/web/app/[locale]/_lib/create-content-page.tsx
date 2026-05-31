@@ -1,26 +1,17 @@
 import type { Metadata } from "next";
 import type { Locale } from "@/i18n/config";
 import type { ContentMap } from "@/lib/content/types";
+import type { PageShellWidth } from "@/config/page-shell";
 
 import { BlockRenderer } from "@/components/block-renderer";
+import { PageShell } from "@/components/page-shell";
 import { getContent } from "@/lib/content";
 
 type ContentPageLayout = "wide" | "prose";
 
-const layoutClasses: Record<
-  ContentPageLayout,
-  { outer: string; inner: string; wrapper: "section" | "article" }
-> = {
-  wide: {
-    wrapper: "section",
-    outer: "flex flex-grow",
-    inner: "mx-auto flex flex-col gap-4 py-8 md:py-10 lg:max-w-5xl px-6",
-  },
-  prose: {
-    wrapper: "article",
-    outer: "py-16 md:py-28 px-6",
-    inner: "max-w-3xl mx-auto",
-  },
+const layoutWidth: Record<ContentPageLayout, PageShellWidth> = {
+  wide: "wide",
+  prose: "prose",
 };
 
 export function createContentPage<K extends keyof ContentMap>(config: {
@@ -44,15 +35,17 @@ export function createContentPage<K extends keyof ContentMap>(config: {
   async function Page({ params }: Props) {
     const locale = (await params).locale as Locale;
     const content = await getContent(config.slug, locale);
-    const { wrapper, outer, inner } = layoutClasses[config.layout];
-    const Wrapper = wrapper;
+    const width = layoutWidth[config.layout];
+    const Wrapper = config.layout === "wide" ? "section" : "article";
 
     return (
-      <Wrapper className={outer}>
-        <div className={inner}>
-          <BlockRenderer blocks={content.blocks} locale={locale} />
-        </div>
-      </Wrapper>
+      <PageShell
+        as={Wrapper}
+        innerClassName="flex flex-col gap-4"
+        width={width}
+      >
+        <BlockRenderer blocks={content.blocks} locale={locale} />
+      </PageShell>
     );
   }
 

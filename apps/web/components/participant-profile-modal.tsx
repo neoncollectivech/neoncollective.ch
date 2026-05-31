@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
 
+import { neonModalChrome, neonModalClassName } from "@/config/modal-chrome";
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
@@ -211,6 +212,7 @@ export function ParticipantProfileModal({
 
   return (
     <Modal
+      {...neonModalChrome}
       hideCloseButton={!dismissable}
       isDismissable={dismissable}
       isKeyboardDismissDisabled={!dismissable}
@@ -220,7 +222,7 @@ export function ParticipantProfileModal({
       size="lg"
       onClose={() => onDismiss?.()}
     >
-      <ModalContent className="bg-background border border-foreground/10 rounded-none">
+      <ModalContent className={neonModalClassName}>
         <ModalHeader className="flex flex-col gap-1 border-b border-foreground/10">
           <h2 className="text-lg font-bold uppercase tracking-tight text-foreground/90">
             {step === "details"

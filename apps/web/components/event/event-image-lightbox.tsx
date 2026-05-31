@@ -3,6 +3,7 @@
 import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
 
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
+import { neonModalChrome, neonModalClassName } from "@/config/modal-chrome";
 
 type EventImageLightboxProps = {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export function EventImageLightbox({
 }: EventImageLightboxProps) {
   return (
     <Modal
+      {...neonModalChrome}
       isDismissable
       aria-label={ariaLabel}
       isOpen={isOpen}
@@ -31,7 +33,7 @@ export function EventImageLightbox({
       size="3xl"
       onClose={onClose}
     >
-      <ModalContent className="bg-background border border-foreground/10 rounded-none">
+      <ModalContent className={neonModalClassName}>
         {header ? (
           <ModalHeader className="border-b border-foreground/10">
             <span className="text-sm font-mono uppercase tracking-widest text-foreground/50">

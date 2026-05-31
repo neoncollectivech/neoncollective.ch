@@ -3,10 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Suspense } from "react";
-import { Card, CardBody } from "@heroui/card";
-import { Spinner } from "@heroui/react";
 
+import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { FormError } from "@/components/form-error";
+import { PageHeader } from "@/components/page-header";
+import { PageSpinner } from "@/components/page-spinner";
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
 import { NeonLink } from "@/components/neon-link";
 import {
@@ -108,22 +109,14 @@ function EventsIndexInner() {
       <ParticipantProfileGateModal gate={profileGate} />
 
       <div className={profileGate.dimmedContentClassName}>
-        <header className="mb-10 md:mb-12">
-          <div className="neon-line w-12 mb-6" />
-
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground/90 mb-3">
-            {t.indexTitle}
-          </h1>
-
-          <p className="text-base text-foreground/50 leading-relaxed max-w-2xl">
-            {t.indexSubtitle}
-          </p>
-        </header>
+        <PageHeader
+          showNeonLine
+          subtitle={t.indexSubtitle}
+          title={t.indexTitle}
+        />
 
         {!profileGate.needsProfile && sessionBlockLoading ? (
-          <div className="flex justify-center py-4 mb-10 md:mb-12">
-            <Spinner color="success" size="md" />
-          </div>
+          <PageSpinner className="py-4 mb-10 md:mb-12" size="md" />
         ) : null}
 
         {!profileGate.needsProfile &&
@@ -140,12 +133,9 @@ function EventsIndexInner() {
         {!profileGate.needsProfile &&
         !sessionBlockLoading &&
         !sessionEstablished ? (
-          <Card
-            className="mb-10 md:mb-12 border border-foreground/10 bg-transparent"
-            radius="sm"
-          >
-            <CardBody className="px-6 py-6">
-              <h2 className="text-sm font-semibold text-foreground/80 mb-4 tracking-tight">
+          <NeonCard className="mb-10 md:mb-12" surface="default">
+            <NeonCardBody padding="session">
+              <h2 className="neon-label mb-4 normal-case tracking-tight text-foreground/80">
                 {t.sessionHeading}
               </h2>
               <ParticipantSessionPanel
@@ -158,21 +148,17 @@ function EventsIndexInner() {
                   eventsKeys.participant.session(),
                 ]}
               />
-            </CardBody>
-          </Card>
+            </NeonCardBody>
+          </NeonCard>
         ) : null}
 
         <section aria-label={t.indexTitle}>
           {listLoading ? (
-            <div className="flex justify-center py-12">
-              <Spinner color="success" size="lg" />
-            </div>
+            <PageSpinner className="py-12" />
           ) : listQuery.isError ? (
             <FormError>{t.loadError}</FormError>
           ) : rows.length === 0 ? (
-            <p className="text-base text-foreground/40 leading-relaxed">
-              {t.indexEmpty}
-            </p>
+            <p className="neon-body text-foreground/40">{t.indexEmpty}</p>
           ) : (
             <ul className="space-y-6">
               {rows.map((ev) => {
@@ -192,11 +178,11 @@ function EventsIndexInner() {
 
                 return (
                   <li key={ev.slug}>
-                    <Card
-                      className="border border-foreground/10 bg-foreground/[0.02] hover:border-neon/20 transition-colors"
-                      radius="sm"
+                    <NeonCard
+                      className="hover:border-neon/20 transition-colors"
+                      surface="default"
                     >
-                      <CardBody className="p-0">
+                      <NeonCardBody padding="none">
                         <div className="flex flex-col sm:flex-row">
                           {thumb ? (
                             <div className="shrink-0 w-full sm:w-40 aspect-video sm:aspect-auto sm:min-h-[7rem] border-b sm:border-b-0 sm:border-r border-foreground/10 overflow-hidden">
@@ -212,17 +198,15 @@ function EventsIndexInner() {
                           <div className="flex-1 min-w-0 p-5 flex flex-col gap-4">
                             <div>
                               <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <h2 className="text-lg font-semibold text-foreground/90 tracking-tight">
-                                  {ev.title}
-                                </h2>
+                                <h2 className="neon-title-card">{ev.title}</h2>
                                 {ev.inviteOnly ? (
-                                  <span className="inline-flex items-center rounded-sm border border-neon/30 bg-neon/5 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-neon/80">
+                                  <span className="neon-badge">
                                     {t.inviteOnly}
                                   </span>
                                 ) : null}
                               </div>
                               {metaParts.length > 0 ? (
-                                <p className="text-sm font-mono text-foreground/45">
+                                <p className="neon-meta">
                                   {metaParts.join(" · ")}
                                 </p>
                               ) : null}
@@ -236,13 +220,14 @@ function EventsIndexInner() {
                               aria-label={`${openLabel}: ${ev.title}`}
                               className="w-full sm:w-auto sm:self-start"
                               href={detailHref}
+                              neonStyle="listAction"
                             >
                               {openLabel}
                             </NeonLink>
                           </div>
                         </div>
-                      </CardBody>
-                    </Card>
+                      </NeonCardBody>
+                    </NeonCard>
                   </li>
                 );
               })}
@@ -256,13 +241,7 @@ function EventsIndexInner() {
 
 export function EventsIndexClient() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center py-16">
-          <Spinner color="success" size="lg" />
-        </div>
-      }
-    >
+    <Suspense fallback={<PageSpinner />}>
       <EventsIndexInner />
     </Suspense>
   );

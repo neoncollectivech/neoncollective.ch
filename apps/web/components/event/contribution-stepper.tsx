@@ -1,3 +1,5 @@
+import { NeonTextButton } from "@/components/neon-text-button";
+
 type ContributionStepperProps = {
   step: 1 | 2;
   chooseLabel: string;
@@ -15,7 +17,7 @@ export function ContributionStepper({
 }: ContributionStepperProps) {
   return (
     <div className="flex flex-wrap items-center gap-3 mb-4">
-      <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider">
+      <div className="neon-label flex items-center gap-2 normal-case tracking-wider">
         <span
           className={
             step === 1 ? "text-neon/80" : "text-foreground/30 line-through"
@@ -29,13 +31,12 @@ export function ContributionStepper({
         </span>
       </div>
       {step === 2 && onChangeLevel && changeLevelLabel ? (
-        <button
-          className="text-xs text-foreground/50 hover:text-neon underline-offset-2 hover:underline"
-          type="button"
+        <NeonTextButton
+          className="text-xs font-normal text-foreground/50 hover:text-neon"
           onClick={onChangeLevel}
         >
           {changeLevelLabel}
-        </button>
+        </NeonTextButton>
       ) : null}
     </div>
   );

@@ -9,6 +9,8 @@ const neonLink = tv({
       footer: "text-[0.625rem] text-foreground/20 hover:text-neon",
       inline:
         "inline-flex items-center gap-3 text-xs text-neon/60 hover:text-neon no-underline",
+      listAction:
+        "inline-flex items-center text-xs font-mono uppercase tracking-widest text-neon/70 hover:text-neon no-underline",
     },
   },
   defaultVariants: {
@@ -17,7 +19,7 @@ const neonLink = tv({
 });
 
 export type NeonLinkProps = LinkProps & {
-  neonStyle?: "cta" | "footer" | "inline";
+  neonStyle?: "cta" | "footer" | "inline" | "listAction";
 };
 
 export function NeonLink({

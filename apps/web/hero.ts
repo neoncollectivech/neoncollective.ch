@@ -19,6 +19,13 @@ const colors = {
 export default heroui({
   addCommonColors: false,
   defaultTheme: "dark",
+  layout: {
+    radius: {
+      small: "0px",
+      medium: "0px",
+      large: "0px",
+    },
+  },
   themes: {
     dark: {
       colors: { ...colors, background: "#050505" },

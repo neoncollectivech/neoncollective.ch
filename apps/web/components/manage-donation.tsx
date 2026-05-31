@@ -9,7 +9,7 @@ import { apiErrorMessage } from "@/helpers/apiErrorMessage";
 import { absoluteSiteUrl } from "@/helpers/site-url";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { NeonButton } from "@/components/neon-button";
-import { NeonInput } from "@/components/neon-input";
+import { NeonInput, neonInputClassNames } from "@/components/neon-input";
 import { useLocale } from "@/hooks/use-locale";
 import { stripeApi } from "@/hooks/use-stripe-api";
 
@@ -49,10 +49,8 @@ export function ManageDonation() {
 
   return (
     <div>
-      <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90 mb-2">
-        {t.title}
-      </h2>
-      <p className="text-sm md:text-base text-foreground/40 leading-relaxed mb-8 max-w-xl">
+      <h2 className="neon-title-section mb-2">{t.title}</h2>
+      <p className="neon-body text-foreground/40 mb-8 max-w-xl">
         {t.description}
       </p>
 
@@ -68,10 +66,8 @@ export function ManageDonation() {
           <NeonInput
             isRequired
             classNames={{
-              inputWrapper:
-                "bg-transparent border border-foreground/10 data-[hover=true]:border-foreground/20 group-data-[focus=true]:border-neon/40 rounded-none",
-              input:
-                "text-sm text-foreground/80 placeholder:text-foreground/20",
+              inputWrapper: `${neonInputClassNames.inputWrapper} group-data-[focus=true]:border-neon/40`,
+              input: `${neonInputClassNames.input} placeholder:text-foreground/20`,
             }}
             isDisabled={status === "loading"}
             name="email"

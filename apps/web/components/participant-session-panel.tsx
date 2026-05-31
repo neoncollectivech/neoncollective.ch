@@ -4,15 +4,15 @@ import type { QueryKey } from "@tanstack/react-query";
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Spinner } from "@heroui/react";
 
 import { FormError } from "@/components/form-error";
-import { apiErrorMessage } from "@/helpers/apiErrorMessage";
-import { absoluteSiteUrl } from "@/helpers/site-url";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
-import { NeonOtpInput } from "@/components/neon-otp-input";
 import { NeonLink } from "@/components/neon-link";
+import { NeonOtpInput } from "@/components/neon-otp-input";
+import { PageSpinner } from "@/components/page-spinner";
+import { apiErrorMessage } from "@/helpers/apiErrorMessage";
+import { absoluteSiteUrl } from "@/helpers/site-url";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useLocale } from "@/hooks/use-locale";
 import { useParticipantSession } from "@/hooks/use-events-api";
@@ -118,11 +118,7 @@ export function ParticipantSessionPanel({
   }, [contact, locale, returnPath, sessionMutation]);
 
   if (codeExchangePending || sessionStatusQuery.isLoading) {
-    return (
-      <div className="flex justify-center py-4">
-        <Spinner color="success" size="md" />
-      </div>
-    );
+    return <PageSpinner />;
   }
 
   if (sessionEstablished) {
@@ -139,9 +135,7 @@ export function ParticipantSessionPanel({
 
     return (
       <section className="max-w-xl space-y-3">
-        <p className="text-base md:text-lg font-semibold text-foreground/90 tracking-tight">
-          {welcomeLine}
-        </p>
+        <p className="neon-title-card">{welcomeLine}</p>
         {onManageProfile ? (
           <NeonLink
             as="button"
@@ -164,10 +158,8 @@ export function ParticipantSessionPanel({
 
     return (
       <section className="max-w-xl">
-        <h2 className="text-base font-semibold text-foreground/80 mb-3 tracking-tight">
-          {t.sessionCodeStepTitle}
-        </h2>
-        <p className="text-sm text-neon/80 font-mono mb-4">{sentHint}</p>
+        <h2 className="neon-title-card mb-3">{t.sessionCodeStepTitle}</h2>
+        <p className="neon-meta text-neon/80 mb-4">{sentHint}</p>
         <form
           className="space-y-3 max-w-md"
           onSubmit={(e) => {
@@ -212,13 +204,9 @@ export function ParticipantSessionPanel({
   return (
     <section className="max-w-xl">
       {!embedded ? (
-        <h2 className="text-base font-normal text-foreground/70 mb-4 leading-relaxed max-w-md">
-          {t.sessionIntro}
-        </h2>
+        <h2 className="neon-body mb-4 max-w-md">{t.sessionIntro}</h2>
       ) : (
-        <p className="text-sm text-foreground/50 mb-4 leading-relaxed max-w-md">
-          {t.sessionIntro}
-        </p>
+        <p className="neon-body mb-4 max-w-md">{t.sessionIntro}</p>
       )}
       <form
         className="flex flex-col gap-4 max-w-md"

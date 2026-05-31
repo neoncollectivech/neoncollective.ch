@@ -13,6 +13,7 @@
   --color-neon: rgb(255 49 49);
   --color-surface: #0A0A0A;
   --tracking-display: 0.25em;
+  --radius-neon: 0;
 }
 
 @layer base {
@@ -50,6 +51,85 @@
   height: 1px;
   background: linear-gradient(90deg, rgb(var(--neon)), transparent);
   opacity: 0.5;
+}
+
+.neon-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-neon);
+  border: 1px solid rgb(var(--neon) / 0.3);
+  background-color: rgb(var(--neon) / 0.05);
+  padding: 0.125rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(var(--neon) / 0.8);
+}
+
+.neon-surface {
+  border-radius: var(--radius-neon);
+}
+
+/*
+ * Typography opacity ladder: titles /90, body /50, secondary /45, labels /40.
+ * Marketing blocks (manifesto, section) may use larger display scale intentionally.
+ */
+@layer components {
+  .neon-title-page {
+    @apply text-2xl md:text-3xl font-bold tracking-tight text-foreground/90;
+  }
+
+  .neon-title-section {
+    @apply text-xl font-bold tracking-tight text-foreground/90;
+  }
+
+  .neon-title-card {
+    @apply text-lg font-semibold tracking-tight text-foreground/90;
+  }
+
+  .neon-body {
+    @apply text-base text-foreground/50 leading-relaxed;
+  }
+
+  .neon-meta {
+    @apply text-sm font-mono text-foreground/45;
+  }
+
+  .neon-label {
+    @apply text-xs font-mono uppercase tracking-wider text-foreground/40;
+  }
+
+  .neon-text-action {
+    @apply text-sm font-semibold text-neon/80 hover:text-neon underline-offset-2 hover:underline text-left;
+  }
+
+  .neon-surface-default {
+    border-radius: var(--radius-neon);
+    @apply border border-foreground/10 bg-background;
+  }
+
+  .neon-surface-accent {
+    border-radius: var(--radius-neon);
+    @apply border border-neon/30 bg-transparent;
+  }
+
+  .neon-surface-compact {
+    @apply px-3 py-2.5;
+  }
+
+  .neon-surface-padding-default {
+    @apply px-6 py-8;
+  }
+
+  .neon-surface-padding-session {
+    @apply px-6 py-6;
+  }
+
+  .neon-surface-padding-checkout {
+    @apply px-5 py-10 sm:px-7 lg:px-8;
+  }
 }
 
 /* ── Animations ───────────────────────────────── */

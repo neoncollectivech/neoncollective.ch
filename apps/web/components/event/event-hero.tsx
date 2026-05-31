@@ -6,7 +6,7 @@ import clsx from "clsx";
 
 import { EventPosterHero } from "@/components/event/event-poster-hero";
 import { NeonLink } from "@/components/neon-link";
-import { buildMapsUrl } from "@/helpers/maps-link";
+import { NeonTextButton } from "@/components/neon-text-button";
 import { eventRegistrationStatus } from "@/helpers/event-tier-utils";
 import { formatLocaleDateTime } from "@/helpers/format-locale-datetime";
 
@@ -29,7 +29,6 @@ type EventHeroProps = {
     costTransparencyDisclaimer: string;
     viewFullPoster: string;
     galleryClose: string;
-    openInMaps: string;
     heroContributionCta: string;
   };
   showContributionAnchor?: boolean;
@@ -59,10 +58,11 @@ export function EventHero({
   const status = eventRegistrationStatus(startsAt);
   const summaryLine =
     summaryText !== undefined ? summaryText : summary?.trim() || null;
-  const mapsUrl = locationLine ? buildMapsUrl(locationLine) : "";
 
   return (
     <header className="mb-10 md:mb-12">
+      <div className="neon-line w-12 mb-6" />
+
       <NeonLink
         className="text-sm text-foreground/45 mb-6 inline-block"
         href={backHref}
@@ -78,39 +78,20 @@ export function EventHero({
       >
         <div className={clsx(posterUrl ? "lg:flex-1 min-w-0" : undefined)}>
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground/90">
-              {title}
-            </h1>
+            <h1 className="neon-title-page">{title}</h1>
             {inviteOnly ? (
-              <span className="inline-flex items-center rounded-sm border border-neon/30 bg-neon/5 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-neon/80">
-                {labels.inviteOnly}
-              </span>
+              <span className="neon-badge">{labels.inviteOnly}</span>
             ) : null}
           </div>
 
           {startsAt ? (
-            <p className="text-sm font-mono text-foreground/45">
+            <p className="neon-meta">
               {formatLocaleDateTime(startsAt, locale)}
             </p>
           ) : null}
 
           {locationLine ? (
-            <p className="text-sm font-mono text-foreground/45 mt-1">
-              {locationLine}
-              {mapsUrl ? (
-                <>
-                  {" · "}
-                  <a
-                    className="text-neon/80 hover:text-neon underline-offset-2 hover:underline"
-                    href={mapsUrl}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    {labels.openInMaps}
-                  </a>
-                </>
-              ) : null}
-            </p>
+            <p className="neon-meta mt-1">{locationLine}</p>
           ) : null}
 
           {locationLine && !startsAt ? (
@@ -120,20 +101,16 @@ export function EventHero({
           ) : null}
 
           {status === "open" ? (
-            <p className="text-xs font-mono uppercase tracking-wider text-neon/70 mt-2">
+            <p className="neon-label text-neon/70 mt-2 normal-case">
               {labels.contributionOpen}
             </p>
           ) : status === "passed" ? (
-            <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mt-2">
+            <p className="neon-label mt-2 normal-case text-foreground/40">
               {labels.eventPassed}
             </p>
           ) : null}
 
-          {summaryLine ? (
-            <p className="text-base text-foreground/50 leading-relaxed mt-4">
-              {summaryLine}
-            </p>
-          ) : null}
+          {summaryLine ? <p className="neon-body mt-4">{summaryLine}</p> : null}
 
           {showTrustDisclaimer ? (
             <p className="text-sm text-foreground/45 leading-relaxed mt-3">
@@ -142,13 +119,13 @@ export function EventHero({
           ) : null}
 
           {showContributionAnchor && onContributionAnchorClick ? (
-            <button
-              className="mt-4 text-sm font-semibold text-neon/80 hover:text-neon lg:hidden"
-              type="button"
+            <NeonTextButton
+              showArrow
+              className="mt-4 lg:hidden"
               onClick={onContributionAnchorClick}
             >
-              {labels.heroContributionCta} →
-            </button>
+              {labels.heroContributionCta}
+            </NeonTextButton>
           ) : null}
         </div>
 

@@ -4,8 +4,10 @@ import type { Locale } from "@/i18n/config";
 import type { InviteLinkConversion } from "@/helpers/eventsApi";
 
 import { useMemo, useState } from "react";
+import clsx from "clsx";
 
 import { NeonButton } from "@/components/neon-button";
+import { neonSurfaceBoxClass } from "@/components/neon-card";
 import { getSiteOrigin } from "@/helpers/site-url";
 import { formatLocaleDate } from "@/helpers/format-locale-datetime";
 
@@ -85,11 +87,14 @@ export function HostInviteShareBlock({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
-        {labels.linkLabel}
-      </p>
+      <p className="neon-label">{labels.linkLabel}</p>
       <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
-        <div className="flex-1 min-w-0 border border-foreground/10 bg-foreground/[0.02] px-3 py-2.5">
+        <div
+          className={clsx(
+            "flex-1 min-w-0",
+            neonSurfaceBoxClass("default", true),
+          )}
+        >
           <p className="text-xs font-mono text-foreground/55 break-all leading-relaxed">
             {inviteUrl}
           </p>
@@ -121,9 +126,7 @@ export function HostInviteShareBlock({
       </p>
 
       <div className="pt-4 border-t border-foreground/10">
-        <p className="text-xs font-mono uppercase tracking-wider text-foreground/40 mb-3">
-          {labels.conversionsTitle}
-        </p>
+        <p className="neon-label mb-3">{labels.conversionsTitle}</p>
         {conversions.length === 0 ? (
           <p className="text-sm text-foreground/45">
             {labels.conversionsEmpty}

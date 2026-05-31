@@ -7,18 +7,18 @@ import type { EventTier } from "@/helpers/eventsApi";
 import { Elements } from "@stripe/react-stripe-js";
 import { AxiosError } from "axios";
 import { useCallback, useRef } from "react";
-import { Card, CardBody } from "@heroui/card";
 import { Checkbox } from "@heroui/react";
 import { Radio, RadioGroup } from "@heroui/radio";
 
+import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { ContributionStepper } from "@/components/event/contribution-stepper";
 import { ContributionSummary } from "@/components/event/contribution-summary";
 import { EventCostTransparency } from "@/components/event/event-cost-transparency";
 import { PaymentStep } from "@/components/event/payment-step";
-import { SolidarityCodeField } from "@/components/event/solidarity-code-field";
 import { FormError } from "@/components/form-error";
 import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
+import { NeonTextButton } from "@/components/neon-text-button";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
 import { formatContributionCta } from "@/helpers/contribution-labels";
 import {
@@ -59,9 +59,6 @@ type ContributionPanelLabels = {
   completeRegistration: string;
   confirmContribution: string;
   allTiersSoldOut: string;
-  solidarityCodeToggle: string;
-  solidarityCodePlaceholder: string;
-  solidarityCodeApply: string;
 };
 
 type ContributionPanelProps = {
@@ -176,17 +173,16 @@ export function ContributionPanel({
     exclusiveTiers.every((tier) => !isSelectableTier(tier));
 
   return (
-    <Card
-      className="border border-foreground/10 bg-foreground/[0.02]"
+    <NeonCard
       data-testid={
         hasCheckoutProfile
           ? "event-checkout-minimal"
           : "event-checkout-with-contact"
       }
       id={id}
-      radius="sm"
+      surface="default"
     >
-      <CardBody className="px-5 py-10 sm:px-7 lg:px-8">
+      <NeonCardBody padding="checkout">
         <ContributionStepper
           changeLevelLabel={labels.changeLevel}
           chooseLabel={labels.checkoutStepChoose}
@@ -200,15 +196,10 @@ export function ContributionPanel({
           title={labels.costTransparencyTitle}
         />
 
-        <h2
-          className="text-xl font-bold tracking-tight text-foreground/90 mb-1"
-          id="event-checkout-heading"
-        >
+        <h2 className="neon-title-section mb-1" id="event-checkout-heading">
           {labels.contributionTitle}
         </h2>
-        <p className="text-sm text-foreground/45 mb-6">
-          {labels.contributionSubtitle}
-        </p>
+        <p className="neon-meta mb-6">{labels.contributionSubtitle}</p>
 
         {welcomeLine ? (
           <p className="text-sm font-semibold text-foreground/80 mb-4">
@@ -245,7 +236,7 @@ export function ContributionPanel({
                 <Radio
                   key={tier.id}
                   classNames={{
-                    base: "max-w-full m-0 p-4 border border-foreground/10 data-[selected=true]:border-neon/40 rounded-sm opacity-100 data-[disabled=true]:opacity-50",
+                    base: "neon-surface-default p-4 max-w-full m-0 data-[selected=true]:border-neon/40 opacity-100 data-[disabled=true]:opacity-50",
                     wrapper: "mt-0.5",
                     label: "w-full max-w-full",
                     labelWrapper: "w-full max-w-full",
@@ -273,9 +264,7 @@ export function ContributionPanel({
 
         {addonTiers.length > 0 ? (
           <div className="mt-8 space-y-4">
-            <p className="text-xs font-mono uppercase tracking-wider text-foreground/40">
-              {labels.addonsTitle}
-            </p>
+            <p className="neon-label">{labels.addonsTitle}</p>
             <div className="space-y-3">
               {addonTiers.map((tier) => {
                 const tierDescription = tier.description.trim();
@@ -292,7 +281,7 @@ export function ContributionPanel({
                 return (
                   <div
                     key={tier.id}
-                    className="p-4 border border-foreground/10 rounded-sm data-[selected=true]:border-neon/40"
+                    className="neon-surface-default p-4 data-[selected=true]:border-neon/40"
                     data-selected={isSelected ? true : undefined}
                   >
                     <Checkbox
@@ -346,23 +335,13 @@ export function ContributionPanel({
           showPromoSubtotal={showPromoSubtotal}
         />
 
-        <SolidarityCodeField
-          labels={{
-            apply: labels.solidarityCodeApply,
-            placeholder: labels.solidarityCodePlaceholder,
-            toggle: labels.solidarityCodeToggle,
-          }}
-        />
-
         {!hasCheckoutProfile ? (
           <div ref={signInSectionRef} className="mt-6">
-            <button
-              className="text-sm text-foreground/55 hover:text-foreground/75 underline-offset-2 hover:underline"
-              type="button"
+            <NeonTextButton
               onClick={() => onSignInExpandedChange(!signInExpanded)}
             >
               {labels.alreadyRegistered}
-            </button>
+            </NeonTextButton>
             {signInExpanded ? (
               <div className="mt-4 pt-4 border-t border-foreground/10">
                 <ParticipantSessionPanel
@@ -403,7 +382,7 @@ export function ContributionPanel({
         {!clientSecret ? (
           <div className="mt-6 space-y-2">
             <NeonButton
-              className="w-full sm:w-auto"
+              className="w-full"
               data-testid="event-checkout-confirm-contribution"
               isDisabled={
                 intentMutationPending ||
@@ -472,7 +451,7 @@ export function ContributionPanel({
             </Elements>
           </div>
         ) : null}
-      </CardBody>
-    </Card>
+      </NeonCardBody>
+    </NeonCard>
   );
 }

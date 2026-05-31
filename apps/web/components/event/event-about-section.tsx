@@ -25,9 +25,7 @@ export function EventAboutSection({
   return (
     <section className={className}>
       {summaryLine ? (
-        <p className="text-base text-foreground/50 leading-relaxed whitespace-pre-wrap">
-          {summaryLine}
-        </p>
+        <p className="neon-body whitespace-pre-wrap">{summaryLine}</p>
       ) : null}
       {gallery.length > 0 ? (
         <EventImageGallery

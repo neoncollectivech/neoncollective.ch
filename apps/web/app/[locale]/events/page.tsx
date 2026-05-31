@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { EventsIndexClient } from "@/components/events-index-client";
+import { PageShell } from "@/components/page-shell";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -25,10 +26,8 @@ export async function generateMetadata({
 
 export default async function EventsIndexPage() {
   return (
-    <article className="py-16 md:py-28 px-6">
-      <div className="max-w-3xl mx-auto">
-        <EventsIndexClient />
-      </div>
-    </article>
+    <PageShell width="eventList">
+      <EventsIndexClient />
+    </PageShell>
   );
 }
