@@ -2,11 +2,13 @@ import path from "node:path";
 
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 /** GitHub Pages: `VITE_ADMIN_BASE=/admin/` — local dev defaults to `/`. */
-const adminBase = process.env.VITE_ADMIN_BASE ?? "/";
+function resolveAdminBase(env: Record<string, string>): string {
+  return process.env.VITE_ADMIN_BASE ?? env.VITE_ADMIN_BASE ?? "/";
+}
 
 /** Absolute path from site root for manifest `start_url` / `scope` / `id`. */
 function pwaScopePath(base: string): string {
@@ -17,7 +19,16 @@ function pwaScopePath(base: string): string {
   return base.endsWith("/") ? base : `${base}/`;
 }
 
-const pwaScope = pwaScopePath(adminBase);
+/** Root-absolute public asset path (e.g. `/admin/android-chrome-192x192.png`). */
+function pwaPublicAssetPath(base: string, file: string): string {
+  if (base === "/") {
+    return `/${file}`;
+  }
+
+  const prefix = base.endsWith("/") ? base : `${base}/`;
+
+  return `${prefix}${file}`;
+}
 
 const pwaIncludeAssets = [
   "favicon.ico",
@@ -28,71 +39,89 @@ const pwaIncludeAssets = [
   "android-chrome-512x512.png",
 ];
 
-export default defineConfig({
-  base: adminBase,
-  plugins: [
-    react(),
-    tailwindcss(),
-    VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: false,
-      includeAssets: pwaIncludeAssets,
-      manifest: {
-        id: pwaScope,
-        name: "NEON Admin",
-        short_name: "NEON Admin",
-        description: "NEON Collective staff admin portal",
-        theme_color: "#050505",
-        background_color: "#050505",
-        display: "standalone",
-        start_url: pwaScope,
-        scope: pwaScope,
-        icons: [
-          {
-            src: "android-chrome-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "android-chrome-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any",
-          },
-          {
-            src: "android-chrome-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
-        ],
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, __dirname, "");
+  const adminBase = resolveAdminBase(env);
+  const pwaScope = pwaScopePath(adminBase);
+  const publicSiteUrl = (
+    process.env.VITE_PUBLIC_SITE_URL ?? env.VITE_PUBLIC_SITE_URL
+  )?.replace(/\/$/, "");
+  const manifestStartUrl =
+    publicSiteUrl && adminBase !== "/"
+      ? `${publicSiteUrl}${pwaScope}`
+      : pwaScope;
+
+  return {
+    base: adminBase,
+    plugins: [
+      react(),
+      tailwindcss(),
+      VitePWA({
+        registerType: "autoUpdate",
+        // Immediate registration in index.html (plugin injectRegister waits for `load`).
+        injectRegister: false,
+        scope: adminBase,
+        includeAssets: pwaIncludeAssets,
+        manifest: {
+          id: manifestStartUrl,
+          name: "NEON Admin",
+          short_name: "NEON Admin",
+          description: "NEON Collective staff admin portal",
+          theme_color: "#050505",
+          background_color: "#050505",
+          display: "standalone",
+          prefer_related_applications: false,
+          start_url: manifestStartUrl,
+          scope: pwaScope,
+          icons: [
+            {
+              src: pwaPublicAssetPath(adminBase, "android-chrome-192x192.png"),
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "any",
+            },
+            {
+              src: pwaPublicAssetPath(adminBase, "android-chrome-512x512.png"),
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any",
+            },
+            {
+              src: pwaPublicAssetPath(adminBase, "android-chrome-512x512.png"),
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable",
+            },
+          ],
+        },
+        workbox: {
+          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+          navigateFallback: "index.html",
+          navigateFallbackDenylist: [/^\/admin\/auth/, /^\/api\//],
+          // Admin bundle is ~2.1 MiB minified; default Workbox precache cap is 2 MiB.
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        },
+        // Set devOptions.enabled: true locally to debug the service worker.
+        devOptions: { enabled: false },
+      }),
+    ],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
       },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        navigateFallback: "index.html",
-        // Admin bundle is ~2.1 MiB minified; default Workbox precache cap is 2 MiB.
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-      },
-      // Set devOptions.enabled: true locally to debug the service worker.
-      devOptions: { enabled: false },
-    }),
-  ],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
     },
-  },
-  server: {
-    port: 5173,
-    proxy: {
-      "/api": {
-        target: "http://localhost:8082",
-        changeOrigin: true,
-      },
-      "/admin": {
-        target: "http://localhost:8082",
-        changeOrigin: true,
+    server: {
+      port: 5173,
+      proxy: {
+        "/api": {
+          target: "http://localhost:8082",
+          changeOrigin: true,
+        },
+        "/admin": {
+          target: "http://localhost:8082",
+          changeOrigin: true,
+        },
       },
     },
-  },
+  };
 });
