@@ -1,5 +1,5 @@
 import { BadRequestError, ConflictError, NotFoundError } from "@neon/resource-api";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 
 import {
   isAllowedEventImageContentType,
@@ -55,11 +55,126 @@ function focalFromRow(
   return { x: focalX, y: focalY };
 }
 
-function toPublicImage(row: typeof eventImages.$inferSelect): PublicEventImage {
+type PublicImageQueryRow = {
+  storageKey: string;
+  focalX?: number | null;
+  focalY?: number | null;
+};
+
+type PublicImageQueryRowWithEvent = PublicImageQueryRow & { eventId: string };
+
+/** Cached after first public image query (avoids repeated failed selects). */
+let publicImageFocalColumnsAvailable: boolean | undefined;
+
+const publicImageOrder = [
+  asc(eventImages.sortOrder),
+  asc(eventImages.createdAt),
+] as const;
+
+function isMissingFocalColumnError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+
+  return /column ["']?focal_(x|y)["']? does not exist/i.test(msg);
+}
+
+function toPublicImageFromQueryRow(row: PublicImageQueryRow): PublicEventImage {
+  const focal =
+    row.focalX !== undefined && row.focalY !== undefined
+      ? focalFromRow(row.focalX, row.focalY)
+      : null;
+
   return {
     url: isR2Configured() ? buildPublicUrl(row.storageKey) : "",
-    focal: focalFromRow(row.focalX, row.focalY),
+    focal,
   };
+}
+
+async function selectPublicImageQueryRowsWithoutFocal(
+  db: ReturnType<typeof getDb>,
+  where: SQL<unknown> | undefined,
+): Promise<PublicImageQueryRow[]> {
+  return db
+    .select({ storageKey: eventImages.storageKey })
+    .from(eventImages)
+    .where(where)
+    .orderBy(...publicImageOrder);
+}
+
+async function selectPublicImageQueryRows(
+  db: ReturnType<typeof getDb>,
+  where: SQL<unknown> | undefined,
+): Promise<PublicImageQueryRow[]> {
+  if (publicImageFocalColumnsAvailable === false) {
+    return selectPublicImageQueryRowsWithoutFocal(db, where);
+  }
+
+  try {
+    const rows = await db
+      .select({
+        storageKey: eventImages.storageKey,
+        focalX: eventImages.focalX,
+        focalY: eventImages.focalY,
+      })
+      .from(eventImages)
+      .where(where)
+      .orderBy(...publicImageOrder);
+    publicImageFocalColumnsAvailable = true;
+
+    return rows;
+  } catch (err) {
+    if (!isMissingFocalColumnError(err)) {
+      throw err;
+    }
+    publicImageFocalColumnsAvailable = false;
+
+    return selectPublicImageQueryRowsWithoutFocal(db, where);
+  }
+}
+
+async function selectPublicImageQueryRowsWithEventId(
+  db: ReturnType<typeof getDb>,
+  where: SQL<unknown> | undefined,
+): Promise<PublicImageQueryRowWithEvent[]> {
+  if (publicImageFocalColumnsAvailable === false) {
+    return db
+      .select({
+        eventId: eventImages.eventId,
+        storageKey: eventImages.storageKey,
+      })
+      .from(eventImages)
+      .where(where)
+      .orderBy(...publicImageOrder);
+  }
+
+  try {
+    const rows = await db
+      .select({
+        eventId: eventImages.eventId,
+        storageKey: eventImages.storageKey,
+        focalX: eventImages.focalX,
+        focalY: eventImages.focalY,
+      })
+      .from(eventImages)
+      .where(where)
+      .orderBy(...publicImageOrder);
+    publicImageFocalColumnsAvailable = true;
+
+    return rows;
+  } catch (err) {
+    if (!isMissingFocalColumnError(err)) {
+      throw err;
+    }
+    publicImageFocalColumnsAvailable = false;
+
+    return db
+      .select({
+        eventId: eventImages.eventId,
+        storageKey: eventImages.storageKey,
+      })
+      .from(eventImages)
+      .where(where)
+      .orderBy(...publicImageOrder);
+  }
 }
 
 function toDto(row: typeof eventImages.$inferSelect): EventImageDto {
@@ -128,12 +243,12 @@ export class EventImagesService {
 
   async listPublicImagesByEventId(eventId: string): Promise<PublicEventImage[]> {
     const db = getDb();
-    const rows = await db
-      .select()
-      .from(eventImages)
-      .where(eq(eventImages.eventId, eventId))
-      .orderBy(asc(eventImages.sortOrder), asc(eventImages.createdAt));
-    return rows.map(toPublicImage);
+    const rows = await selectPublicImageQueryRows(
+      db,
+      eq(eventImages.eventId, eventId),
+    );
+
+    return rows.map(toPublicImageFromQueryRow);
   }
 
   async listPublicImagesByEventIds(
@@ -148,15 +263,14 @@ export class EventImagesService {
     }
 
     const db = getDb();
-    const rows = await db
-      .select()
-      .from(eventImages)
-      .where(inArray(eventImages.eventId, eventIds))
-      .orderBy(asc(eventImages.sortOrder), asc(eventImages.createdAt));
+    const rows = await selectPublicImageQueryRowsWithEventId(
+      db,
+      inArray(eventImages.eventId, eventIds),
+    );
 
     for (const row of rows) {
       const list = result.get(row.eventId) ?? [];
-      list.push(toPublicImage(row));
+      list.push(toPublicImageFromQueryRow(row));
       result.set(row.eventId, list);
     }
     return result;

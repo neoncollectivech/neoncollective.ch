@@ -107,7 +107,7 @@ Fixtures: `startCheckoutPaymentStep`, `submitStripePaymentAndConfirmRegistration
 
 ## What the invite checkout spec covers
 
-**Serial** tests in `test/web/checkout-invite-flow.spec.mjs` (two nested describes):
+**Serial** tests in `test/web/checkout-invite-flow.spec.mjs` (240s per-test timeout; Stripe + confirm poll can exceed the default 120s):
 
 **Person A (host on guest list):** sign-in → **minimal checkout** (exclusive **Root** + **Addon 1**, total CHF 23) → pay → confirmed → host invite link
 

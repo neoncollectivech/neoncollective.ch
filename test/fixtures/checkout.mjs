@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 
 import {
   fillStripePaymentElement,
+  fillStripePaymentElementFields,
   waitForStripePaymentElement,
 } from "./stripe-payment-element.mjs";
 
@@ -265,9 +266,20 @@ export async function startCheckoutPaymentStep(page, seed, opts = {}) {
 /**
  * Fill the Payment Element, click Pay (browser `stripe.confirmPayment`), then wait for
  * POST /checkout/confirm and event registration poll — mirrors `useCheckoutConfirmation`.
+ *
+ * @param {{ paymentElementReady?: boolean }} [opts]
+ *   Skip the 60s Payment Element mount wait when `startCheckoutPaymentStep` already ran.
  */
-export async function submitStripePaymentAndConfirmRegistration(page, seed) {
-  await fillStripePaymentElement(page);
+export async function submitStripePaymentAndConfirmRegistration(
+  page,
+  seed,
+  opts = {},
+) {
+  if (opts.paymentElementReady) {
+    await fillStripePaymentElementFields(page);
+  } else {
+    await fillStripePaymentElement(page);
+  }
 
   const payButton = page.getByTestId("event-checkout-pay");
   await expect(payButton).toBeEnabled({ timeout: 30_000 });
@@ -275,7 +287,6 @@ export async function submitStripePaymentAndConfirmRegistration(page, seed) {
   const confirmResponse = page.waitForResponse(isCheckoutConfirmResponse, {
     timeout: 90_000,
   });
-
   const registrationResponse = page.waitForResponse(
     async (res) => {
       if (!res.url().includes(`/events/${seed.slug}`)) {
@@ -297,15 +308,14 @@ export async function submitStripePaymentAndConfirmRegistration(page, seed) {
 
   await payButton.click();
 
+  const apiWaits = Promise.all([confirmResponse, registrationResponse]);
   await expectCheckoutConfirmingOrRegistered(page);
+  const [confirmRes] = await apiWaits;
 
-  const confirmRes = await confirmResponse;
   const confirmBody = await confirmRes.json();
   if (!confirmBody.ok) {
     throw new Error("Checkout confirm response missing ok: true.");
   }
-
-  await registrationResponse;
 
   await expect(
     page.getByRole("heading", { name: "You're registered" }),
@@ -315,7 +325,9 @@ export async function submitStripePaymentAndConfirmRegistration(page, seed) {
 /** Full production-like checkout: intent → Elements → Pay → confirm API → registration poll. */
 export async function completeEventCheckout(page, seed) {
   await startCheckoutPaymentStep(page, seed);
-  await submitStripePaymentAndConfirmRegistration(page, seed);
+  await submitStripePaymentAndConfirmRegistration(page, seed, {
+    paymentElementReady: true,
+  });
 }
 
 /**

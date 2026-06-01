@@ -23,7 +23,7 @@ import {
 const EVENTS_API =
   process.env.NEXT_PUBLIC_EVENTS_API_URL?.trim() || "http://localhost:8082";
 
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "serial", timeout: 240_000 });
 
 test.describe("invite-only checkout", () => {
   const state = {
@@ -145,7 +145,9 @@ test.describe("invite-only checkout", () => {
     test("pays with Stripe Payment Element and confirms registration", async () => {
       // Abandon/retry test leaves the payment step open — do not click Continue again.
       await waitForStripePaymentElement(state.pageB);
-      await submitStripePaymentAndConfirmRegistration(state.pageB, state.seed);
+      await submitStripePaymentAndConfirmRegistration(state.pageB, state.seed, {
+        paymentElementReady: true,
+      });
       await expect(state.pageB.getByText("Invite someone from your circle")).not.toBeVisible();
     });
 
