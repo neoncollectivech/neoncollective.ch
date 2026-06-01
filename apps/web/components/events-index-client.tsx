@@ -192,7 +192,7 @@ function EventsIndexInner() {
                             <div className="shrink-0 w-full sm:w-40 aspect-video sm:aspect-auto sm:min-h-[7rem] border-b sm:border-b-0 sm:border-r border-foreground/10 overflow-hidden">
                               <ResponsiveEventImage
                                 alt={t.detailImageAlt}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover object-top"
                                 loading="lazy"
                                 sizes="(max-width: 640px) 100vw, 10rem"
                                 url={thumb}
