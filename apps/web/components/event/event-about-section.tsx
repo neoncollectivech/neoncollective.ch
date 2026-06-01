@@ -1,23 +1,25 @@
 "use client";
 
+import type { EventImage } from "@/helpers/event-image-focal";
+
 import { EventImageGallery } from "@/components/event-image-gallery";
 import { Markdown } from "@/components/markdown";
 
 type EventAboutSectionProps = {
   summary: string | null;
-  imageUrls: string[];
+  images: EventImage[];
   imageAlt: string;
   className?: string;
 };
 
 export function EventAboutSection({
   summary,
-  imageUrls,
+  images,
   imageAlt,
   className,
 }: EventAboutSectionProps) {
   const summaryLine = summary?.trim();
-  const gallery = imageUrls.length > 1 ? imageUrls.slice(1) : [];
+  const gallery = images.length > 1 ? images.slice(1) : [];
 
   if (!summaryLine && gallery.length === 0) {
     return null;
@@ -34,7 +36,7 @@ export function EventAboutSection({
         <EventImageGallery
           className={summaryLine ? "mt-6" : undefined}
           imageAlt={imageAlt}
-          urls={gallery}
+          images={gallery}
         />
       ) : null}
     </section>

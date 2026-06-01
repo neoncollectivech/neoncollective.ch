@@ -21,14 +21,14 @@ export async function buildEventPayload(
       title: ev.title,
       summary: null,
       location: null,
-      imageUrls: [],
+      images: [],
       startsAt: null,
       accessMode: ev.accessMode,
       inviteOnly: ev.accessMode === "invite_only",
       inviteRemaining: opts?.inviteRemaining,
     };
   }
-  const imageUrls = await eventImagesService.listPublicUrlsByEventId(ev.id);
+  const images = await eventImagesService.listPublicImagesByEventId(ev.id);
   const tiers = await eventTiersService.listActiveForEvent(ev.id);
   const { tiers: tiersWithSold } = await enrichTiersWithCapacityStats(
     ev.id,
@@ -51,7 +51,7 @@ export async function buildEventPayload(
     title: ev.title,
     summary: ev.summary ?? null,
     location: ev.location ?? null,
-    imageUrls,
+    images,
     startsAt: ev.startsAt?.toISOString() ?? null,
     accessMode: ev.accessMode,
     inviteOnly: ev.accessMode === "invite_only",

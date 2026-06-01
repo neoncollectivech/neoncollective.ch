@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { EventImageFocalPreview } from "@/components/event-image-focal-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { adminApi } from "@/hooks/use-admin-api";
@@ -30,12 +31,14 @@ export function EventImageManager({ eventId }: EventImageManagerProps) {
   const imagesQuery = useQuery(adminApi.event.images(eventId));
   const deleteMutation = useMutation(adminApi.event.deleteImage(eventId));
   const reorderMutation = useMutation(adminApi.event.reorderImages(eventId));
+  const focalMutation = useMutation(adminApi.event.patchImageFocal(eventId));
 
   const images = imagesQuery.data ?? [];
   const busy =
     uploading ||
     deleteMutation.isPending ||
     reorderMutation.isPending ||
+    focalMutation.isPending ||
     imagesQuery.isFetching;
 
   const handlePickFile = () => {
@@ -94,6 +97,24 @@ export function EventImageManager({ eventId }: EventImageManagerProps) {
     } finally {
       setUploading(false);
     }
+  };
+
+  const saveFocal = (
+    imageId: string,
+    focal: { x: number; y: number } | null,
+  ) => {
+    focalMutation.mutate(
+      {
+        imageId,
+        focalX: focal?.x ?? null,
+        focalY: focal?.y ?? null,
+      },
+      {
+        onSuccess: () => toast.success("Crop focus saved"),
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to save crop point")),
+      },
+    );
   };
 
   const moveImage = (index: number, direction: -1 | 1) => {
@@ -156,30 +177,19 @@ export function EventImageManager({ eventId }: EventImageManagerProps) {
       ) : null}
 
       {images.length > 0 ? (
-        <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {images.map((image, index) => (
             <li
               key={image.id}
               className="border border-border rounded-md overflow-hidden bg-muted/20"
             >
-              <div className="aspect-video bg-muted relative">
-                {image.url ? (
-                  <img
-                    alt=""
-                    className="w-full h-full object-cover"
-                    src={image.url}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-xs text-muted-foreground px-2 text-center">
-                    Preview unavailable (check R2_PUBLIC_BASE_URL)
-                  </div>
-                )}
-                {index === 0 ? (
-                  <span className="absolute top-1 left-1 text-[10px] uppercase tracking-wide bg-background/90 px-1.5 py-0.5 rounded">
-                    Hero
-                  </span>
-                ) : null}
-              </div>
+              <EventImageFocalPreview
+                disabled={busy}
+                image={image}
+                isHero={index === 0}
+                onFocalChange={(focal) => saveFocal(image.id, focal)}
+                onFocalReset={() => saveFocal(image.id, null)}
+              />
               <div className="flex flex-wrap gap-1 p-2">
                 <Button
                   disabled={busy || index === 0}

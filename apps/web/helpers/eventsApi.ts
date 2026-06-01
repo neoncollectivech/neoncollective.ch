@@ -1,4 +1,5 @@
 import { createPublicApiClient } from "./createPublicApiClient";
+import { parsePublicEventImages, type EventImage } from "./event-image-focal";
 
 const EVENTS_API_URL = process.env.NEXT_PUBLIC_EVENTS_API_URL;
 
@@ -30,7 +31,7 @@ export type EventPayload = {
   title: string;
   summary: string | null;
   location: string | null;
-  imageUrls: string[];
+  images: EventImage[];
   startsAt: string | null;
   accessMode: "public" | "invite_only";
   inviteOnly: boolean;
@@ -76,7 +77,7 @@ export type EventCatalogItem = {
   title: string;
   summary: string | null;
   location: string | null;
-  imageUrls: string[];
+  images: EventImage[];
   startsAt: string | null;
   inviteOnly: boolean;
   /** True when the session has a paid order for this event. */
@@ -116,12 +117,7 @@ export async function fetchEventsCatalog(opts?: {
           title: e.title,
           summary: e.summary ?? null,
           location: e.location ?? null,
-          imageUrls: Array.isArray(e.imageUrls)
-            ? e.imageUrls.filter(
-                (u): u is string =>
-                  typeof u === "string" && u.trim().length > 0,
-              )
-            : [],
+          images: parsePublicEventImages(e.images),
           startsAt: e.startsAt ?? null,
           inviteOnly: Boolean(e.inviteOnly),
           registrationConfirmed: Boolean(e.registrationConfirmed),
@@ -142,11 +138,7 @@ export async function fetchEvent(
   const { data } = await eventsClient.get<EventPayload>(`/events/${slug}${qs}`);
   const { hostInvite: rawHostInvite, ...eventFields } = data;
 
-  const imageUrls = Array.isArray(data.imageUrls)
-    ? data.imageUrls.filter(
-        (u): u is string => typeof u === "string" && u.trim().length > 0,
-      )
-    : [];
+  const images = parsePublicEventImages(data.images);
 
   const tiers = Array.isArray(data.tiers)
     ? data.tiers.map((tier) => ({
@@ -162,7 +154,7 @@ export async function fetchEvent(
     ...eventFields,
     summary: eventFields.summary ?? null,
     location: eventFields.location ?? null,
-    imageUrls,
+    images,
     tiers,
     registrationConfirmed: Boolean(eventFields.registrationConfirmed),
     registeredTierName:

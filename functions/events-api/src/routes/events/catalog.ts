@@ -3,7 +3,10 @@ import {
   type CatalogListRow,
 } from "../../services/events.service";
 import { eventInviteesService } from "../../services/event-invitees.service";
-import { eventImagesService } from "../../services/event-images.service";
+import {
+  eventImagesService,
+  type PublicEventImage,
+} from "../../services/event-images.service";
 import { eventsService } from "../../services/events.service";
 import { ordersService } from "../../services/orders.service";
 
@@ -22,14 +25,14 @@ function catalogRow(
   row: CatalogSourceRow,
   inviteOnly: boolean,
   registeredSlugs: Set<string>,
-  imageUrls: string[],
+  images: PublicEventImage[],
 ): CatalogListRow {
   return {
     slug: row.slug,
     title: row.title,
     summary: row.summary ?? null,
     location: row.location ?? null,
-    imageUrls,
+    images,
     startsAt: row.startsAt,
     inviteOnly,
     registrationConfirmed: registeredSlugs.has(row.slug),
@@ -85,7 +88,7 @@ export async function listPublishedCatalog(
   }
 
   const sources = [...sourcesBySlug.values()];
-  const imageUrlsByEventId = await eventImagesService.listPublicUrlsByEventIds(
+  const imagesByEventId = await eventImagesService.listPublicImagesByEventIds(
     sources.map((s) => s.id),
   );
 
@@ -94,7 +97,7 @@ export async function listPublishedCatalog(
       row,
       inviteOnlyBySlug.get(row.slug) ?? false,
       registeredSlugs,
-      imageUrlsByEventId.get(row.id) ?? [],
+      imagesByEventId.get(row.id) ?? [],
     ),
   );
 

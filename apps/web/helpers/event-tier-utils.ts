@@ -80,13 +80,13 @@ const SUMMARY_TEASER_MAX = 160;
 
 export function hasEventAboutContent(
   summary: string | null,
-  imageUrls: string[] | null | undefined,
+  images: { url: string }[] | null | undefined,
 ): boolean {
   if (summary?.trim()) {
     return true;
   }
 
-  return (imageUrls?.length ?? 0) > 1;
+  return (images?.length ?? 0) > 1;
 }
 
 export type HeroSummaryDisplay = {

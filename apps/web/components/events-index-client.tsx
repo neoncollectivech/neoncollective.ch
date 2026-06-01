@@ -164,7 +164,7 @@ function EventsIndexInner() {
           ) : (
             <ul className="space-y-6">
               {rows.map((ev) => {
-                const thumb = ev.imageUrls[0];
+                const thumb = ev.images[0];
                 const summaryLine = ev.summary?.trim()
                   ? markdownPlainText(ev.summary)
                   : null;
@@ -192,10 +192,11 @@ function EventsIndexInner() {
                             <div className="shrink-0 w-full sm:w-40 aspect-video sm:aspect-auto sm:min-h-[7rem] border-b sm:border-b-0 sm:border-r border-foreground/10 overflow-hidden">
                               <ResponsiveEventImage
                                 alt={t.detailImageAlt}
-                                className="w-full h-full object-cover object-top"
+                                className="w-full h-full object-cover"
+                                focal={thumb.focal}
                                 loading="lazy"
                                 sizes="(max-width: 640px) 100vw, 10rem"
-                                url={thumb}
+                                url={thumb.url}
                               />
                             </div>
                           ) : null}

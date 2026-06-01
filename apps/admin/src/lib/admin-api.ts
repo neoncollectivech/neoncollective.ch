@@ -78,6 +78,8 @@ export type EventImageRow = {
   byteSize: number;
   sortOrder: number;
   altText: string | null;
+  focalX: number | null;
+  focalY: number | null;
   createdAt: string;
 };
 
@@ -458,6 +460,19 @@ export async function reorderEventImages(
 
 export async function deleteEventImage(eventId: string, imageId: string) {
   await api.delete(`/admin/events/${eventId}/images/${imageId}`);
+}
+
+export async function patchEventImageFocal(
+  eventId: string,
+  imageId: string,
+  payload: { focalX: number | null; focalY: number | null },
+) {
+  const res = await api.patch<EventImageRow>(
+    `/admin/events/${eventId}/images/${imageId}`,
+    payload,
+  );
+
+  return res.data;
 }
 
 export async function listEventPromotionCodes(eventId: string) {

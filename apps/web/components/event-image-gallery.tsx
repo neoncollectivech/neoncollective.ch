@@ -1,5 +1,7 @@
 "use client";
 
+import type { EventImage } from "@/helpers/event-image-focal";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   Modal,
@@ -21,13 +23,13 @@ import {
 import { useDictionary } from "@/i18n/DictionaryContext";
 
 type EventImageGalleryProps = {
-  urls: string[];
+  images: EventImage[];
   imageAlt: string;
   className?: string;
 };
 
 export function EventImageGallery({
-  urls,
+  images,
   imageAlt,
   className,
 }: EventImageGalleryProps) {
@@ -50,8 +52,8 @@ export function EventImageGallery({
   }, []);
 
   const goNext = useCallback(() => {
-    setIndex((i) => Math.min(urls.length - 1, i + 1));
-  }, [urls.length]);
+    setIndex((i) => Math.min(images.length - 1, i + 1));
+  }, [images.length]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -73,29 +75,29 @@ export function EventImageGallery({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, goPrev, goNext]);
 
-  if (urls.length === 0) {
+  if (images.length === 0) {
     return null;
   }
 
-  const showNav = urls.length > 1;
-  const currentUrl = urls[index];
+  const showNav = images.length > 1;
+  const current = images[index];
 
-  if (!currentUrl) {
+  if (!current) {
     return null;
   }
 
   const counter = t.galleryCounter
     .replace("{current}", String(index + 1))
-    .replace("{total}", String(urls.length));
+    .replace("{total}", String(images.length));
 
   return (
     <>
       <div className={clsx("grid grid-cols-2 sm:grid-cols-3 gap-2", className)}>
-        {urls.map((url, i) => (
+        {images.map((image, i) => (
           <NeonCard
-            key={`${url}-${i}`}
+            key={`${image.url}-${i}`}
             isPressable
-            aria-label={t.galleryOpenImage.replace("{n}", String(i + 1))}
+            aria-label={t.galleryOpenImage.replace("{n}", String(i + 2))}
             className={clsx(
               "overflow-hidden aspect-4/3",
               "transition-all duration-300 hover:border-neon/20",
@@ -107,9 +109,10 @@ export function EventImageGallery({
               <ResponsiveEventImage
                 alt={`${imageAlt} (${i + 2})`}
                 className="w-full h-full object-cover"
+                focal={image.focal}
                 loading="lazy"
                 sizes="(max-width: 640px) 50vw, 33vw"
-                url={url}
+                url={image.url}
               />
             </NeonCardBody>
           </NeonCard>
@@ -143,7 +146,7 @@ export function EventImageGallery({
               className="max-h-[min(85vh,720px)] w-auto max-w-full object-contain"
               loading="eager"
               sizes="(max-width: 768px) 100vw, 56rem"
-              url={currentUrl}
+              url={current.url}
             />
           </ModalBody>
           {showNav ? (
@@ -156,7 +159,7 @@ export function EventImageGallery({
                 {t.galleryPrevious}
               </NeonButton>
               <NeonButton
-                isDisabled={index === urls.length - 1}
+                isDisabled={index === images.length - 1}
                 variant="bordered"
                 onPress={goNext}
               >

@@ -476,10 +476,10 @@ function EventDetailsInner({ slug }: { slug: string }) {
     !accessDenied;
 
   const backHref = `/${locale}/events`;
-  const heroImage = ev.imageUrls?.[0];
+  const images = ev.images ?? [];
+  const heroImage = images[0]?.url;
   const donateHref = `/${locale}/donate`;
-  const imageUrls = ev.imageUrls ?? [];
-  const hasAboutContent = hasEventAboutContent(ev.summary ?? null, imageUrls);
+  const hasAboutContent = hasEventAboutContent(ev.summary ?? null, images);
   const heroSummary = heroSummaryDisplay(ev.summary ?? null, hasAboutContent);
 
   const contributionLabels = {
@@ -699,7 +699,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
           <EventAboutSection
             className="mb-10 md:mb-12"
             imageAlt={t.detailImageAlt}
-            imageUrls={imageUrls}
+            images={images}
             summary={ev.summary ?? null}
           />
         }

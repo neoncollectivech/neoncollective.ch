@@ -30,6 +30,7 @@ import {
   listOrderTiers,
   listOrders,
   patchEvent,
+  patchEventImageFocal,
   patchEventInvitee,
   patchEventPromotionCode,
   patchInviteLink,
@@ -306,6 +307,23 @@ export const adminApi = {
         },
         onError: (err) =>
           toast.error(getApiErrorMessage(err, "Failed to reorder images")),
+      }),
+    patchImageFocal: (eventId: string) =>
+      mutationOptions({
+        mutationFn: (payload: {
+          imageId: string;
+          focalX: number | null;
+          focalY: number | null;
+        }) =>
+          patchEventImageFocal(eventId, payload.imageId, {
+            focalX: payload.focalX,
+            focalY: payload.focalY,
+          }),
+        onSuccess: async () => {
+          await invalidateEventImages(eventId);
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to save crop point")),
       }),
     promotionCodes: (eventId: string) =>
       queryOptions({

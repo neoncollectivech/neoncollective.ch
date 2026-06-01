@@ -16,6 +16,13 @@ import {
 
 export { eventImages as eventImagesTable };
 
+export type EventImageFocal = { x: number; y: number };
+
+export type PublicEventImage = {
+  url: string;
+  focal: EventImageFocal | null;
+};
+
 export type EventImageDto = {
   id: string;
   eventId: string;
@@ -25,6 +32,8 @@ export type EventImageDto = {
   byteSize: number;
   sortOrder: number;
   altText: string | null;
+  focalX: number | null;
+  focalY: number | null;
   createdAt: Date;
 };
 
@@ -34,6 +43,24 @@ export type EventImageCreateInput = {
   byteSize: number;
   altText?: string | null;
 };
+
+function focalFromRow(
+  focalX: number | null,
+  focalY: number | null,
+): EventImageFocal | null {
+  if (focalX == null || focalY == null) {
+    return null;
+  }
+
+  return { x: focalX, y: focalY };
+}
+
+function toPublicImage(row: typeof eventImages.$inferSelect): PublicEventImage {
+  return {
+    url: isR2Configured() ? buildPublicUrl(row.storageKey) : "",
+    focal: focalFromRow(row.focalX, row.focalY),
+  };
+}
 
 function toDto(row: typeof eventImages.$inferSelect): EventImageDto {
   return {
@@ -45,8 +72,26 @@ function toDto(row: typeof eventImages.$inferSelect): EventImageDto {
     byteSize: row.byteSize,
     sortOrder: row.sortOrder,
     altText: row.altText,
+    focalX: row.focalX,
+    focalY: row.focalY,
     createdAt: row.createdAt,
   };
+}
+
+function validateFocalInput(focal: EventImageFocal | null): void {
+  if (focal === null) {
+    return;
+  }
+  if (
+    !Number.isInteger(focal.x) ||
+    focal.x < 0 ||
+    focal.x > 100 ||
+    !Number.isInteger(focal.y) ||
+    focal.y < 0 ||
+    focal.y > 100
+  ) {
+    throw new BadRequestError("Focal point must use integers from 0 to 100.");
+  }
 }
 
 function validateCreateInput(
@@ -81,15 +126,20 @@ export class EventImagesService {
     return rows.map(toDto);
   }
 
-  async listPublicUrlsByEventId(eventId: string): Promise<string[]> {
-    const images = await this.listByEventId(eventId);
-    return images.map((img) => img.url);
+  async listPublicImagesByEventId(eventId: string): Promise<PublicEventImage[]> {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(eventImages)
+      .where(eq(eventImages.eventId, eventId))
+      .orderBy(asc(eventImages.sortOrder), asc(eventImages.createdAt));
+    return rows.map(toPublicImage);
   }
 
-  async listPublicUrlsByEventIds(
+  async listPublicImagesByEventIds(
     eventIds: string[],
-  ): Promise<Map<string, string[]>> {
-    const result = new Map<string, string[]>();
+  ): Promise<Map<string, PublicEventImage[]>> {
+    const result = new Map<string, PublicEventImage[]>();
     for (const id of eventIds) {
       result.set(id, []);
     }
@@ -106,9 +156,7 @@ export class EventImagesService {
 
     for (const row of rows) {
       const list = result.get(row.eventId) ?? [];
-      if (isR2Configured()) {
-        list.push(buildPublicUrl(row.storageKey));
-      }
+      list.push(toPublicImage(row));
       result.set(row.eventId, list);
     }
     return result;
@@ -156,6 +204,37 @@ export class EventImagesService {
       }
       throw e;
     }
+  }
+
+  async updateFocalForEvent(
+    eventId: string,
+    imageId: string,
+    focal: EventImageFocal | null,
+  ): Promise<EventImageDto> {
+    validateFocalInput(focal);
+
+    const existing = await this.getForEvent(eventId, imageId);
+    if (!existing) {
+      throw new NotFoundError("Event image not found.");
+    }
+
+    const db = getDb();
+    const [row] = await db
+      .update(eventImages)
+      .set({
+        focalX: focal?.x ?? null,
+        focalY: focal?.y ?? null,
+      })
+      .where(
+        and(eq(eventImages.id, imageId), eq(eventImages.eventId, eventId)),
+      )
+      .returning();
+
+    if (!row) {
+      throw new NotFoundError("Event image not found.");
+    }
+
+    return toDto(row);
   }
 
   async reorderForEvent(

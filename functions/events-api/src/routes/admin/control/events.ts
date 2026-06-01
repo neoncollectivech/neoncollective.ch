@@ -20,6 +20,7 @@ import { eventsService } from "../../../services/events.service";
 import { orderTiersService } from "../../../services/order-tiers.service";
 import {
   adminEventImageCreateSchema,
+  adminEventImageFocalSchema,
   adminEventImagePresignSchema,
   adminEventImageReorderSchema,
   adminEventTiersPutSchema,
@@ -53,6 +54,8 @@ function serializeEventImage(image: Awaited<
     byteSize: image.byteSize,
     sortOrder: image.sortOrder,
     altText: image.altText,
+    focalX: image.focalX,
+    focalY: image.focalY,
     createdAt: image.createdAt.toISOString(),
   };
 }
@@ -184,6 +187,42 @@ export function createEventsControlRouter(): Hono {
             try {
               const image = await eventImagesService.createForEvent(eventId, body);
               return c.json(serializeEventImage(image), 201);
+            } catch (err) {
+              return mapResourceApiError(c, err);
+            }
+          },
+        },
+        {
+          method: "patch",
+          path: "/:id/images/:imageId",
+          schema: adminEventImageFocalSchema,
+          handler: async (c) => {
+            const eventId = c.req.param("id")!;
+            const imageId = c.req.param("imageId")!;
+            const ev = await eventsService.get(eventId);
+            if (!ev) {
+              return c.json({ error: "Event not found." }, 404);
+            }
+            const body = adminEventImageFocalSchema.assert(await c.req.json());
+            if (
+              (body.focalX === null) !== (body.focalY === null)
+            ) {
+              return c.json(
+                { error: "focalX and focalY must both be set or both be null." },
+                400,
+              );
+            }
+            try {
+              const focal =
+                body.focalX === null || body.focalY === null
+                  ? null
+                  : { x: body.focalX, y: body.focalY };
+              const image = await eventImagesService.updateFocalForEvent(
+                eventId,
+                imageId,
+                focal,
+              );
+              return c.json(serializeEventImage(image));
             } catch (err) {
               return mapResourceApiError(c, err);
             }

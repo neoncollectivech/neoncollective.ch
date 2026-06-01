@@ -89,6 +89,9 @@ export const eventImages = pgTable(
     byteSize: integer("byte_size").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     altText: text("alt_text"),
+    /** Crop anchor 0–100; null = site default (center). Does not affect R2 transforms. */
+    focalX: integer("focal_x"),
+    focalY: integer("focal_y"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

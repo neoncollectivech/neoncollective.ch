@@ -78,3 +78,8 @@ export const adminEventImageCreateSchema = type({
 export const adminEventImageReorderSchema = type({
   imageIds: "string.uuid[]>=1",
 });
+
+export const adminEventImageFocalSchema = type({
+  focalX: "number.integer | null",
+  focalY: "number.integer | null",
+});

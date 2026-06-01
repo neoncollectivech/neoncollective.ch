@@ -32,7 +32,7 @@ export function createEventsRouter(): Hono {
         title: r.title,
         summary: r.summary,
         location: r.location,
-        imageUrls: r.imageUrls,
+        images: r.images,
         startsAt: r.startsAt?.toISOString() ?? null,
         inviteOnly: r.inviteOnly,
         registrationConfirmed: r.registrationConfirmed,

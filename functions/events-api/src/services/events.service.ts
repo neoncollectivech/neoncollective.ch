@@ -7,6 +7,7 @@ import {
 import { and, eq, ilike, inArray } from "drizzle-orm";
 
 import { events } from "../db/schema";
+import type { PublicEventImage } from "./event-images.service";
 
 export { events as eventsTable };
 import { getDb } from "../db/index";
@@ -30,7 +31,7 @@ export type CatalogListRow = {
   title: string;
   summary: string | null;
   location: string | null;
-  imageUrls: string[];
+  images: PublicEventImage[];
   startsAt: Date | null;
   inviteOnly: boolean;
   registrationConfirmed: boolean;
