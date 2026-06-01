@@ -63,7 +63,7 @@ test.describe("invite-only checkout", () => {
       await selectExclusiveAndAddon(state.pageA, state.seed);
     });
 
-    test("pays with Stripe Payment Element and confirms registration", async () => {
+    test("pays with TWINT and confirms registration", async () => {
       await completeEventCheckout(state.pageA, state.seed);
     });
 
@@ -142,7 +142,7 @@ test.describe("invite-only checkout", () => {
       });
     });
 
-    test("pays with Stripe Payment Element and confirms registration", async () => {
+    test("pays with TWINT and confirms registration", async () => {
       // Abandon/retry test leaves the payment step open — do not click Continue again.
       await waitForStripePaymentElement(state.pageB);
       await submitStripePaymentAndConfirmRegistration(state.pageB, state.seed, {

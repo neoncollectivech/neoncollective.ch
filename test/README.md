@@ -85,17 +85,17 @@ pnpm test:e2e:headed
 
 Every test run reseeds the DB first (`global-setup.mjs` → `pnpm db:events-api:seed:e2e`).
 
-## Stripe test card (CHF checkout)
+## Stripe TWINT (CHF checkout)
 
-Checkout E2E fills the Payment Element with Stripe’s **Switzerland Visa** test PAN `4000007560000009` (exp `12/34`, CVC `123`). It succeeds for CHF amounts on your test account — same as a real CHF event checkout.
+Checkout E2E uses **TWINT** (default in the Payment Element). After **Pay now**, Playwright lands on Stripe’s test page (`payments.stripe.com/payment_methods/test_payment`), clicks **Authorize test payment**, then waits for `redirect_status=succeeded` on the dossier `return_url`.
 
 ## Payment flow (matches production)
 
 The fixtures mirror what the site does in `event-details.tsx` + `useCheckoutConfirmation`:
 
 1. **Continue to payment** — `POST /checkout/intent` with `returnPath` (current dossier URL), tier ids, and `returnUrl` in the response.
-2. **Stripe Payment Element** — wait for the iframe, fill card fields, ensure **Pay now** is enabled (Stripe.js loaded).
-3. **Pay now** — browser `stripe.confirmPayment` with `redirect: "if_required"` and server `returnUrl` (no server-side `paymentIntents.confirm` shortcut).
+2. **Stripe Payment Element** — wait for the iframe, TWINT tab selected, **Pay now** enabled.
+3. **Pay now** — browser `stripe.confirmPayment` redirects to TWINT test auth; returning to `returnUrl` triggers confirm via `redirect_status=succeeded`.
 4. **Confirming your payment…** — UI shows while the client polls.
 5. **`POST /checkout/confirm`** — Playwright waits for HTTP 200 `{ ok: true }` (same as `eventsApi.checkout.confirmPoll`).
 6. **`GET /events/:slug`** — wait until `registrationConfirmed: true` (registration poll).

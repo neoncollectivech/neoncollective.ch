@@ -22,6 +22,8 @@ export {
   expectHostInviteConversionApi,
 } from "./host-invite.mjs";
 export {
+  authorizeStripeTwintTestRedirect,
+  ensureTwintPaymentMethodSelected,
   fillStripePaymentElement,
   STRIPE_CHF_SUCCESS_CARD,
   waitForStripePaymentElement,

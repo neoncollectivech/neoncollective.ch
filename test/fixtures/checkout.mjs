@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 
 import {
+  authorizeStripeTwintTestRedirect,
   fillStripePaymentElement,
   fillStripePaymentElementFields,
   waitForStripePaymentElement,
@@ -264,8 +265,8 @@ export async function startCheckoutPaymentStep(page, seed, opts = {}) {
 }
 
 /**
- * Fill the Payment Element, click Pay (browser `stripe.confirmPayment`), then wait for
- * POST /checkout/confirm and event registration poll — mirrors `useCheckoutConfirmation`.
+ * Select TWINT, click Pay (`stripe.confirmPayment` redirect), authorize on Stripe’s test
+ * redirect page, then wait for POST /checkout/confirm and registration poll.
  *
  * @param {{ paymentElementReady?: boolean }} [opts]
  *   Skip the 60s Payment Element mount wait when `startCheckoutPaymentStep` already ran.
@@ -285,7 +286,7 @@ export async function submitStripePaymentAndConfirmRegistration(
   await expect(payButton).toBeEnabled({ timeout: 30_000 });
 
   const confirmResponse = page.waitForResponse(isCheckoutConfirmResponse, {
-    timeout: 90_000,
+    timeout: 120_000,
   });
   const registrationResponse = page.waitForResponse(
     async (res) => {
@@ -303,13 +304,16 @@ export async function submitStripePaymentAndConfirmRegistration(
         return false;
       }
     },
-    { timeout: 90_000 },
+    { timeout: 120_000 },
   );
 
-  await payButton.click();
+  await Promise.all([
+    authorizeStripeTwintTestRedirect(page),
+    payButton.click(),
+  ]);
 
   const apiWaits = Promise.all([confirmResponse, registrationResponse]);
-  await expectCheckoutConfirmingOrRegistered(page);
+  await expectCheckoutConfirmingOrRegistered(page, 120_000);
   const [confirmRes] = await apiWaits;
 
   const confirmBody = await confirmRes.json();

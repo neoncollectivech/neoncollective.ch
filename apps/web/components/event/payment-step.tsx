@@ -87,7 +87,7 @@ export function PaymentStep({
         <PaymentElement
           options={{
             layout: "tabs",
-            paymentMethodOrder: ["card", "twint"],
+            paymentMethodOrder: ["twint", "card"],
             wallets: {
               link: "never",
             },
