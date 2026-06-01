@@ -87,10 +87,11 @@ export function EventImageFocalPreview({
           Click to set crop focus. Does not change the uploaded file.
         </p>
         <Button
-          className="h-auto px-0 py-0 text-[10px] text-muted-foreground"
+          className="h-auto px-0 py-0 text-[10px] text-muted-foreground underline-offset-2 hover:underline"
           disabled={disabled || !hasCustomFocal}
+          size="sm"
           type="button"
-          variant="link"
+          variant="ghost"
           onClick={onFocalReset}
         >
           Reset to center
