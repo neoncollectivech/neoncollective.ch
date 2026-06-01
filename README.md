@@ -220,6 +220,7 @@ Functions are bundled with **tsup** (`workspace:*` deps are compiled in); never 
 ### Admin (`apps/admin`)
 
 - Staff sign-in with Google (`@neonclub.ch`)
+- Installable PWA at `/admin/` on GitHub Pages (manifest + service worker; see `apps/admin/.env.example` for local install testing)
 - List/detail tables with server pagination and batched foreign-key resolution
 - Event-scoped invitee management and CSV export
 
