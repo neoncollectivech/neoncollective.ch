@@ -35,6 +35,18 @@ export class OrderTiersService extends TableService<typeof orderTiers> {
       .orderBy(asc(orderTiers.eventTierId));
   }
 
+  async listForOrders(orderIds: string[], tx?: EntityTx): Promise<OrderTierLine[]> {
+    if (orderIds.length === 0) {
+      return [];
+    }
+    const executor = tx ?? getDb();
+    return executor
+      .select()
+      .from(orderTiers)
+      .where(inArray(orderTiers.orderId, orderIds))
+      .orderBy(asc(orderTiers.orderId), asc(orderTiers.eventTierId));
+  }
+
   async getEventTierIdsForOrder(orderId: string, tx?: EntityTx): Promise<string[]> {
     const lines = await this.listForOrder(orderId, tx);
     return lines.map((l) => l.eventTierId);
@@ -78,6 +90,61 @@ export class OrderTiersService extends TableService<typeof orderTiers> {
       .from(orderTiers)
       .where(and(eq(orderTiers.eventTierId, tierId), inArray(orderTiers.orderId, orderIds)));
     return Number(row?.qty ?? 0);
+  }
+
+  async countByTierIdsAmongOrderIds(
+    tierIds: string[],
+    orderIds: string[],
+    tx?: EntityTx,
+  ): Promise<number> {
+    if (tierIds.length === 0 || orderIds.length === 0) {
+      return 0;
+    }
+    const executor = tx ?? getDb();
+    const [row] = await executor
+      .select({ qty: sql<number>`count(*)::int` })
+      .from(orderTiers)
+      .where(
+        and(
+          inArray(orderTiers.eventTierId, tierIds),
+          inArray(orderTiers.orderId, orderIds),
+        ),
+      );
+    return Number(row?.qty ?? 0);
+  }
+
+  async listTierIdsAmongOrderIds(orderIds: string[], tx?: EntityTx): Promise<string[]> {
+    if (orderIds.length === 0) {
+      return [];
+    }
+    const executor = tx ?? getDb();
+    const rows = await executor
+      .select({ eventTierId: orderTiers.eventTierId })
+      .from(orderTiers)
+      .where(inArray(orderTiers.orderId, orderIds));
+    return rows.map((r) => r.eventTierId);
+  }
+
+  async hasAnyTierAmongOrderIds(
+    orderIds: string[],
+    tierIds: string[],
+    tx?: EntityTx,
+  ): Promise<boolean> {
+    if (orderIds.length === 0 || tierIds.length === 0) {
+      return false;
+    }
+    const executor = tx ?? getDb();
+    const [row] = await executor
+      .select({ id: orderTiers.id })
+      .from(orderTiers)
+      .where(
+        and(
+          inArray(orderTiers.orderId, orderIds),
+          inArray(orderTiers.eventTierId, tierIds),
+        ),
+      )
+      .limit(1);
+    return Boolean(row);
   }
 
   async countByEventTierId(tierId: string, tx?: EntityTx): Promise<number> {

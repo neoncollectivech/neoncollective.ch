@@ -43,6 +43,7 @@ export type EventPayload = {
   registrationConfirmed?: boolean;
   registeredTierName?: string;
   registeredTiers?: RegisteredOrderTier[];
+  availableUpsellTiers?: EventTier[];
   /** Host first name when registration is confirmed on invite-only events. */
   viewerGivenName?: string;
   /** Guest invite link for first-degree hosts (session + paid registration). */
@@ -149,6 +150,15 @@ export async function fetchEvent(
             : ("exclusive" as const),
       }))
     : undefined;
+  const availableUpsellTiers = Array.isArray(data.availableUpsellTiers)
+    ? data.availableUpsellTiers.map((tier) => ({
+        ...tier,
+        selectionMode:
+          tier.selectionMode === "addon"
+            ? ("addon" as const)
+            : ("exclusive" as const),
+      }))
+    : undefined;
 
   return {
     ...eventFields,
@@ -156,6 +166,7 @@ export async function fetchEvent(
     location: eventFields.location ?? null,
     images,
     tiers,
+    availableUpsellTiers,
     registrationConfirmed: Boolean(eventFields.registrationConfirmed),
     registeredTierName:
       typeof eventFields.registeredTierName === "string" &&

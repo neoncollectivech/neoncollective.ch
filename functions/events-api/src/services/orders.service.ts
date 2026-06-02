@@ -114,6 +114,24 @@ export class OrdersService extends TableService<
     return row ?? null;
   }
 
+  async listPendingOrPaidForPersonOnEventInTx(
+    tx: OrderTx,
+    eventId: string,
+    personId: string,
+  ): Promise<(typeof orders.$inferSelect)[]> {
+    return tx
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.eventId, eventId),
+          eq(orders.personId, personId),
+          inArray(orders.status, ["pending", "paid"]),
+        ),
+      )
+      .orderBy(desc(orders.createdAt));
+  }
+
   async createPendingOrderInTx(
     tx: OrderTx,
     params: {
@@ -470,15 +488,85 @@ export class OrdersService extends TableService<
   async listIdsByEventAndStatuses(
     eventId: string,
     statuses: (typeof orders.$inferSelect.status)[],
+    tx?: OrderTx,
   ): Promise<string[]> {
     if (statuses.length === 0) {
       return [];
     }
-    const db = getDb();
-    const rows = await db
+    const executor = tx ?? getDb();
+    const rows = await executor
       .select({ id: orders.id })
       .from(orders)
       .where(and(eq(orders.eventId, eventId), inArray(orders.status, statuses)));
+    return rows.map((r) => r.id);
+  }
+
+  async listIdsForPersonOnEventAndStatusesInTx(
+    tx: OrderTx,
+    params: {
+      eventId: string;
+      personId: string;
+      statuses: (typeof orders.$inferSelect.status)[];
+    },
+  ): Promise<string[]> {
+    if (params.statuses.length === 0) {
+      return [];
+    }
+    const rows = await tx
+      .select({ id: orders.id })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.eventId, params.eventId),
+          eq(orders.personId, params.personId),
+          inArray(orders.status, params.statuses),
+        ),
+      );
+    return rows.map((r) => r.id);
+  }
+
+  async listIdsForPersonOnEventAndStatuses(
+    params: {
+      eventId: string;
+      personId: string;
+      statuses: (typeof orders.$inferSelect.status)[];
+    },
+    tx?: OrderTx,
+  ): Promise<string[]> {
+    const executor = tx ?? getDb();
+    if (params.statuses.length === 0) {
+      return [];
+    }
+    const rows = await executor
+      .select({ id: orders.id })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.eventId, params.eventId),
+          eq(orders.personId, params.personId),
+          inArray(orders.status, params.statuses),
+        ),
+      );
+    return rows.map((r) => r.id);
+  }
+
+  async listPaidOrderIdsForPersonOnEvent(
+    eventId: string,
+    personId: string,
+    tx?: OrderTx,
+  ): Promise<string[]> {
+    const executor = tx ?? getDb();
+    const rows = await executor
+      .select({ id: orders.id })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.eventId, eventId),
+          eq(orders.personId, personId),
+          eq(orders.status, "paid"),
+        ),
+      )
+      .orderBy(desc(orders.createdAt));
     return rows.map((r) => r.id);
   }
 

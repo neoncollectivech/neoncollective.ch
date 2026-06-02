@@ -1,7 +1,7 @@
 import { eventsService } from "../../services/events.service";
 import {
   formatOrderTierNames,
-  listRegisteredOrderTiersForOrder,
+  listRegisteredOrderTiersForOrders,
   type RegisteredOrderTierPayload,
 } from "../shared/format-order-tiers";
 import {
@@ -13,6 +13,7 @@ import {
 import { buildEventPayload } from "./payload";
 import { resolveInviteOnlyEntitlement } from "../shared/invite-only-entitlement";
 import { ordersService } from "../../services/orders.service";
+import { orderTiersService } from "../../services/order-tiers.service";
 import type { ResolvedParticipantSession } from "../registrations/session";
 
 export async function resolveInviteEventId(params: {
@@ -39,16 +40,72 @@ export async function findPaidRegistrationForViewer(
   eventId: string,
   personId: string,
 ): Promise<{ tierName: string; tiers: RegisteredOrderTierPayload[] } | null> {
-  const orderId = await ordersService.findLatestPaidOrderIdForPersonOnEvent(eventId, personId);
-  if (!orderId) {
+  const paidOrderIds = await ordersService.listPaidOrderIdsForPersonOnEvent(
+    eventId,
+    personId,
+  );
+  if (paidOrderIds.length === 0) {
     return null;
   }
-  const tiers = await listRegisteredOrderTiersForOrder(orderId);
+  const tiers = await listRegisteredOrderTiersForOrders(paidOrderIds);
   if (tiers.length === 0) {
     return null;
   }
-  const tierName = await formatOrderTierNames(orderId);
+  const tierName = await formatOrderTierNames(paidOrderIds[0]!);
   return tierName ? { tierName, tiers } : null;
+}
+
+async function resolveAvailableUpsellTiers(params: {
+  eventId: string;
+  personId: string;
+  tiers:
+    | {
+        id: string;
+        name: string;
+        description: string;
+        priceCents: number;
+        currency: string;
+        placesRemaining: number | null;
+        active: boolean;
+        sortOrder: number;
+        selectionMode: "exclusive" | "addon";
+      }[]
+    | undefined;
+}): Promise<
+  | {
+      id: string;
+      name: string;
+      description: string;
+      priceCents: number;
+      currency: string;
+      placesRemaining: number | null;
+      active: boolean;
+      sortOrder: number;
+      selectionMode: "exclusive" | "addon";
+    }[]
+  | undefined
+> {
+  if (!params.tiers || params.tiers.length === 0) {
+    return undefined;
+  }
+  const addonCandidates = params.tiers.filter(
+    (tier) =>
+      tier.selectionMode === "addon" &&
+      tier.active &&
+      (tier.placesRemaining == null || tier.placesRemaining > 0),
+  );
+  if (addonCandidates.length === 0) {
+    return [];
+  }
+  const orderIds = await ordersService.listIdsForPersonOnEventAndStatuses({
+    eventId: params.eventId,
+    personId: params.personId,
+    statuses: ["pending", "paid"],
+  });
+  const purchasedTierIds = new Set(
+    await orderTiersService.listTierIdsAmongOrderIds(orderIds),
+  );
+  return addonCandidates.filter((tier) => !purchasedTierIds.has(tier.id));
 }
 
 export type EventDetailForViewerBody = NonNullable<
@@ -58,6 +115,9 @@ export type EventDetailForViewerBody = NonNullable<
   registrationConfirmed: boolean;
   registeredTierName?: string;
   registeredTiers?: RegisteredOrderTierPayload[];
+  availableUpsellTiers?: NonNullable<
+    NonNullable<Awaited<ReturnType<typeof buildEventPayload>>>["tiers"]
+  >;
   viewerGivenName?: string;
   hostInvite?: {
     token: string;
@@ -108,6 +168,11 @@ export async function getPublishedEventDetailForViewer(params: {
   let registrationConfirmed = false;
   let registeredTierName: string | undefined;
   let registeredTiers: RegisteredOrderTierPayload[] | undefined;
+  let availableUpsellTiers:
+    | NonNullable<
+        NonNullable<Awaited<ReturnType<typeof buildEventPayload>>>["tiers"]
+      >
+    | undefined;
   let viewerGivenName: string | undefined;
   let hostInvite: EventDetailForViewerBody["hostInvite"];
 
@@ -117,6 +182,11 @@ export async function getPublishedEventDetailForViewer(params: {
       registrationConfirmed = true;
       registeredTierName = reg.tierName;
       registeredTiers = reg.tiers;
+      availableUpsellTiers = await resolveAvailableUpsellTiers({
+        eventId: evRow.id,
+        personId: params.session.personId,
+        tiers: payload.tiers,
+      });
     }
     if (registrationConfirmed && evRow.accessMode === "invite_only") {
       const share = await getHostInviteShareForViewer(evRow.id, params.session.personId);
@@ -137,6 +207,7 @@ export async function getPublishedEventDetailForViewer(params: {
     registrationConfirmed,
     ...(registeredTierName ? { registeredTierName } : {}),
     ...(registeredTiers?.length ? { registeredTiers } : {}),
+    ...(availableUpsellTiers ? { availableUpsellTiers } : {}),
     ...(viewerGivenName ? { viewerGivenName } : {}),
     ...(hostInvite ? { hostInvite } : {}),
   };

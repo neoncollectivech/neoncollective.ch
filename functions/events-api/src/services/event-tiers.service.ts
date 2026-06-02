@@ -242,9 +242,21 @@ export class EventTiersService extends TableService<
     opts: { canRemoveTier: (tierId: string, tx: TierTx) => Promise<boolean> },
   ): Promise<
     | { ok: true; tiers: (typeof eventTiers.$inferSelect)[] }
-    | { ok: false; reason: "unknown_tier_id" | "tier_in_use"; message?: string }
+    | {
+        ok: false;
+        reason: "unknown_tier_id" | "tier_in_use" | "exclusive_required";
+        message?: string;
+      }
   > {
     const db = getDb();
+
+    if (!tiers.some((tier) => tier.selectionMode === "exclusive")) {
+      return {
+        ok: false,
+        reason: "exclusive_required",
+        message: "At least one exclusive tier is required for each event.",
+      };
+    }
 
     const result = await db.transaction(async (tx) => {
       const existing = await tx

@@ -40,6 +40,10 @@ const REPLACE_TIERS_ERRORS = {
     status: 409 as ContentfulStatusCode,
     error: "Tier is used by existing orders. Deactivate it instead.",
   },
+  exclusive_required: {
+    status: 400 as ContentfulStatusCode,
+    error: "At least one exclusive tier is required for each event.",
+  },
 } as const;
 
 function serializeEventImage(image: Awaited<

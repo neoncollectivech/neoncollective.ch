@@ -7,7 +7,11 @@ import {
   resolveCheckoutReturnUrl,
   stripe,
 } from "../../helpers/stripe";
-import { computeTierPlacesRemaining, getTierSoldQty } from "../../helpers/tier-capacity";
+import {
+  computeTierPlacesRemaining,
+  getExclusiveTierLinesSoldQty,
+  getTierSoldQty,
+} from "../../helpers/tier-capacity";
 import { inviteLinksService } from "../../services/invite-links.service";
 import { findInviteLinkByRawToken } from "../shared/invite-links-orchestration";
 import { isSessionProfileComplete } from "../registrations/profile";
@@ -114,6 +118,8 @@ export type CreateCheckoutIntentFailureReason =
   | "identity_conflict"
   | "profile_mismatch"
   | "already_registered"
+  | "upsell_addon_only"
+  | "addon_already_purchased"
   | "payment_complete_refresh"
   | "mixed_currency"
   | "invalid_promotion"
@@ -139,6 +145,68 @@ type ExistingOrderResolution =
       action: "blocked";
       reason: "already_registered" | "payment_complete_refresh";
     };
+
+function isExclusiveSelection(selectedTiers: SelectedTier[]): boolean {
+  return selectedTiers.some((tier) => tier.selectionMode === "exclusive");
+}
+
+type OrdersByMode = {
+  exclusiveOrders: OrderRow[];
+  addonOnlyOrders: OrderRow[];
+};
+
+async function splitOrdersByModeTx(
+  tx: CheckoutTx,
+  orders: OrderRow[],
+  exclusiveTierIds: string[],
+): Promise<OrdersByMode> {
+  if (orders.length === 0 || exclusiveTierIds.length === 0) {
+    return { exclusiveOrders: [], addonOnlyOrders: orders };
+  }
+  const orderIds = orders.map((order) => order.id);
+  const lines = await orderTiersService.listForOrders(orderIds, tx);
+  const hasExclusive = new Set<string>();
+  for (const line of lines) {
+    if (exclusiveTierIds.includes(line.eventTierId)) {
+      hasExclusive.add(line.orderId);
+    }
+  }
+  const exclusiveOrders: OrderRow[] = [];
+  const addonOnlyOrders: OrderRow[] = [];
+  for (const order of orders) {
+    if (hasExclusive.has(order.id)) {
+      exclusiveOrders.push(order);
+      continue;
+    }
+    addonOnlyOrders.push(order);
+  }
+  return { exclusiveOrders, addonOnlyOrders };
+}
+
+async function findAlreadyPurchasedAddonIdsTx(
+  tx: CheckoutTx,
+  params: {
+    eventId: string;
+    personId: string;
+    addonTierIds: string[];
+    ignoreOrderId?: string;
+  },
+): Promise<string[]> {
+  if (params.addonTierIds.length === 0) {
+    return [];
+  }
+  const orderIds = await ordersService.listIdsForPersonOnEventAndStatusesInTx(tx, {
+    eventId: params.eventId,
+    personId: params.personId,
+    statuses: ["pending", "paid"],
+  });
+  const filteredOrderIds = params.ignoreOrderId
+    ? orderIds.filter((id) => id !== params.ignoreOrderId)
+    : orderIds;
+  const tierIds = await orderTiersService.listTierIdsAmongOrderIds(filteredOrderIds, tx);
+  const owned = new Set(tierIds);
+  return params.addonTierIds.filter((id) => owned.has(id));
+}
 
 async function pendingOrderMatchesCheckoutTx(
   tx: CheckoutTx,
@@ -314,16 +382,8 @@ export async function createCheckoutIntent(
         return checkoutFailure("event_not_found");
       }
 
-      const existingCheckoutOrder = session.personId
-        ? await ordersService.findPendingOrPaidForPersonOnEventInTx(
-            tx,
-            ev.id,
-            session.personId,
-          )
-        : null;
-      const capacityExcludeOrderId = checkoutCapacityExcludeOrderId(
-        existingCheckoutOrder,
-      );
+      let capacityExcludeOrderId: string | undefined;
+      let inviteLinkMaxRedemptions: number | null = null;
 
       let inviteLinkId: string | null = null;
       if (ev.accessMode === "invite_only") {
@@ -373,16 +433,7 @@ export async function createCheckoutIntent(
         }
         if (isGuest && guestLinkId && guestLinkMax != null) {
           inviteLinkId = guestLinkId;
-          let used = await ordersService.countPendingOrPaidForInviteLink(inviteLinkId, tx);
-          used = await decrementCountIfExcludedPendingOrderTx(
-            tx,
-            used,
-            capacityExcludeOrderId,
-            (order) => order.inviteLinkId === inviteLinkId,
-          );
-          if (used + 1 > guestLinkMax) {
-            return checkoutFailure("invite_exhausted");
-          }
+          inviteLinkMaxRedemptions = guestLinkMax;
         }
       }
 
@@ -395,36 +446,6 @@ export async function createCheckoutIntent(
         return checkoutFailure(tierResult.reason);
       }
       const selectedTiers = tierResult.selectedTiers;
-
-      let headUsed = await ordersService.countPendingOrPaidForEvent(ev.id, tx);
-      headUsed = await decrementCountIfExcludedPendingOrderTx(
-        tx,
-        headUsed,
-        capacityExcludeOrderId,
-        (order) => order.eventId === ev.id,
-      );
-      const eventRemainingInit =
-        ev.eventQuota != null ? Math.max(0, ev.eventQuota - headUsed) : null;
-      const eventSlotsLeft =
-        eventRemainingInit != null ? eventRemainingInit : Number.POSITIVE_INFINITY;
-      const eventRemCur = Number.isFinite(eventSlotsLeft) ? eventSlotsLeft : null;
-
-      if (eventRemCur != null && eventRemCur < 1) {
-        return checkoutFailure("event_sold_out");
-      }
-
-      for (const tier of selectedTiers) {
-        const sold = await getTierSoldQty(ev.id, tier.id, tx, capacityExcludeOrderId);
-        const placesCap = computeTierPlacesRemaining({
-          tierQuota: tier.quota,
-          sold,
-          eventRemaining: eventRemCur,
-        });
-        const capForCompare = placesCap == null ? Number.POSITIVE_INFINITY : placesCap;
-        if (1 > capForCompare) {
-          return checkoutFailure("tier_sold_out", tier.name);
-        }
-      }
 
       const checkoutEmail =
         profilePerson.email?.trim()?.toLowerCase() ??
@@ -464,10 +485,55 @@ export async function createCheckoutIntent(
         });
       }
 
-      const existingOrder =
-        existingCheckoutOrder?.personId === personId ? existingCheckoutOrder : null;
+      const activeTiers = await eventTiersService.listActiveForEvent(ev.id, tx);
+      const exclusiveTierIds = activeTiers
+        .filter((tier) => tier.selectionMode === "exclusive")
+        .map((tier) => tier.id);
+      const selectedHasExclusive = isExclusiveSelection(selectedTiers);
 
+      const personOrders = await ordersService.listPendingOrPaidForPersonOnEventInTx(
+        tx,
+        ev.id,
+        personId,
+      );
+      const splitOrders = await splitOrdersByModeTx(tx, personOrders, exclusiveTierIds);
+      const hasPaidExclusiveSeat = splitOrders.exclusiveOrders.some(
+        (order) => order.status === "paid",
+      );
+      const latestPendingExclusiveOrder =
+        splitOrders.exclusiveOrders.find((order) => order.status === "pending") ??
+        null;
+      const latestPendingAddonOnlyOrder =
+        splitOrders.addonOnlyOrders.find((order) => order.status === "pending") ??
+        null;
+
+      if (selectedHasExclusive && hasPaidExclusiveSeat) {
+        return checkoutFailure("already_registered");
+      }
+
+      if (!selectedHasExclusive && !hasPaidExclusiveSeat) {
+        return checkoutFailure("upsell_addon_only");
+      }
+
+      const existingOrder = selectedHasExclusive
+        ? latestPendingExclusiveOrder
+        : latestPendingAddonOnlyOrder;
       const excludeOrderId = checkoutCapacityExcludeOrderId(existingOrder);
+      capacityExcludeOrderId = excludeOrderId;
+
+      if (selectedHasExclusive && inviteLinkId && inviteLinkMaxRedemptions != null) {
+        let used = await ordersService.countPendingOrPaidForInviteLink(inviteLinkId, tx);
+        used = await decrementCountIfExcludedPendingOrderTx(
+          tx,
+          used,
+          capacityExcludeOrderId,
+          (order) => order.inviteLinkId === inviteLinkId,
+        );
+        if (used + 1 > inviteLinkMaxRedemptions) {
+          return checkoutFailure("invite_exhausted");
+        }
+      }
+
       const pricingResult = await resolveCheckoutPricingInTx(tx, {
         eventId: ev.id,
         selectedTiers,
@@ -497,6 +563,54 @@ export async function createCheckoutIntent(
             clientSecret: resolved.clientSecret,
             amountCents: resolved.amountCents,
           });
+        }
+      }
+
+      if (!selectedHasExclusive) {
+        const alreadyPurchased = await findAlreadyPurchasedAddonIdsTx(tx, {
+          eventId: ev.id,
+          personId,
+          addonTierIds,
+          ignoreOrderId: existingOrder?.id,
+        });
+        if (alreadyPurchased.length > 0) {
+          return checkoutFailure("addon_already_purchased");
+        }
+        inviteLinkId = null;
+      }
+
+      const eventRemainingForSelection = selectedHasExclusive
+        ? ev.eventQuota != null
+          ? Math.max(
+              0,
+              ev.eventQuota -
+                (await getExclusiveTierLinesSoldQty(
+                  ev.id,
+                  exclusiveTierIds,
+                  tx,
+                  capacityExcludeOrderId,
+                )),
+            )
+          : null
+        : null;
+
+      if (selectedHasExclusive && eventRemainingForSelection != null && eventRemainingForSelection < 1) {
+        return checkoutFailure("event_sold_out");
+      }
+
+      for (const tier of selectedTiers) {
+        const sold = await getTierSoldQty(ev.id, tier.id, tx, capacityExcludeOrderId);
+        const placesCap = computeTierPlacesRemaining({
+          tierQuota: tier.quota,
+          sold,
+          eventRemaining:
+            selectedHasExclusive && tier.selectionMode === "exclusive"
+              ? eventRemainingForSelection
+              : null,
+        });
+        const capForCompare = placesCap == null ? Number.POSITIVE_INFINITY : placesCap;
+        if (1 > capForCompare) {
+          return checkoutFailure("tier_sold_out", tier.name);
         }
       }
 

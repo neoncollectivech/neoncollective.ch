@@ -87,3 +87,37 @@ export async function listRegisteredOrderTiersForOrder(
   }
   return out;
 }
+
+export async function listRegisteredOrderTiersForOrders(
+  orderIds: string[],
+  tx?: EntityTx,
+): Promise<RegisteredOrderTierPayload[]> {
+  if (orderIds.length === 0) {
+    return [];
+  }
+  const lines = await orderTiersService.listForOrders(orderIds, tx);
+  if (lines.length === 0) {
+    return [];
+  }
+  const tiers = await eventTiersService.getByIds(
+    lines.map((line) => line.eventTierId),
+    tx,
+  );
+  const tierById = new Map(tiers.map((tier) => [tier.id, tier]));
+  const out: RegisteredOrderTierPayload[] = [];
+  for (const line of lines) {
+    const tier = tierById.get(line.eventTierId);
+    if (!tier) {
+      continue;
+    }
+    out.push({
+      id: tier.id,
+      name: tier.name,
+      description: tier.description.trim(),
+      selectionMode: tier.selectionMode,
+      priceCents: line.unitPriceCents,
+      currency: tier.currency,
+    });
+  }
+  return out;
+}

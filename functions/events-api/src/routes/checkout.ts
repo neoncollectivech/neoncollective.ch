@@ -68,6 +68,14 @@ const CHECKOUT_INTENT_ERRORS: Record<
   },
   profile_mismatch: { status: 409, error: "Profile mismatch — refresh and try again." },
   already_registered: { status: 409, error: "You are already registered for this event." },
+  upsell_addon_only: {
+    status: 409,
+    error: "You already have a confirmed place. You can only extend with add-ons.",
+  },
+  addon_already_purchased: {
+    status: 409,
+    error: "This add-on is already part of your contribution for this event.",
+  },
   payment_complete_refresh: {
     status: 409,
     error: "Your payment is complete. Refresh the page to see your confirmation.",

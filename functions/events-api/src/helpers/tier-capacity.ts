@@ -45,8 +45,28 @@ export async function getTierSoldQty(
   return orderTiersService.countByTierAmongOrderIds(tierId, orderIds, tx);
 }
 
+export async function getExclusiveTierLinesSoldQty(
+  eventId: string,
+  exclusiveTierIds: string[],
+  tx?: TierTx,
+  excludeOrderId?: string,
+): Promise<number> {
+  if (exclusiveTierIds.length === 0) {
+    return 0;
+  }
+  let orderIds = await ordersService.listIdsByEventAndStatuses(
+    eventId,
+    ["pending", "paid"],
+    tx,
+  );
+  if (excludeOrderId) {
+    orderIds = orderIds.filter((id) => id !== excludeOrderId);
+  }
+  return orderTiersService.countByTierIdsAmongOrderIds(exclusiveTierIds, orderIds, tx);
+}
+
 export async function enrichTiersWithCapacityStats<
-  T extends { id: string; quota: number | null },
+  T extends { id: string; quota: number | null; selectionMode?: "exclusive" | "addon" },
 >(
   eventId: string,
   eventQuota: number | null,
@@ -55,7 +75,10 @@ export async function enrichTiersWithCapacityStats<
   tiers: (T & { sold: number; placesRemaining: number | null })[];
   capacity: EventCapacitySnapshot;
 }> {
-  const used = await ordersService.countPendingOrPaidForEvent(eventId);
+  const exclusiveTierIds = tiers
+    .filter((tier) => tier.selectionMode === "exclusive")
+    .map((tier) => tier.id);
+  const used = await getExclusiveTierLinesSoldQty(eventId, exclusiveTierIds);
   const remaining = eventQuota != null ? Math.max(0, eventQuota - used) : null;
 
   const enriched = await Promise.all(

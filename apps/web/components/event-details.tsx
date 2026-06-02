@@ -147,6 +147,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const [chargedTotalCents, setChargedTotalCents] = useState<number | null>(
     null,
   );
+  const [showUpsellFlow, setShowUpsellFlow] = useState(false);
 
   const checkoutConfirmation = useCheckoutConfirmation({
     slug,
@@ -157,17 +158,24 @@ function EventDetailsInner({ slug }: { slug: string }) {
     },
   });
 
+  const checkoutTiers = useMemo(() => {
+    const ev = eventQuery.data;
+    if (ev?.registrationConfirmed && ev.availableUpsellTiers?.length) {
+      return ev.availableUpsellTiers;
+    }
+    return ev?.tiers ?? [];
+  }, [eventQuery.data]);
   const exclusiveTiers = useMemo(
-    () => (eventQuery.data?.tiers ?? []).filter(isExclusiveTier),
-    [eventQuery.data?.tiers],
+    () => checkoutTiers.filter(isExclusiveTier),
+    [checkoutTiers],
   );
   const addonTiers = useMemo(
-    () => (eventQuery.data?.tiers ?? []).filter(isAddonTier),
-    [eventQuery.data?.tiers],
+    () => checkoutTiers.filter(isAddonTier),
+    [checkoutTiers],
   );
 
   useEffect(() => {
-    const tiers = eventQuery.data?.tiers ?? [];
+    const tiers = checkoutTiers;
     const autoId = defaultExclusiveTierId(tiers);
 
     if (autoId) {
@@ -189,7 +197,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
       return null;
     });
-  }, [eventQuery.data?.tiers, exclusiveTiers, slug]);
+  }, [checkoutTiers, exclusiveTiers, slug]);
 
   useEffect(() => {
     const addonIds = new Set(addonTiers.map((tier) => tier.id));
@@ -211,8 +219,14 @@ function EventDetailsInner({ slug }: { slug: string }) {
     setChargedTotalCents(null);
   }, [selectedExclusiveId, selectedAddonIds, promo]);
 
+  useEffect(() => {
+    if (!eventQuery.data?.availableUpsellTiers?.length) {
+      setShowUpsellFlow(false);
+    }
+  }, [eventQuery.data?.availableUpsellTiers?.length]);
+
   const selectedTiers = useMemo(() => {
-    const tiers = eventQuery.data?.tiers ?? [];
+    const tiers = checkoutTiers;
     const ids = new Set<string>();
 
     if (selectedExclusiveId) {
@@ -223,7 +237,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
     }
 
     return tiers.filter((tier) => ids.has(tier.id));
-  }, [eventQuery.data?.tiers, selectedExclusiveId, selectedAddonIds]);
+  }, [checkoutTiers, selectedExclusiveId, selectedAddonIds]);
 
   const listTotalCents = useMemo(
     () => selectedTiers.reduce((sum, tier) => sum + tier.priceCents, 0),
@@ -233,10 +247,14 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const intentMutation = useMutation(eventsApi.checkout.intent());
   const checkoutLocked = Boolean(clientSecret) || intentMutation.isPending;
 
+  const upsellOnlyCheckout =
+    Boolean(eventQuery.data?.registrationConfirmed) &&
+    Boolean(eventQuery.data?.availableUpsellTiers?.length);
+
   const pricingPreviewQuery = useQuery(
     eventsApi.checkout.pricingPreview({
       slug,
-      exclusiveTierId: selectedExclusiveId ?? "",
+      exclusiveTierId: upsellOnlyCheckout ? "" : (selectedExclusiveId ?? ""),
       addonTierIds: Array.from(selectedAddonIds),
       promotionCode: promo ?? null,
       enabled:
@@ -333,10 +351,29 @@ function EventDetailsInner({ slug }: { slug: string }) {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  const openUpsellFlow = useCallback(() => {
+    setShowUpsellFlow(true);
+    setSelectedAddonIds(new Set());
+    setClientSecret(null);
+    setCheckoutOrderId(null);
+    setCheckoutReturnUrl(null);
+    setChargedTotalCents(null);
+    intentMutation.reset();
+    requestAnimationFrame(() => {
+      document
+        .getElementById("event-upsell-contribution")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [intentMutation]);
+
   const handleConfirmContribution = useCallback(() => {
     const useProfileContact = Boolean(profileGate.profile?.profileComplete);
     const profileEmail = profileGate.profile?.email?.trim() ?? "";
     const profilePhone = profileGate.profile?.phoneE164?.trim() ?? "";
+
+    const upsellOnly =
+      Boolean(eventQuery.data?.registrationConfirmed) &&
+      Boolean(eventQuery.data?.availableUpsellTiers?.length);
 
     intentMutation.mutate(
       {
@@ -354,7 +391,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
             : null,
         inviteToken: effectiveInviteToken ?? null,
         promotionCode: promo ?? null,
-        exclusiveTierId: selectedExclusiveId ?? "",
+        exclusiveTierId: upsellOnly ? "" : (selectedExclusiveId ?? ""),
         addonTierIds: Array.from(selectedAddonIds),
         returnPath: detailReturnPath,
       },
@@ -386,6 +423,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
     profileGate.profile,
     promo,
     selectedAddonIds,
+    eventQuery.data?.availableUpsellTiers?.length,
+    eventQuery.data?.registrationConfirmed,
     selectedExclusiveId,
     slug,
   ]);
@@ -412,6 +451,9 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const ev = eventQuery.data as EventPayload;
   const registrationSettled =
     Boolean(ev.registrationConfirmed) && !confirmingRegistration;
+  const hasUpsellOptions = Boolean(
+    ev.registrationConfirmed && ev.availableUpsellTiers?.length,
+  );
 
   const showInviteOnlyGate =
     ev.inviteOnly && ev.access === "minimal" && !registrationSettled;
@@ -442,7 +484,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
     ? true
     : Boolean(email.trim() || phone.trim());
 
-  const needsStripe = !ev.registrationConfirmed && Boolean(ev.tiers?.length);
+  const needsStripe =
+    (!ev.registrationConfirmed && Boolean(ev.tiers?.length)) || hasUpsellOptions;
   const requiresExclusive = exclusiveTiers.length > 0;
   const tierSelectionReady = requiresExclusive
     ? Boolean(selectedExclusiveId)
@@ -470,10 +513,12 @@ function EventDetailsInner({ slug }: { slug: string }) {
     (ev.access === "minimal" || !ev.tiers || ev.tiers.length === 0);
 
   const showCheckout =
-    !ev.registrationConfirmed &&
+    (!ev.registrationConfirmed || hasUpsellOptions) &&
     !confirmingRegistration &&
-    Boolean(ev.tiers?.length) &&
+    Boolean(checkoutTiers.length) &&
     !accessDenied;
+  const showActiveCheckout =
+    showCheckout && (!registrationSettled || showUpsellFlow);
 
   const backHref = `/${locale}/events`;
   const images = ev.images ?? [];
@@ -483,8 +528,12 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const heroSummary = heroSummaryDisplay(ev.summary ?? null, hasAboutContent);
 
   const contributionLabels = {
-    contributionTitle: t.contributionTitle,
-    contributionSubtitle: t.contributionSubtitle,
+    contributionTitle: hasUpsellOptions
+      ? (t.extendContributionTitle ?? t.contributionTitle)
+      : t.contributionTitle,
+    contributionSubtitle: hasUpsellOptions
+      ? (t.extendContributionSubtitle ?? t.contributionSubtitle)
+      : t.contributionSubtitle,
     checkoutStepChoose: t.checkoutStepChoose,
     checkoutStepPay: t.checkoutStepPay,
     checkoutStepConfirm: t.checkoutStepConfirm,
@@ -544,68 +593,79 @@ function EventDetailsInner({ slug }: { slug: string }) {
     confirmingRegistration ||
     Boolean(checkoutConfirmError && !registrationSettled);
 
-  const contributionPanel = showCheckout ? (
-    <ContributionPanel
-      addonTiers={addonTiers}
-      checkoutContactReady={checkoutContactReady}
-      checkoutDisabledReason={checkoutDisabledReason}
-      checkoutLocked={checkoutLocked}
-      checkoutOrderId={checkoutOrderId}
-      checkoutReturnUrl={checkoutReturnUrl}
-      clientSecret={clientSecret}
-      codeHandled={codeHandled}
-      displayTotalCents={displayTotalCents}
-      elementsOptions={elementsOptions}
-      email={email}
-      exclusiveTiers={exclusiveTiers}
-      hasCheckoutProfile={hasCheckoutProfile}
-      intentMutationError={intentMutation.error}
-      intentMutationPending={intentMutation.isPending}
-      labels={contributionLabels}
-      phone={phone}
-      previewDiscountCents={previewPricing?.discountCents}
-      previewSubtotalCents={previewPricing?.subtotalCents}
-      profileLoading={profileGate.profileLoading}
-      promo={promo}
-      promoInvalid={promoInvalid}
-      returnUrl={returnUrl}
-      selectedAddonIds={selectedAddonIds}
-      selectedExclusiveId={selectedExclusiveId}
-      selectedTiers={selectedTiers}
-      sessionQueryKeys={[eventsKeys.detail(slug, effectiveInviteToken)]}
-      sessionReturnPath={detailReturnPath}
-      showContactForm={showContactForm}
-      showPromoSubtotal={showPromoSubtotal}
-      signInExpanded={signInExpanded}
-      signInSectionRef={signInSectionRef}
-      stripePromise={stripePromise}
-      tierSelectionReady={tierSelectionReady}
-      onAddonChange={(tierId, checked) => {
-        setSelectedAddonIds((prev) => {
-          const next = new Set(prev);
+  const contributionPanelProps = {
+    addonTiers,
+    checkoutContactReady,
+    checkoutDisabledReason,
+    checkoutLocked,
+    checkoutOrderId,
+    checkoutReturnUrl,
+    clientSecret,
+    codeHandled,
+    displayTotalCents,
+    elementsOptions,
+    email,
+    exclusiveTiers,
+    hasCheckoutProfile,
+    intentMutationError: intentMutation.error,
+    intentMutationPending: intentMutation.isPending,
+    labels: contributionLabels,
+    phone,
+    previewDiscountCents: previewPricing?.discountCents,
+    previewSubtotalCents: previewPricing?.subtotalCents,
+    profileLoading: profileGate.profileLoading,
+    promo,
+    promoInvalid,
+    returnUrl,
+    selectedAddonIds,
+    selectedExclusiveId,
+    selectedTiers,
+    sessionQueryKeys: [eventsKeys.detail(slug, effectiveInviteToken)],
+    sessionReturnPath: detailReturnPath,
+    showContactForm,
+    showPromoSubtotal,
+    signInExpanded,
+    signInSectionRef,
+    stripePromise,
+    tierSelectionReady,
+    onAddonChange: (tierId: string, checked: boolean) => {
+      setSelectedAddonIds((prev) => {
+        const next = new Set(prev);
 
-          if (checked) {
-            next.add(tierId);
-          } else {
-            next.delete(tierId);
-          }
-
-          return next;
-        });
-      }}
-      onChangeLevel={handleChangeLevel}
-      onConfirmContribution={handleConfirmContribution}
-      onEmailChange={setEmail}
-      onExclusiveChange={setSelectedExclusiveId}
-      onPaymentSucceeded={() => {
-        if (checkoutOrderId) {
-          startCheckoutAfterPayment(checkoutOrderId);
+        if (checked) {
+          next.add(tierId);
+        } else {
+          next.delete(tierId);
         }
-      }}
-      onPhoneChange={setPhone}
-      onSignInExpandedChange={setSignInExpanded}
-    />
-  ) : null;
+
+        return next;
+      });
+    },
+    onChangeLevel: handleChangeLevel,
+    onConfirmContribution: handleConfirmContribution,
+    onEmailChange: setEmail,
+    onExclusiveChange: setSelectedExclusiveId,
+    onPaymentSucceeded: () => {
+      if (checkoutOrderId) {
+        startCheckoutAfterPayment(checkoutOrderId);
+      }
+    },
+    onPhoneChange: setPhone,
+    onSignInExpandedChange: setSignInExpanded,
+  };
+
+  const contributionPanel =
+    showCheckout && !registrationSettled ? (
+      <ContributionPanel id="event-contribution" {...contributionPanelProps} />
+    ) : null;
+
+  const upsellContributionPanel =
+    showCheckout && registrationSettled && hasUpsellOptions && showUpsellFlow ? (
+      <ContributionPanel
+        id="event-upsell-contribution"
+        {...contributionPanelProps}
+      />
+    ) : null;
 
   const checkoutAside = !checkoutEligible ? null : showPendingAside ? (
     <RegistrationPendingPanel
@@ -644,8 +704,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
       locale={locale}
       location={ev.location ?? null}
       posterUrl={heroImage}
-      showContributionAnchor={showCheckout && hasAboutContent}
-      showTrustDisclaimer={!showCheckout}
+      showContributionAnchor={showActiveCheckout && hasAboutContent}
+      showTrustDisclaimer={!showActiveCheckout}
       startsAt={ev.startsAt}
       summary={ev.summary ?? null}
       summaryDisplay={heroSummary}
@@ -685,12 +745,18 @@ function EventDetailsInner({ slug }: { slug: string }) {
                   registrationConfirmedTierAddon:
                     t.registrationConfirmedTierAddon,
                   registrationConfirmedTitle: t.registrationConfirmedTitle,
+                  extendContributionCta:
+                    t.extendContributionCta ?? t.confirmContribution,
                   supportNeonBeyondEvent: t.supportNeonBeyondEvent,
                 }}
                 locale={locale}
                 slug={slug}
+                showUpsellCta={hasUpsellOptions}
+                onUpsellPress={openUpsellFlow}
               />
             ) : null}
+
+            {upsellContributionPanel}
 
             {!sideBySideCheckout ? eventHero : null}
           </>
@@ -705,7 +771,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
         }
         mainLead={sideBySideCheckout ? eventHero : null}
         stickyBarPadding={
-          showCheckout &&
+          showActiveCheckout &&
           tierSelectionReady &&
           !clientSecret &&
           !profileGate.showProfileGateModal &&
@@ -714,7 +780,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
         twoColumn={hasAboutContent}
       />
 
-      {showCheckout &&
+      {showActiveCheckout &&
       tierSelectionReady &&
       !clientSecret &&
       !profileGate.showProfileGateModal &&

@@ -45,6 +45,13 @@ async function resolveExclusiveTierIdForOrder(
   return eventTiersService.findExclusiveTierIdAmong(tierIds, tx);
 }
 
+async function orderHasExclusiveTierInTx(
+  tx: EntityTx,
+  orderId: string,
+): Promise<boolean> {
+  return Boolean(await resolveExclusiveTierIdForOrder(tx, orderId));
+}
+
 async function createAdmissionForOrderInTx(
   tx: EntityTx,
   orderId: string,
@@ -143,7 +150,8 @@ async function repairPaidOrderFulfillmentInTx(
   order: OrderRow,
 ): Promise<boolean> {
   const existingAdmission = await admissionsService.findIdByOrderInTx(tx, order.id);
-  if (!existingAdmission) {
+  const shouldHaveAdmission = await orderHasExclusiveTierInTx(tx, order.id);
+  if (shouldHaveAdmission && !existingAdmission) {
     const created = await createAdmissionForOrderInTx(tx, order.id, order.eventId);
     if (!created) {
       log.error({ orderId: order.id }, "Paid order missing exclusive tier for admission");
@@ -207,9 +215,11 @@ async function applyCheckoutFulfillmentSideEffectsInTx(
 
   await ordersService.markPaidInTx(tx, order.id);
 
-  const admissionOk = await createAdmissionForOrderInTx(tx, order.id, order.eventId);
-  if (!admissionOk) {
-    return false;
+  if (await orderHasExclusiveTierInTx(tx, order.id)) {
+    const admissionOk = await createAdmissionForOrderInTx(tx, order.id, order.eventId);
+    if (!admissionOk) {
+      return false;
+    }
   }
 
   if (order.inviteLinkId) {

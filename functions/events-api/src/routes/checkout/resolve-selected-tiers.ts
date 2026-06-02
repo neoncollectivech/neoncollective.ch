@@ -41,12 +41,9 @@ export async function resolveSelectedCheckoutTiersInTx(
   const addonTierIds = uniqueCheckoutAddonIds(params.addonTierIds);
   const activeTiers = await eventTiersService.listActiveForEvent(params.eventId, tx);
   const hasExclusiveTiers = activeTiers.some((tier) => tier.selectionMode === "exclusive");
-
-  if (hasExclusiveTiers && !exclusiveTierId) {
-    return { ok: false, reason: "tier_required" };
-  }
-  if (!hasExclusiveTiers && addonTierIds.length === 0) {
-    return { ok: false, reason: "tiers_required" };
+  const hasAnySelection = Boolean(exclusiveTierId) || addonTierIds.length > 0;
+  if (!hasAnySelection) {
+    return { ok: false, reason: hasExclusiveTiers ? "tier_required" : "tiers_required" };
   }
 
   const selectedIds = [...(exclusiveTierId ? [exclusiveTierId] : []), ...addonTierIds];

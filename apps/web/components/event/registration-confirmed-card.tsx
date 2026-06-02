@@ -6,6 +6,7 @@ import type { EventPayload, RegisteredOrderTier } from "@/helpers/eventsApi";
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { HostInviteShareBlock } from "@/components/event/host-invite-share-block";
 import { NeonLink } from "@/components/neon-link";
+import { NeonTextButton } from "@/components/neon-text-button";
 import { buildGoogleCalendarUrl } from "@/helpers/calendar-links";
 import { formatLocaleDateTime } from "@/helpers/format-locale-datetime";
 
@@ -106,9 +107,12 @@ type RegistrationConfirmedCardProps = {
     hostInviteConversionsTitle: string;
     hostInviteConversionsEmpty: string;
     addToCalendar: string;
+    extendContributionCta: string;
     supportNeonBeyondEvent: string;
     donateCta: string;
   };
+  showUpsellCta?: boolean;
+  onUpsellPress?: () => void;
 };
 
 export function RegistrationConfirmedCard({
@@ -117,6 +121,8 @@ export function RegistrationConfirmedCard({
   locale,
   donateHref,
   labels,
+  showUpsellCta = false,
+  onUpsellPress,
 }: RegistrationConfirmedCardProps) {
   const calendarUrl =
     ev.startsAt != null
@@ -170,6 +176,14 @@ export function RegistrationConfirmedCard({
             {labels.registrationConfirmedBodyNoTier}
           </p>
         )}
+
+        {showUpsellCta && onUpsellPress ? (
+          <div className="mt-6">
+            <NeonTextButton type="button" onClick={onUpsellPress}>
+              {labels.extendContributionCta}
+            </NeonTextButton>
+          </div>
+        ) : null}
 
         {calendarUrl ? (
           <div className="mt-6">

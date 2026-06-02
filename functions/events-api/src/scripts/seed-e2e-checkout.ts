@@ -52,6 +52,13 @@ const HOST_INVITED_PROMO = {
   familyName: "HostInvitedPromo",
 };
 
+const UPSELL_INVITED = {
+  phone: process.env.E2E_UPSELL_INVITED_PHONE?.trim() || "+41791234570",
+  email: process.env.E2E_UPSELL_INVITED_EMAIL?.trim() || "e2e-upsell-invited@neon.test",
+  givenName: "E2E",
+  familyName: "UpsellInvited",
+};
+
 type Db = ReturnType<typeof getDb>;
 
 async function truncateAllApplicationData(db: Db): Promise<void> {
@@ -264,6 +271,7 @@ async function main(): Promise<void> {
   assertPhoneE164("Host Invited", HOST_INVITED.phone);
   assertPhoneE164("Guest Invited", GUEST_INVITED.phone);
   assertPhoneE164("Host InvitedPromo", HOST_INVITED_PROMO.phone);
+  assertPhoneE164("Upsell Invited", UPSELL_INVITED.phone);
 
   const site = process.env.PUBLIC_SITE_URL ?? "http://localhost:3000";
   let origin: string;
@@ -277,7 +285,7 @@ async function main(): Promise<void> {
   await truncateAllApplicationData(db);
 
   const startsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  const { eventId } = await ensureInviteOnlyEvent(db, startsAt);
+  const { eventId, tierIds } = await ensureInviteOnlyEvent(db, startsAt);
 
   const upserted = await upsertInviteesForEvent(eventId, [
     {
@@ -296,16 +304,28 @@ async function main(): Promise<void> {
       maxRedemptions: 10,
       notes: "seed-e2e-host-invited-promo",
     },
+    {
+      givenName: UPSELL_INVITED.givenName,
+      familyName: UPSELL_INVITED.familyName,
+      email: UPSELL_INVITED.email,
+      phoneE164: UPSELL_INVITED.phone,
+      maxRedemptions: 10,
+      notes: "seed-e2e-upsell-invited",
+    },
   ]);
 
   const hostInvitedPersonId = upserted.results[0]?.personId;
   const hostInvitedPromoPersonId = upserted.results[1]?.personId;
-  if (!hostInvitedPersonId || !hostInvitedPromoPersonId) {
-    throw new Error("Failed to upsert Host Invited / Host InvitedPromo on guest list.");
+  const upsellInvitedPersonId = upserted.results[2]?.personId;
+  if (!hostInvitedPersonId || !hostInvitedPromoPersonId || !upsellInvitedPersonId) {
+    throw new Error(
+      "Failed to upsert Host Invited / Host InvitedPromo / Upsell Invited on guest list.",
+    );
   }
 
   await verifyPersonContact(db, hostInvitedPersonId);
   await verifyPersonContact(db, hostInvitedPromoPersonId);
+  await verifyPersonContact(db, upsellInvitedPersonId);
 
   const privateUrl = `${origin}/${LOCALE}/events/private?slug=${encodeURIComponent(SLUG)}`;
   const freePromoUrl = `${privateUrl}&promo=${encodeURIComponent(PROMO_CODE)}`;
@@ -318,14 +338,21 @@ async function main(): Promise<void> {
     hostInvited: HOST_INVITED,
     guestInvited: GUEST_INVITED,
     hostInvitedPromo: HOST_INVITED_PROMO,
+    upsellInvited: UPSELL_INVITED,
     privateUrl,
     freePromoUrl,
     promoCode: PROMO_CODE,
     rootTierName: ROOT_TIER_NAME,
     addon1TierName: ADDON_1_TIER_NAME,
     addon2TierName: ADDON_2_TIER_NAME,
+    rootTierId: tierIds.rootId,
+    addon1Id: tierIds.addon1Id,
+    addon2Id: tierIds.addon2Id,
     exclusiveTierName: ROOT_TIER_NAME,
     addonTierName: ADDON_1_TIER_NAME,
+    rootTierCents: ROOT_TIER_CENTS,
+    addon1TierCents: ADDON_1_TIER_CENTS,
+    addon2TierCents: ADDON_2_TIER_CENTS,
     guestTierLine: `${ROOT_TIER_NAME} + ${ADDON_1_TIER_NAME}`,
     checkoutTotalChf: checkoutTotalCents / 100,
     checkoutTotalCents,
