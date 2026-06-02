@@ -147,8 +147,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const [chargedTotalCents, setChargedTotalCents] = useState<number | null>(
     null,
   );
-  const [showUpsellFlow, setShowUpsellFlow] = useState(false);
-
   const checkoutConfirmation = useCheckoutConfirmation({
     slug,
     inviteToken: effectiveInviteToken,
@@ -218,12 +216,6 @@ function EventDetailsInner({ slug }: { slug: string }) {
   useEffect(() => {
     setChargedTotalCents(null);
   }, [selectedExclusiveId, selectedAddonIds, promo]);
-
-  useEffect(() => {
-    if (!eventQuery.data?.availableUpsellTiers?.length) {
-      setShowUpsellFlow(false);
-    }
-  }, [eventQuery.data?.availableUpsellTiers?.length]);
 
   const selectedTiers = useMemo(() => {
     const tiers = checkoutTiers;
@@ -351,20 +343,11 @@ function EventDetailsInner({ slug }: { slug: string }) {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const openUpsellFlow = useCallback(() => {
-    setShowUpsellFlow(true);
-    setSelectedAddonIds(new Set());
-    setClientSecret(null);
-    setCheckoutOrderId(null);
-    setCheckoutReturnUrl(null);
-    setChargedTotalCents(null);
-    intentMutation.reset();
-    requestAnimationFrame(() => {
-      document
-        .getElementById("event-upsell-contribution")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [intentMutation]);
+  const scrollToUpsellContribution = useCallback(() => {
+    document
+      .getElementById("event-upsell-contribution")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const handleConfirmContribution = useCallback(() => {
     const useProfileContact = Boolean(profileGate.profile?.profileComplete);
@@ -518,7 +501,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
     Boolean(checkoutTiers.length) &&
     !accessDenied;
   const showActiveCheckout =
-    showCheckout && (!registrationSettled || showUpsellFlow);
+    showCheckout && (!registrationSettled || hasUpsellOptions);
 
   const backHref = `/${locale}/events`;
   const images = ev.images ?? [];
@@ -660,7 +643,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
     ) : null;
 
   const upsellContributionPanel =
-    showCheckout && registrationSettled && hasUpsellOptions && showUpsellFlow ? (
+    showCheckout && registrationSettled && hasUpsellOptions ? (
       <ContributionPanel
         id="event-upsell-contribution"
         {...contributionPanelProps}
@@ -684,7 +667,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
   );
 
   const showUpsellPanel =
-    showCheckout && registrationSettled && hasUpsellOptions && showUpsellFlow;
+    showCheckout && registrationSettled && hasUpsellOptions;
 
   const sideBySideCheckout = Boolean(checkoutAside) && hasAboutContent;
   const sideBySideUpsell = Boolean(showUpsellPanel && hasAboutContent);
@@ -715,7 +698,11 @@ function EventDetailsInner({ slug }: { slug: string }) {
       summary={ev.summary ?? null}
       summaryDisplay={heroSummary}
       title={ev.title}
-      onContributionAnchorClick={scrollToContribution}
+      onContributionAnchorClick={
+        registrationSettled && hasUpsellOptions
+          ? scrollToUpsellContribution
+          : scrollToContribution
+      }
     />
   );
 
@@ -754,7 +741,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       locale={locale}
       slug={slug}
       showUpsellCta={hasUpsellOptions}
-      onUpsellPress={openUpsellFlow}
+      onUpsellPress={scrollToUpsellContribution}
     />
   ) : null;
 
