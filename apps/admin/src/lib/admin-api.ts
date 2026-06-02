@@ -694,3 +694,68 @@ export async function runMaintenance(): Promise<MaintenanceRunResult> {
 
   return res.data;
 }
+
+/** Admin API key list item (no token hash). */
+export type ApiKeyRow = {
+  id: string;
+  eventId: string | null;
+  label: string;
+  keyPrefix: string;
+  createdAt: string;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+  createdByEmail: string | null;
+};
+
+export type ApiKeyCreatePayload = {
+  label: string;
+  eventId?: string | null;
+};
+
+export type ApiKeyCreateResult = {
+  item: ApiKeyRow;
+  token: string;
+};
+
+export async function listApiKeys(params?: { eventId?: "global" | string }) {
+  const res = await api.get<{ items: ApiKeyRow[] }>("/admin/api-keys", {
+    params:
+      params?.eventId === "global"
+        ? { eventId: "global" }
+        : params?.eventId
+          ? { eventId: params.eventId }
+          : undefined,
+  });
+
+  return res.data.items;
+}
+
+export async function listEventApiKeys(eventId: string) {
+  const res = await api.get<{ items: ApiKeyRow[] }>(
+    `/admin/events/${eventId}/api-keys`,
+  );
+
+  return res.data.items;
+}
+
+export async function createApiKey(payload: ApiKeyCreatePayload) {
+  const res = await api.post<ApiKeyCreateResult>("/admin/api-keys", payload);
+
+  return res.data;
+}
+
+export async function createEventApiKey(
+  eventId: string,
+  payload: Pick<ApiKeyCreatePayload, "label">,
+) {
+  const res = await api.post<ApiKeyCreateResult>(
+    `/admin/events/${eventId}/api-keys`,
+    payload,
+  );
+
+  return res.data;
+}
+
+export async function revokeApiKey(id: string) {
+  await api.post(`/admin/api-keys/${id}/revoke`);
+}

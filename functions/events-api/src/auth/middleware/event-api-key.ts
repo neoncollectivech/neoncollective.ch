@@ -1,20 +1,18 @@
 import { bearerAuth } from "hono/bearer-auth";
 import type { Context } from "hono";
 
-import { getEventsApiEnv } from "../../config/runtime-env";
 import type { AppEnv } from "../env";
 import { resolveEventApiKey } from "../resolvers/event-api-key";
 
-/** Required Bearer auth for check-in and future event-scoped API key routes. */
+/** Required Bearer auth for check-in and event API key routes. */
 export const eventApiKeyBearerAuth = bearerAuth({
   verifyToken: async (token, c) => {
     const ctx = c as Context<AppEnv>;
     const auth = await resolveEventApiKey(token);
-    if (auth) {
-      ctx.set("eventApiKey", auth);
-      return true;
+    if (!auth) {
+      return false;
     }
-    const staff = getEventsApiEnv().staffCheckinToken;
-    return Boolean(staff && token === staff);
+    ctx.set("eventApiKey", auth);
+    return true;
   },
 });

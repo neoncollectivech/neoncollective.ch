@@ -266,10 +266,18 @@ pnpm deploy:gcp --all
 | Optional identity enrichment (public `/events*`) | Loaders on route shell only |
 | Required session / admin | `createHandlers(requireAuth(...), validator?, handler)` |
 | Participant OR API key (future protected routes) | Loaders on shell + `some(requireAuth(...), requireAuth(...))` on asserts |
-| Mandatory Bearer (check-in, future admissions) | `eventApiKeyBearerAuth` (`bearerAuth` + DB key stub; interim staff token) |
+| Mandatory Bearer (check-in, admissions) | `eventApiKeyBearerAuth` (`bearerAuth` + DB-backed API key) |
 | Stripe webhook | `verifyStripeWebhook` (verify + set `stripeEvent`) |
 
 Mount loaders on **route shells** in `routes/index.ts`; participant cookies via `hono/cookie` (`auth/cookies/participant.ts`). Better Auth stays on admin shell only (`loadAdminSession` + `requireAdminSession`); CDN mount unchanged (`auth/public-url.ts`). Entitlement (`invite-only-entitlement.ts`) is authorization, separate from auth loaders/asserts.
+
+**Event API keys** (`api_keys` table, `api-keys.service.ts`):
+
+- **`eventId` null** = global key (read/admissions/check-in for any event); **non-null** = scoped to one event.
+- Grant check: `apiKeyGrantsEvent(key, eventId)` — routes return **404** (not 403) on event mismatch for admissions/slug reads.
+- Token format: `neon_` + CSPRNG hex; store **SHA-256 hash only**; show raw token once on admin create (`POST /admin/api-keys` or `POST /admin/events/:id/api-keys`); soft revoke via `POST /admin/api-keys/:id/revoke`.
+- Optional Bearer on public `/events*` via `loadEventApiKey`; mandatory on `GET /events/:slug/admissions` and `POST /check-in` via `eventApiKeyBearerAuth`.
+- Check-in sets `checkedInBy` to `api-key:{label}`; scoped keys pass `restrictToEventId`, global keys pass `null`.
 
 Run auth unit tests: `pnpm --filter @neon/events-api test`.
 

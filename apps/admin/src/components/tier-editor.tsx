@@ -84,6 +84,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
 
     if (!rows.some((row) => row.selectionMode === "exclusive")) {
       toast.error("At least one exclusive tier is required.");
+
       return;
     }
 

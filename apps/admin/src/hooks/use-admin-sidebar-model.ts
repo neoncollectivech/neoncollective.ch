@@ -31,6 +31,7 @@ export type AdminSidebarModel = {
 const GLOBAL_LINKS: Omit<AdminNavLink, "isActive">[] = [
   { key: "events", label: "Events", href: "/events" },
   { key: "people", label: "People", href: "/people" },
+  { key: "api-keys", label: "API keys", href: "/api-keys" },
   { key: "maintenance", label: "Maintenance", href: "/maintenance" },
 ];
 

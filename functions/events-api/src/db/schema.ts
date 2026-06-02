@@ -341,6 +341,24 @@ export const stripeEventsProcessed = pgTable("stripe_events_processed", {
   processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Bearer API keys for door apps and integrations; null eventId = all events. */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    /** Null = global key (all events); otherwise scoped to one event. */
+    eventId: uuid("event_id").references(() => events.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    keyPrefix: text("key_prefix").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdByEmail: text("created_by_email"),
+  },
+  (t) => [index("api_keys_event_id_idx").on(t.eventId)],
+);
+
 export const participantSessions = pgTable(
   "participant_sessions",
   {

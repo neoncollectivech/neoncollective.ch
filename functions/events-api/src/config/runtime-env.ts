@@ -24,7 +24,6 @@ export type EventsApiEnv = {
   twilioApiKeySecret: string | undefined;
   twilioMessagingServiceSid: string | undefined;
   twilioFrom: string | undefined;
-  staffCheckinToken: string | undefined;
   eventsApiPublicUrl: string;
   betterAuthSecret: string | undefined;
   googleClientId: string;
@@ -65,7 +64,6 @@ export function readEventsApiEnv(source: EnvSource = process.env): EventsApiEnv 
     twilioApiKeySecret: trim(source, "TWILIO_API_KEY_SECRET"),
     twilioMessagingServiceSid: trim(source, "TWILIO_MESSAGING_SERVICE_SID"),
     twilioFrom: trim(source, "TWILIO_FROM"),
-    staffCheckinToken: trim(source, "STAFF_CHECKIN_TOKEN"),
     eventsApiPublicUrl: trim(source, "EVENTS_API_PUBLIC_URL") ?? "http://localhost:8082",
     betterAuthSecret: trim(source, "BETTER_AUTH_SECRET"),
     googleClientId: trim(source, "GOOGLE_CLIENT_ID") ?? "",

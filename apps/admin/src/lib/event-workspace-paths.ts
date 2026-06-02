@@ -10,7 +10,8 @@ export type EventWorkspaceSection =
   | "tiers"
   | "promotions"
   | "invitees"
-  | "orders";
+  | "orders"
+  | "api-keys";
 
 const WORKSPACE_SECTIONS = new Set<string>([
   "overview",
@@ -19,6 +20,7 @@ const WORKSPACE_SECTIONS = new Set<string>([
   "promotions",
   "invitees",
   "orders",
+  "api-keys",
 ]);
 
 /** Event workspace routes: `/events/:uuid` and `/events/:uuid/...` (not `/events/new`). */

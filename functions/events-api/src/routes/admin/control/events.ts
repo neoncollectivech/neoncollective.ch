@@ -30,6 +30,10 @@ import {
   listEventPromotionCodesHandler,
   patchEventPromotionCodeHandler,
 } from "./event-promotion-codes";
+import {
+  createEventApiKeyHandler,
+  listEventApiKeysHandler,
+} from "./api-keys";
 import { getEventSalesAnalyticsHandler } from "./event-sales-analytics";
 import { jsonReasonFailure } from "../../shared/respond";
 
@@ -114,6 +118,16 @@ export function createEventsControlRouter(): Hono {
           method: "get",
           path: "/:id/promotion-codes",
           handler: listEventPromotionCodesHandler,
+        },
+        {
+          method: "get",
+          path: "/:id/api-keys",
+          handler: listEventApiKeysHandler,
+        },
+        {
+          method: "post",
+          path: "/:id/api-keys",
+          handler: createEventApiKeyHandler,
         },
         {
           method: "get",

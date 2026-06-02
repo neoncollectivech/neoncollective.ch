@@ -46,6 +46,11 @@ import {
   verifyPeople,
   getMaintenancePreview,
   runMaintenance,
+  listApiKeys,
+  listEventApiKeys,
+  createApiKey,
+  createEventApiKey,
+  revokeApiKey,
 } from "@/lib/admin-api";
 import { fetchAllEventInvitees } from "@/lib/fetch-all-event-invitees";
 import { getApiErrorMessage } from "@/lib/api-error";
@@ -589,6 +594,63 @@ export const adminApi = {
         },
         onError: (error) => {
           toast.error(getApiErrorMessage(error));
+        },
+      }),
+  },
+  apiKeys: {
+    list: (params?: { eventId?: "global" | string }) =>
+      queryOptions({
+        queryKey: [
+          ...adminKeys.apiKeys.list(
+            params?.eventId ? { eventId: params.eventId } : undefined,
+          ),
+          params,
+        ],
+        queryFn: () => listApiKeys(params),
+      }),
+    forEvent: (eventId: string) =>
+      queryOptions({
+        queryKey: adminKeys.apiKeys.forEvent(eventId),
+        queryFn: () => listEventApiKeys(eventId),
+        enabled: Boolean(eventId),
+      }),
+    create: () =>
+      mutationOptions({
+        mutationFn: (payload: Parameters<typeof createApiKey>[0]) =>
+          createApiKey(payload),
+        onSuccess: () => {
+          void queryClient.invalidateQueries({
+            queryKey: adminKeys.apiKeys.all,
+          });
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, "Failed to create API key"));
+        },
+      }),
+    createForEvent: (eventId: string) =>
+      mutationOptions({
+        mutationFn: (payload: Parameters<typeof createEventApiKey>[1]) =>
+          createEventApiKey(eventId, payload),
+        onSuccess: () => {
+          void queryClient.invalidateQueries({
+            queryKey: adminKeys.apiKeys.all,
+          });
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, "Failed to create API key"));
+        },
+      }),
+    revoke: () =>
+      mutationOptions({
+        mutationFn: (id: string) => revokeApiKey(id),
+        onSuccess: () => {
+          toast.success("API key revoked");
+          void queryClient.invalidateQueries({
+            queryKey: adminKeys.apiKeys.all,
+          });
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, "Failed to revoke API key"));
         },
       }),
   },

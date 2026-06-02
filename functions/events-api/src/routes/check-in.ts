@@ -26,9 +26,11 @@ export function createCheckInRouter(): Hono<AppEnv> {
       arktypeValidator("json", checkInSchema),
       async (c) => {
         const body = c.req.valid("json");
+        const apiKey = c.var.eventApiKey!;
         const res = await admissionsService.checkInByToken({
           token: body.token,
-          staffLabel: "staff",
+          checkedInBy: `api-key:${apiKey.label}`,
+          restrictToEventId: apiKey.eventId,
         });
         if (!res.ok) {
           return jsonReasonFailure(c, res, CHECK_IN_ERRORS);

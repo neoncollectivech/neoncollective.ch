@@ -1,10 +1,34 @@
-/** Event-scoped API key auth — filled in by the Event API Keys plan. */
+import { apiKeysService, isApiKeyTokenFormat } from "../../services/api-keys.service";
+import { sha256Hex } from "../../helpers/token";
+
 export type EventApiKeyAuth = {
-  eventId: string;
   keyId: string;
+  /** Null = global key (all events). */
+  eventId: string | null;
+  label: string;
 };
 
-/** Stub: returns null until event API keys are implemented. */
-export async function resolveEventApiKey(_token: string): Promise<EventApiKeyAuth | null> {
-  return null;
+export function apiKeyGrantsEvent(
+  key: Pick<EventApiKeyAuth, "eventId">,
+  eventId: string,
+): boolean {
+  return key.eventId === null || key.eventId === eventId;
+}
+
+export async function resolveEventApiKey(token: string): Promise<EventApiKeyAuth | null> {
+  const trimmed = token.trim();
+  if (!isApiKeyTokenFormat(trimmed)) {
+    return null;
+  }
+  const tokenHash = await sha256Hex(trimmed);
+  const row = await apiKeysService.findActiveByTokenHash(tokenHash);
+  if (!row) {
+    return null;
+  }
+  apiKeysService.touchLastUsed(row.id);
+  return {
+    keyId: row.id,
+    eventId: row.eventId,
+    label: row.label,
+  };
 }

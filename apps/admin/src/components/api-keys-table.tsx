@@ -1,0 +1,123 @@
+import type { ApiKeyRow } from "@/lib/admin-api";
+
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { adminApi } from "@/hooks/use-admin-api";
+import { useForeignKey } from "@/hooks/use-foreign-key";
+import { eventFkService } from "@/lib/admin-fk-services";
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString();
+}
+
+type ApiKeysTableProps = {
+  rows: ApiKeyRow[];
+  /** Hide event column when all keys are for one event. */
+  showEventColumn?: boolean;
+};
+
+export function ApiKeysTable({
+  rows,
+  showEventColumn = true,
+}: ApiKeysTableProps) {
+  const revokeMutation = useMutation(adminApi.apiKeys.revoke());
+  const fk = useForeignKey({
+    rows,
+    load: showEventColumn ? [eventFkService] : [],
+  });
+
+  function handleRevoke(row: ApiKeyRow) {
+    if (row.revokedAt) {
+      return;
+    }
+    if (
+      !confirm(
+        `Revoke API key "${row.label}" (${row.keyPrefix}…)? Integrations using it will stop working.`,
+      )
+    ) {
+      return;
+    }
+    revokeMutation.mutate(row.id, {
+      onError: () => toast.error("Failed to revoke API key"),
+    });
+  }
+
+  if (rows.length === 0) {
+    return <p className="text-sm text-muted-foreground">No API keys yet.</p>;
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Label</TableHead>
+          <TableHead>Prefix</TableHead>
+          {showEventColumn ? <TableHead>Scope</TableHead> : null}
+          <TableHead>Status</TableHead>
+          <TableHead>Created</TableHead>
+          <TableHead>Last used</TableHead>
+          <TableHead className="w-24" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.id}>
+            <TableCell className="font-medium">{row.label}</TableCell>
+            <TableCell className="font-mono text-xs text-muted-foreground">
+              {row.keyPrefix}…
+            </TableCell>
+            {showEventColumn ? (
+              <TableCell>
+                {row.eventId === null ? (
+                  <span className="text-muted-foreground">All events</span>
+                ) : (
+                  <AdminFkCell
+                    fk={fk}
+                    fkService={eventFkService}
+                    foreignDisplayField="title"
+                    foreignId={row.eventId}
+                  />
+                )}
+              </TableCell>
+            ) : null}
+            <TableCell>
+              {row.revokedAt ? (
+                <Badge variant="secondary">Revoked</Badge>
+              ) : (
+                <Badge variant="default">Active</Badge>
+              )}
+            </TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+              {formatDateTime(row.createdAt)}
+            </TableCell>
+            <TableCell className="text-sm text-muted-foreground">
+              {row.lastUsedAt ? formatDateTime(row.lastUsedAt) : "Never"}
+            </TableCell>
+            <TableCell className="text-right">
+              <Button
+                disabled={Boolean(row.revokedAt) || revokeMutation.isPending}
+                size="sm"
+                variant="outline"
+                onClick={() => handleRevoke(row)}
+              >
+                Revoke
+              </Button>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}

@@ -40,6 +40,9 @@ export type CatalogListRow = {
 export type CatalogListParams = {
   viewerPersonId: string | null;
   inviteEventId: string | null;
+  /** When set, global key (eventId null) unlocks all invite-only events; scoped key unlocks one. */
+  apiKeyEventId?: string | null;
+  apiKeyIsGlobal?: boolean;
 };
 
 export type EventsListFilters = FilterParams;
@@ -176,6 +179,28 @@ export class EventsService extends TableService<
       })
       .from(events)
       .where(and(eq(events.status, "published"), eq(events.accessMode, "public")));
+  }
+
+  async listPublishedInviteOnlyCatalogRows(): Promise<
+    Pick<
+      typeof events.$inferSelect,
+      "id" | "slug" | "title" | "summary" | "location" | "startsAt"
+    >[]
+  > {
+    const db = getDb();
+    return db
+      .select({
+        id: events.id,
+        slug: events.slug,
+        title: events.title,
+        summary: events.summary,
+        location: events.location,
+        startsAt: events.startsAt,
+      })
+      .from(events)
+      .where(
+        and(eq(events.status, "published"), eq(events.accessMode, "invite_only")),
+      );
   }
 
   async getPublishedInviteOnlyById(

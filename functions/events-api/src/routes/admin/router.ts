@@ -10,6 +10,7 @@ import { createEventsControlRouter } from "./control/events";
 import { createMaintenanceRouter } from "./control/maintenance";
 import { createOrdersControlRouter } from "./control/orders";
 import { createPeopleControlRouter } from "./control/people";
+import { createApiKeysControlRouter } from "./control/api-keys";
 import { adminRoute } from "./mount";
 import { createInviteesProvider } from "./providers/invitees";
 import { admissionsResource } from "./resources/admissions";
@@ -65,6 +66,7 @@ export function createAdminRouter(): Hono<AppEnv> {
   adminRoute(admin, "/events/:eventId", eventScoped, ...adminAuth);
 
   adminRoute(admin, "/maintenance", createMaintenanceRouter(), ...adminAuth);
+  adminRoute(admin, "/api-keys", createApiKeysControlRouter(), ...adminAuth);
 
   return admin;
 }

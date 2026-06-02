@@ -83,3 +83,8 @@ export const adminEventImageFocalSchema = type({
   focalX: "number.integer | null",
   focalY: "number.integer | null",
 });
+
+export const adminApiKeyCreateSchema = type({
+  label: "string>0",
+  "eventId?": "string.uuid | null",
+});

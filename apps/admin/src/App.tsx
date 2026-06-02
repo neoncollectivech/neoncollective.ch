@@ -13,11 +13,13 @@ import { EventOverviewPage } from "@/pages/event-overview-page";
 import { EventPromotionsPage } from "@/pages/event-promotions-page";
 import { EventSettingsPage } from "@/pages/event-settings-page";
 import { EventTiersPage } from "@/pages/event-tiers-page";
+import { EventApiKeysPage } from "@/pages/event-api-keys-page";
 import { EventsPage } from "@/pages/events-page";
 import { LoginPage } from "@/pages/login-page";
 import { OrderDetailPage } from "@/pages/order-detail-page";
 import { PeoplePage } from "@/pages/people-page";
 import { MaintenancePage } from "@/pages/maintenance-page";
+import { ApiKeysPage } from "@/pages/api-keys-page";
 import { PersonDetailPage } from "@/pages/person-detail-page";
 import { queryClient } from "@/lib/query-client";
 
@@ -43,12 +45,14 @@ export function App() {
               <Route element={<EventSettingsPage />} path="settings" />
               <Route element={<EventTiersPage />} path="tiers" />
               <Route element={<EventPromotionsPage />} path="promotions" />
+              <Route element={<EventApiKeysPage />} path="api-keys" />
               <Route element={<EventInviteesPage />} path="invitees" />
               <Route element={<EventOrdersPage />} path="orders" />
               <Route element={<OrderDetailPage />} path="orders/:orderId" />
             </Route>
             <Route element={<PeoplePage />} path="people" />
             <Route element={<PersonDetailPage />} path="people/:id" />
+            <Route element={<ApiKeysPage />} path="api-keys" />
             <Route element={<MaintenancePage />} path="maintenance" />
           </Route>
         </Routes>

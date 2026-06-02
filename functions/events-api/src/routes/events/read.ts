@@ -15,6 +15,10 @@ import { resolveInviteOnlyEntitlement } from "../shared/invite-only-entitlement"
 import { ordersService } from "../../services/orders.service";
 import { orderTiersService } from "../../services/order-tiers.service";
 import type { ResolvedParticipantSession } from "../registrations/session";
+import {
+  apiKeyGrantsEvent,
+  type EventApiKeyAuth,
+} from "../../auth/resolvers/event-api-key";
 
 export async function resolveInviteEventId(params: {
   inviteToken: string | null | undefined;
@@ -130,12 +134,17 @@ export async function getPublishedEventDetailForViewer(params: {
   slug: string;
   inviteToken: string | null | undefined;
   session: ResolvedParticipantSession | null;
+  apiKey?: EventApiKeyAuth | null;
 }): Promise<
   | { ok: true; body: EventDetailForViewerBody }
   | { ok: false; reason: "event_not_found" }
 > {
   const evRow = await eventsService.getPublishedBySlug(params.slug);
   if (!evRow) {
+    return { ok: false, reason: "event_not_found" };
+  }
+
+  if (params.apiKey && !apiKeyGrantsEvent(params.apiKey, evRow.id)) {
     return { ok: false, reason: "event_not_found" };
   }
 
@@ -150,6 +159,7 @@ export async function getPublishedEventDetailForViewer(params: {
       eventId: evRow.id,
       inviteToken: params.inviteToken,
       session: params.session,
+      apiKey: params.apiKey,
     });
     if (entitlement.entitled) {
       full = true;

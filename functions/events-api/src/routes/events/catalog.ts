@@ -44,6 +44,10 @@ export async function listPublishedCatalog(
     params == null || typeof params === "string" ? params : params.viewerPersonId;
   const inviteEventId =
     params != null && typeof params !== "string" ? params.inviteEventId : null;
+  const apiKeyEventId =
+    params != null && typeof params !== "string" ? params.apiKeyEventId : undefined;
+  const apiKeyIsGlobal =
+    params != null && typeof params !== "string" ? params.apiKeyIsGlobal : false;
 
   const registeredSlugs = viewerPersonId
     ? await ordersService.listPaidEventSlugsForPerson(viewerPersonId)
@@ -79,6 +83,20 @@ export async function listPublishedCatalog(
 
   if (inviteEventId) {
     const guestEv = await eventsService.getPublishedInviteOnlyById(inviteEventId);
+    if (guestEv) {
+      sourcesBySlug.set(guestEv.slug, guestEv);
+      inviteOnlyBySlug.set(guestEv.slug, true);
+    }
+  }
+
+  if (apiKeyIsGlobal) {
+    const inviteOnlyRows = await eventsService.listPublishedInviteOnlyCatalogRows();
+    for (const ev of inviteOnlyRows) {
+      sourcesBySlug.set(ev.slug, ev);
+      inviteOnlyBySlug.set(ev.slug, true);
+    }
+  } else if (apiKeyEventId) {
+    const guestEv = await eventsService.getPublishedInviteOnlyById(apiKeyEventId);
     if (guestEv) {
       sourcesBySlug.set(guestEv.slug, guestEv);
       inviteOnlyBySlug.set(guestEv.slug, true);

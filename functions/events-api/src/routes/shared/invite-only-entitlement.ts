@@ -8,6 +8,7 @@ import {
 } from "./invite-links-orchestration";
 import type { ResolvedParticipantSession } from "../registrations/session";
 import { loadPublishedOrphanInviteeContact } from "../registrations/invitee-orchestration";
+import { apiKeyGrantsEvent, type EventApiKeyAuth } from "../../auth/resolvers/event-api-key";
 
 export type InviteOnlyEntitlementResult = {
   entitled: boolean;
@@ -19,12 +20,17 @@ export async function resolveInviteOnlyEntitlement(params: {
   eventId: string;
   inviteToken: string | null | undefined;
   session: ResolvedParticipantSession | null;
+  apiKey?: Pick<EventApiKeyAuth, "eventId"> | null;
 }): Promise<InviteOnlyEntitlementResult> {
   const inviteQ = params.inviteToken?.trim();
   let entitled = false;
   let linkIdForRemaining: string | null = null;
 
-  if (inviteQ) {
+  if (params.apiKey && apiKeyGrantsEvent(params.apiKey, params.eventId)) {
+    entitled = true;
+  }
+
+  if (!entitled && inviteQ) {
     const guest = await findInviteLinkByRawToken(inviteQ);
     if (guest && guest.event.id === params.eventId) {
       entitled = true;
