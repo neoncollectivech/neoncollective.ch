@@ -1,7 +1,7 @@
 export { eventsApi } from "./api";
 export { eventsKeys } from "./keys";
 export { writeParticipantProfileCache } from "./profile-cache";
-export { useEventsInvalidate, useEventsApiInvalidate } from "./invalidate";
+export { useEventsInvalidate } from "./invalidate";
 export {
   useProfileBootstrap,
   useParticipantSession,

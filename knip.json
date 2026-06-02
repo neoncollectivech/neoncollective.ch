@@ -1,0 +1,41 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreWorkspaces": ["packages/eslint-config"],
+  "ignoreBinaries": ["vite", "wait", "stripe"],
+  "ignoreDependencies": [
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    "eslint-config-next",
+    "es-abstract",
+    "pino-pretty",
+    "workbox-window"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "exclude": ["types"],
+  "ignoreIssues": {
+    "apps/admin/src/components/ui/**": ["exports"]
+  },
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.{js,mjs}", "test/**/*.{js,mjs}"],
+      "project": ["scripts/**/*.{js,mjs}", "test/**/*.{js,mjs}"],
+      "playwright": {
+        "config": ["test/playwright.config.mjs"]
+      }
+    },
+    "apps/web": {
+      "entry": ["lib/content/local/*.ts"]
+    },
+    "apps/admin": {
+      "vite": false,
+      "entry": ["index.html", "src/main.tsx", "vite.config.ts"],
+      "ignoreFiles": ["public/**", "src/vite-env.d.ts"]
+    },
+    "functions/events-api": {
+      "entry": ["src/index.ts", "src/scripts/**/*.ts", "src/**/*.test.ts"]
+    },
+    "functions/stripe-api": {
+      "entry": ["src/index.ts"]
+    }
+  }
+}

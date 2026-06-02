@@ -8,16 +8,6 @@ import { participantSessionsService } from "../../services/participant-sessions.
 import { loadPublishedOrphanInviteeContact } from "../../routes/registrations/invitee-orchestration";
 import { PARTICIPANT_SESSION_COOKIE } from "../cookies/participant";
 
-export type ParticipantIdentity = {
-  personId: string;
-  email: string | null;
-  /** E.164 with leading + when derived from stored digits. */
-  phoneE164: string | null;
-  /** For UI greetings; empty when only a generic placeholder name is stored. */
-  givenName: string;
-  familyName: string;
-};
-
 export type ParticipantSessionContext = {
   sessionId: string;
   personId: string | null;
@@ -128,21 +118,4 @@ export async function resolveParticipantSession(
     return resolveParticipantSessionFromCookie(`${PARTICIPANT_SESSION_COOKIE}=${cookieHeader}`);
   }
   return resolveParticipantSessionFromCookie(c.req.header("Cookie"));
-}
-
-/** Legacy shape for callers that require a linked person. */
-export async function resolveParticipantIdentityFromCookie(
-  cookieHeader: string | undefined,
-): Promise<ParticipantIdentity | null> {
-  const row = await resolveParticipantSessionFromCookie(cookieHeader);
-  if (!row?.personId) {
-    return null;
-  }
-  return {
-    personId: row.personId,
-    email: row.email,
-    phoneE164: row.phoneE164,
-    givenName: row.givenName,
-    familyName: row.familyName,
-  };
 }

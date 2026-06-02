@@ -43,13 +43,6 @@ export function writeStored(
   sessionStorage.setItem(storageKey(scope, urlKey), value);
 }
 
-export function clearStored(scope: string, urlKey: string): void {
-  if (typeof sessionStorage === "undefined") {
-    return;
-  }
-  sessionStorage.removeItem(storageKey(scope, urlKey));
-}
-
 /**
  * Resolve invite/promo (or similar) for checkout:
  * 1. Non-empty URL query param → use it and persist to sessionStorage.

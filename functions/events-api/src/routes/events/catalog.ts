@@ -10,8 +10,6 @@ import {
 import { eventsService } from "../../services/events.service";
 import { ordersService } from "../../services/orders.service";
 
-export type { CatalogListParams, CatalogListRow };
-
 type CatalogSourceRow = {
   id: string;
   slug: string;

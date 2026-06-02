@@ -35,10 +35,6 @@ export function parseEventWorkspaceEventId(
   return id;
 }
 
-export function isEventWorkspaceRoute(pathname: string): boolean {
-  return parseEventWorkspaceEventId(pathname) != null;
-}
-
 export function eventBasePath(eventId: string): string {
   return `/events/${eventId}`;
 }
@@ -49,18 +45,6 @@ export function eventOverviewPath(eventId: string): string {
 
 export function eventSettingsPath(eventId: string): string {
   return `${eventBasePath(eventId)}/settings`;
-}
-
-export function eventTiersPath(eventId: string): string {
-  return `${eventBasePath(eventId)}/tiers`;
-}
-
-export function eventPromotionsPath(eventId: string): string {
-  return `${eventBasePath(eventId)}/promotions`;
-}
-
-export function eventInviteesPath(eventId: string): string {
-  return `${eventBasePath(eventId)}/invitees`;
 }
 
 export function eventOrdersPath(eventId: string): string {

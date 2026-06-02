@@ -47,6 +47,3 @@ export function useEventsInvalidate() {
     },
   };
 }
-
-/** @deprecated Use useEventsInvalidate */
-export const useEventsApiInvalidate = useEventsInvalidate;

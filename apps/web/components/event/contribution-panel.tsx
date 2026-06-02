@@ -162,7 +162,9 @@ export function ContributionPanel({
   });
 
   const passHeadingId =
-    addonTiers.length > 0 ? "event-checkout-pass-heading" : "event-checkout-heading";
+    addonTiers.length > 0
+      ? "event-checkout-pass-heading"
+      : "event-checkout-heading";
 
   const scrollToPayment = useCallback(() => {
     paymentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -176,10 +178,7 @@ export function ContributionPanel({
     !hasCheckoutProfile || showContactForm || !clientSecret;
 
   return (
-    <div
-      className="min-w-0 scroll-mt-22 scroll-mb-28 lg:scroll-mb-6"
-      id={id}
-    >
+    <div className="min-w-0 scroll-mt-22 scroll-mb-28 lg:scroll-mb-6" id={id}>
       <NeonCard
         className="overflow-x-clip"
         data-testid={
@@ -189,144 +188,89 @@ export function ContributionPanel({
         }
         surface="default"
       >
-      <NeonCardBody padding="checkout">
-        <div className="space-y-8">
-          <ContributionStepper
-            changeLevelLabel={labels.changePass}
-            chooseLabel={labels.checkoutStepChoose}
-            completeLabel={labels.checkoutStepPay}
-            confirmLabel={labels.checkoutStepConfirm}
-            step={step}
-            onChangeLevel={step === 2 ? onChangeLevel : undefined}
-          />
+        <NeonCardBody padding="checkout">
+          <div className="space-y-8">
+            <ContributionStepper
+              changeLevelLabel={labels.changePass}
+              chooseLabel={labels.checkoutStepChoose}
+              completeLabel={labels.checkoutStepPay}
+              confirmLabel={labels.checkoutStepConfirm}
+              step={step}
+              onChangeLevel={step === 2 ? onChangeLevel : undefined}
+            />
 
-          <div>
-            <h2 className="neon-title-section mb-3" id="event-checkout-heading">
-              {labels.registerTitle}
-            </h2>
-            <p className="checkout-helper">{labels.registerSubtitle}</p>
-          </div>
-
-          {allExclusiveSoldOut ? (
-            <p className="checkout-helper">{labels.allPassesSoldOut}</p>
-          ) : null}
-
-          {exclusiveTiers.length > 0 ? (
-            <div className="space-y-4">
-              {addonTiers.length > 0 ? (
-                <p
-                  className="checkout-section-title"
-                  id="event-checkout-pass-heading"
-                >
-                  {labels.passTitle}
-                </p>
-              ) : null}
-            <RadioGroup
-              aria-labelledby={passHeadingId}
-              className="min-w-0"
-              classNames={{ wrapper: "gap-6 min-w-0 w-full" }}
-              isDisabled={checkoutLocked}
-              value={selectedExclusiveId ?? ""}
-              onValueChange={onExclusiveChange}
-            >
-              {exclusiveTiers.map((tier) => {
-                const tierDescription = tier.description.trim();
-                const isSelected = selectedExclusiveId === tier.id;
-                const priceLabel = formatTierPrice(tier);
-                const placesLabel = formatPlacesRemaining(
-                  tier,
-                  labels.placesRemaining,
-                  labels.placesUnlimited,
-                  labels.soldOut,
-                );
-                const disabled = !isSelectableTier(tier);
-
-                return (
-                  <div
-                    key={tier.id}
-                    className={clsx(
-                      "neon-surface-default",
-                      neonPanelInsetPaddingClass,
-                      isSelected && "border-neon/40",
-                      (disabled || checkoutLocked) && "opacity-50",
-                    )}
-                  >
-                    <Radio
-                      classNames={{
-                        base: "flex p-0 m-0 w-full max-w-full gap-4 items-start justify-start",
-                        wrapper: "mt-0.5 shrink-0",
-                        label: "w-full max-w-full min-w-0",
-                        labelWrapper: "w-full max-w-full min-w-0",
-                        description:
-                          "text-xs text-foreground/45 leading-relaxed mt-1.5",
-                      }}
-                      data-testid={`event-checkout-exclusive-${tier.id}`}
-                      description={
-                        isSelected && tierDescription
-                          ? tierDescription
-                          : undefined
-                      }
-                      isDisabled={disabled || checkoutLocked}
-                      value={tier.id}
-                    >
-                      <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-sm font-medium text-foreground/90 wrap-break-word min-w-0">
-                          {tier.name}
-                        </span>
-                        <span className="text-xs font-mono text-foreground/45 shrink-0">
-                          {priceLabel} · {placesLabel}
-                        </span>
-                      </span>
-                    </Radio>
-                  </div>
-                );
-              })}
-            </RadioGroup>
+            <div>
+              <h2
+                className="neon-title-section mb-3"
+                id="event-checkout-heading"
+              >
+                {labels.registerTitle}
+              </h2>
+              <p className="checkout-helper">{labels.registerSubtitle}</p>
             </div>
-          ) : null}
 
-          {addonTiers.length > 0 ? (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <p className="checkout-section-title">{labels.activitiesTitle}</p>
-                <p className="checkout-helper">{labels.activitiesHint}</p>
-              </div>
-              <div className="space-y-3">
-                {addonTiers.map((tier) => {
-                  const tierDescription = tier.description.trim();
-                  const priceLabel = formatTierPrice(tier);
-                  const placesLabel = formatPlacesRemaining(
-                    tier,
-                    labels.placesRemaining,
-                    labels.placesUnlimited,
-                    labels.soldOut,
-                  );
-                  const isSelected = selectedAddonIds.has(tier.id);
-                  const disabled = !isSelectableTier(tier);
+            {allExclusiveSoldOut ? (
+              <p className="checkout-helper">{labels.allPassesSoldOut}</p>
+            ) : null}
 
-                  return (
-                    <div
-                      key={tier.id}
-                      className={clsx(
-                        "neon-surface-default",
-                        neonPanelInsetPaddingClass,
-                        isSelected && "border-neon/40",
-                        (disabled || checkoutLocked) && "opacity-50",
-                      )}
-                    >
-                      <Checkbox
-                        classNames={{
-                          base: "flex p-0 m-0 w-full max-w-full items-start gap-4",
-                          label: "w-full max-w-full min-w-0",
-                        }}
-                        data-testid={`event-checkout-addon-${tier.id}`}
-                        isDisabled={disabled || checkoutLocked}
-                        isSelected={isSelected}
-                        onValueChange={(checked) =>
-                          onAddonChange(tier.id, checked)
-                        }
+            {exclusiveTiers.length > 0 ? (
+              <div className="space-y-4">
+                {addonTiers.length > 0 ? (
+                  <p
+                    className="checkout-section-title"
+                    id="event-checkout-pass-heading"
+                  >
+                    {labels.passTitle}
+                  </p>
+                ) : null}
+                <RadioGroup
+                  aria-labelledby={passHeadingId}
+                  className="min-w-0"
+                  classNames={{ wrapper: "gap-6 min-w-0 w-full" }}
+                  isDisabled={checkoutLocked}
+                  value={selectedExclusiveId ?? ""}
+                  onValueChange={onExclusiveChange}
+                >
+                  {exclusiveTiers.map((tier) => {
+                    const tierDescription = tier.description.trim();
+                    const isSelected = selectedExclusiveId === tier.id;
+                    const priceLabel = formatTierPrice(tier);
+                    const placesLabel = formatPlacesRemaining(
+                      tier,
+                      labels.placesRemaining,
+                      labels.placesUnlimited,
+                      labels.soldOut,
+                    );
+                    const disabled = !isSelectableTier(tier);
+
+                    return (
+                      <div
+                        key={tier.id}
+                        className={clsx(
+                          "neon-surface-default",
+                          neonPanelInsetPaddingClass,
+                          isSelected && "border-neon/40",
+                          (disabled || checkoutLocked) && "opacity-50",
+                        )}
                       >
-                        <div className="w-full min-w-0">
+                        <Radio
+                          classNames={{
+                            base: "flex p-0 m-0 w-full max-w-full gap-4 items-start justify-start",
+                            wrapper: "mt-0.5 shrink-0",
+                            label: "w-full max-w-full min-w-0",
+                            labelWrapper: "w-full max-w-full min-w-0",
+                            description:
+                              "text-xs text-foreground/45 leading-relaxed mt-1.5",
+                          }}
+                          data-testid={`event-checkout-exclusive-${tier.id}`}
+                          description={
+                            isSelected && tierDescription
+                              ? tierDescription
+                              : undefined
+                          }
+                          isDisabled={disabled || checkoutLocked}
+                          value={tier.id}
+                        >
                           <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                             <span className="text-sm font-medium text-foreground/90 wrap-break-word min-w-0">
                               {tier.name}
@@ -335,150 +279,211 @@ export function ContributionPanel({
                               {priceLabel} · {placesLabel}
                             </span>
                           </span>
-                          {isSelected && tierDescription ? (
-                            <p className="text-xs text-foreground/45 leading-relaxed mt-1.5">
-                              {tierDescription}
-                            </p>
-                          ) : null}
-                        </div>
-                      </Checkbox>
-                    </div>
-                  );
-                })}
+                        </Radio>
+                      </div>
+                    );
+                  })}
+                </RadioGroup>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          <ContributionSummary
-            displayTotalCents={displayTotalCents}
-            labels={{
-              checkoutSubtotal: labels.checkoutSubtotal,
-              checkoutYourShare: labels.checkoutYourShare,
-              promoCodeLabel: labels.promoCodeLabel,
-              promoDiscount: labels.promoDiscount,
-              promoInvalid: labels.promoInvalid,
-            }}
-            previewDiscountCents={previewDiscountCents}
-            previewSubtotalCents={previewSubtotalCents}
-            promo={promo}
-            promoInvalid={promoInvalid}
-            selectedTiers={selectedTiers}
-            showPromoSubtotal={showPromoSubtotal}
-          />
-
-          {showActionsSection ? (
-            <div className="space-y-8 border-t border-foreground/10 pt-8">
-              {!hasCheckoutProfile ? (
-                <div ref={signInSectionRef}>
-                  <NeonTextButton
-                    onClick={() => onSignInExpandedChange(!signInExpanded)}
-                  >
-                    {labels.alreadyRegistered}
-                  </NeonTextButton>
-                  {signInExpanded ? (
-                    <div className="mt-4 pt-4 border-t border-foreground/10">
-                      <ParticipantSessionPanel
-                        embedded
-                        codeExchangePending={!codeHandled}
-                        returnPath={sessionReturnPath}
-                        sessionEstablishedQueryKeys={sessionQueryKeys}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {showContactForm ? (
-                <div
-                  className="space-y-4"
-                  data-testid="event-checkout-contact-form"
-                >
-                  <NeonInput
-                    isRequired
-                    label={labels.email}
-                    type="email"
-                    value={email}
-                    onValueChange={onEmailChange}
-                  />
-                  <NeonInput
-                    label={labels.phone}
-                    type="tel"
-                    value={phone}
-                    onValueChange={onPhoneChange}
-                  />
-                  <p className="checkout-helper text-foreground/45">
-                    {labels.contactPrivacyHint}
+            {addonTiers.length > 0 ? (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <p className="checkout-section-title">
+                    {labels.activitiesTitle}
                   </p>
+                  <p className="checkout-helper">{labels.activitiesHint}</p>
                 </div>
-              ) : null}
+                <div className="space-y-3">
+                  {addonTiers.map((tier) => {
+                    const tierDescription = tier.description.trim();
+                    const priceLabel = formatTierPrice(tier);
+                    const placesLabel = formatPlacesRemaining(
+                      tier,
+                      labels.placesRemaining,
+                      labels.placesUnlimited,
+                      labels.soldOut,
+                    );
+                    const isSelected = selectedAddonIds.has(tier.id);
+                    const disabled = !isSelectableTier(tier);
 
-              {!clientSecret ? (
-                <div className="space-y-2">
-                  <NeonButton
-                    className="w-full"
-                    data-testid="event-checkout-confirm-contribution"
-                    isDisabled={
-                      intentMutationPending ||
+                    return (
+                      <div
+                        key={tier.id}
+                        className={clsx(
+                          "neon-surface-default",
+                          neonPanelInsetPaddingClass,
+                          isSelected && "border-neon/40",
+                          (disabled || checkoutLocked) && "opacity-50",
+                        )}
+                      >
+                        <Checkbox
+                          classNames={{
+                            base: "flex p-0 m-0 w-full max-w-full items-start gap-4",
+                            label: "w-full max-w-full min-w-0",
+                          }}
+                          data-testid={`event-checkout-addon-${tier.id}`}
+                          isDisabled={disabled || checkoutLocked}
+                          isSelected={isSelected}
+                          onValueChange={(checked) =>
+                            onAddonChange(tier.id, checked)
+                          }
+                        >
+                          <div className="w-full min-w-0">
+                            <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                              <span className="text-sm font-medium text-foreground/90 wrap-break-word min-w-0">
+                                {tier.name}
+                              </span>
+                              <span className="text-xs font-mono text-foreground/45 shrink-0">
+                                {priceLabel} · {placesLabel}
+                              </span>
+                            </span>
+                            {isSelected && tierDescription ? (
+                              <p className="text-xs text-foreground/45 leading-relaxed mt-1.5">
+                                {tierDescription}
+                              </p>
+                            ) : null}
+                          </div>
+                        </Checkbox>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            <ContributionSummary
+              displayTotalCents={displayTotalCents}
+              labels={{
+                checkoutSubtotal: labels.checkoutSubtotal,
+                checkoutYourShare: labels.checkoutYourShare,
+                promoCodeLabel: labels.promoCodeLabel,
+                promoDiscount: labels.promoDiscount,
+                promoInvalid: labels.promoInvalid,
+              }}
+              previewDiscountCents={previewDiscountCents}
+              previewSubtotalCents={previewSubtotalCents}
+              promo={promo}
+              promoInvalid={promoInvalid}
+              selectedTiers={selectedTiers}
+              showPromoSubtotal={showPromoSubtotal}
+            />
+
+            {showActionsSection ? (
+              <div className="space-y-8 border-t border-foreground/10 pt-8">
+                {!hasCheckoutProfile ? (
+                  <div ref={signInSectionRef}>
+                    <NeonTextButton
+                      onClick={() => onSignInExpandedChange(!signInExpanded)}
+                    >
+                      {labels.alreadyRegistered}
+                    </NeonTextButton>
+                    {signInExpanded ? (
+                      <div className="mt-4 pt-4 border-t border-foreground/10">
+                        <ParticipantSessionPanel
+                          embedded
+                          codeExchangePending={!codeHandled}
+                          returnPath={sessionReturnPath}
+                          sessionEstablishedQueryKeys={sessionQueryKeys}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {showContactForm ? (
+                  <div
+                    className="space-y-4"
+                    data-testid="event-checkout-contact-form"
+                  >
+                    <NeonInput
+                      isRequired
+                      label={labels.email}
+                      type="email"
+                      value={email}
+                      onValueChange={onEmailChange}
+                    />
+                    <NeonInput
+                      label={labels.phone}
+                      type="tel"
+                      value={phone}
+                      onValueChange={onPhoneChange}
+                    />
+                    <p className="checkout-helper text-foreground/45">
+                      {labels.contactPrivacyHint}
+                    </p>
+                  </div>
+                ) : null}
+
+                {!clientSecret ? (
+                  <div className="space-y-2">
+                    <NeonButton
+                      className="w-full"
+                      data-testid="event-checkout-confirm-contribution"
+                      isDisabled={
+                        intentMutationPending ||
+                        !tierSelectionReady ||
+                        profileLoading ||
+                        !checkoutContactReady ||
+                        allExclusiveSoldOut
+                      }
+                      type="button"
+                      onPress={onConfirmContribution}
+                    >
+                      {intentMutationPending ? "…" : ctaLabel}
+                    </NeonButton>
+                    {checkoutDisabledReason &&
+                    (intentMutationPending ||
                       !tierSelectionReady ||
                       profileLoading ||
-                      !checkoutContactReady ||
-                      allExclusiveSoldOut
-                    }
-                    type="button"
-                    onPress={onConfirmContribution}
-                  >
-                    {intentMutationPending ? "…" : ctaLabel}
-                  </NeonButton>
-                  {checkoutDisabledReason &&
-                  (intentMutationPending ||
-                    !tierSelectionReady ||
-                    profileLoading ||
-                    !checkoutContactReady) ? (
-                    <p className="checkout-helper text-foreground/45">
-                      {checkoutDisabledReason}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+                      !checkoutContactReady) ? (
+                      <p className="checkout-helper text-foreground/45">
+                        {checkoutDisabledReason}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
-          {intentMutationError ? (
-            <FormError>
-              {intentMutationError instanceof AxiosError &&
-              intentMutationError.response?.data &&
-              typeof (intentMutationError.response.data as { error?: string })
-                .error === "string"
-                ? (intentMutationError.response.data as { error: string }).error
-                : labels.intentError}
-            </FormError>
-          ) : null}
+            {intentMutationError ? (
+              <FormError>
+                {intentMutationError instanceof AxiosError &&
+                intentMutationError.response?.data &&
+                typeof (intentMutationError.response.data as { error?: string })
+                  .error === "string"
+                  ? (intentMutationError.response.data as { error: string })
+                      .error
+                  : labels.intentError}
+              </FormError>
+            ) : null}
 
-          {clientSecret &&
-          checkoutOrderId &&
-          stripePromise &&
-          elementsOptions ? (
-            <div
-              ref={paymentRef}
-              className="min-w-0 overflow-x-clip border-t border-foreground/10 pt-8"
-            >
-              <Elements
-                key={clientSecret}
-                options={elementsOptions}
-                stripe={stripePromise}
+            {clientSecret &&
+            checkoutOrderId &&
+            stripePromise &&
+            elementsOptions ? (
+              <div
+                ref={paymentRef}
+                className="min-w-0 overflow-x-clip border-t border-foreground/10 pt-8"
               >
-                <PaymentStep
-                  onePersonHint={labels.checkoutOnePersonHint}
-                  payLabel={labels.payYourShareButton}
-                  returnUrl={checkoutReturnUrl ?? returnUrl}
-                  onMounted={scrollToPayment}
-                  onPaymentSucceeded={onPaymentSucceeded}
-                />
-              </Elements>
-            </div>
-          ) : null}
-        </div>
-      </NeonCardBody>
+                <Elements
+                  key={clientSecret}
+                  options={elementsOptions}
+                  stripe={stripePromise}
+                >
+                  <PaymentStep
+                    onePersonHint={labels.checkoutOnePersonHint}
+                    payLabel={labels.payYourShareButton}
+                    returnUrl={checkoutReturnUrl ?? returnUrl}
+                    onMounted={scrollToPayment}
+                    onPaymentSucceeded={onPaymentSucceeded}
+                  />
+                </Elements>
+              </div>
+            ) : null}
+          </div>
+        </NeonCardBody>
       </NeonCard>
     </div>
   );

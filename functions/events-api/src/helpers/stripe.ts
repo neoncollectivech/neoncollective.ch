@@ -50,7 +50,3 @@ export function resolveCheckoutReturnUrl(params: {
 
   return `${origin}${normalized}`;
 }
-
-export function resetStripeClient(): void {
-  stripeClient = null;
-}

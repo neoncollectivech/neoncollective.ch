@@ -159,9 +159,11 @@ function EventDetailsInner({ slug }: { slug: string }) {
 
   const checkoutTiers = useMemo(() => {
     const ev = eventQuery.data;
+
     if (ev?.registrationConfirmed && ev.availableUpsellTiers?.length) {
       return ev.availableUpsellTiers;
     }
+
     return ev?.tiers ?? [];
   }, [eventQuery.data]);
   const exclusiveTiers = useMemo(
@@ -465,7 +467,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
     : Boolean(email.trim() || phone.trim());
 
   const needsStripe =
-    (!ev.registrationConfirmed && Boolean(ev.tiers?.length)) || hasUpsellOptions;
+    (!ev.registrationConfirmed && Boolean(ev.tiers?.length)) ||
+    hasUpsellOptions;
   const requiresExclusive = exclusiveTiers.length > 0;
   const tierSelectionReady = requiresExclusive
     ? Boolean(selectedExclusiveId)
@@ -745,8 +748,8 @@ function EventDetailsInner({ slug }: { slug: string }) {
         supportNeonBeyondEvent: t.supportNeonBeyondEvent,
       }}
       locale={locale}
-      slug={slug}
       showUpsellCta={hasUpsellOptions}
+      slug={slug}
       onUpsellPress={scrollToUpsellContribution}
     />
   ) : null;
@@ -770,9 +773,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
           )
         }
         mainAfterAside={sideBySideUpsell ? eventAboutSection : null}
-        mainBeforeAside={
-          sideBySideUpsell ? registrationConfirmedCard : null
-        }
+        mainBeforeAside={sideBySideUpsell ? registrationConfirmedCard : null}
         mainLead={sideBySideLayout ? eventHero : null}
         stickyBarPadding={
           showActiveCheckout &&

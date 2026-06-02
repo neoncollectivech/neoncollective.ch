@@ -7,6 +7,7 @@
     "build": "tsc",
     "dev": "tsx watch --env-file=.env.local src/dev.ts",
     "lint": "eslint src --ext .ts -c ../../.eslintrc.node.json --max-warnings 0",
+    "knip": "pnpm -w knip --workspace functions/stripe-api",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

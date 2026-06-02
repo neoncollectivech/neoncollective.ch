@@ -4,8 +4,6 @@ import { eventImagesService } from "../../services/event-images.service";
 import { eventTiersService } from "../../services/event-tiers.service";
 import { enrichTiersWithCapacityStats } from "../../helpers/tier-capacity";
 
-export type { EventAccess };
-
 export async function buildEventPayload(
   slug: string,
   access: EventAccess,

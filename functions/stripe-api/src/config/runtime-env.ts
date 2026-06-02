@@ -35,11 +35,3 @@ export function getStripeApiEnv(): StripeApiEnv {
   }
   return cachedEnv;
 }
-
-export function setStripeApiEnv(env: StripeApiEnv): void {
-  cachedEnv = env;
-}
-
-export function resetStripeApiEnv(): void {
-  cachedEnv = null;
-}

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx -c .eslintrc.json --fix",
+    "knip": "pnpm -w knip --workspace apps/web",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

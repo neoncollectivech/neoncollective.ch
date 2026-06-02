@@ -2,7 +2,7 @@
 const AUTH_PATH = "/admin/auth";
 
 /** Public events-api root (Cloud Function URL, no trailing slash). */
-export function resolveEventsApiPublicUrl(publicUrl?: string): string {
+function resolveEventsApiPublicUrl(publicUrl?: string): string {
   const root = (publicUrl ?? "http://localhost:8082").trim().replace(/\/$/, "");
   return root;
 }

@@ -15,6 +15,10 @@
     },
     "typecheck": {
       "dependsOn": ["^build"]
+    },
+    "knip": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/knip.json"]
     }
   }
 }

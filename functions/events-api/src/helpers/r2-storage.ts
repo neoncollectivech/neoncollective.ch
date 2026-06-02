@@ -109,8 +109,3 @@ export async function deleteObject(storageKey: string): Promise<void> {
     }),
   );
 }
-
-/** @internal Test hook */
-export function resetR2ClientForTests(): void {
-  s3Client = null;
-}

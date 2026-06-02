@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts -c ../../.eslintrc.node.json --max-warnings 0"
+    "lint": "eslint src --ext .ts -c ../../.eslintrc.node.json --max-warnings 0",
+    "knip": "pnpm -w knip --workspace packages/resource-api"
   },
   "peerDependencies": {
     "@hono/arktype-validator": "^2.0.0",

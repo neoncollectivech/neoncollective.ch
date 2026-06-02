@@ -7,6 +7,7 @@
     "build": "tsc",
     "dev": "tsx watch --env-file=.env.local src/dev.ts",
     "lint": "eslint src --ext .ts -c .eslintrc.json --max-warnings 0",
+    "knip": "pnpm -w knip --workspace functions/events-api",
     "typecheck": "tsc --noEmit",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

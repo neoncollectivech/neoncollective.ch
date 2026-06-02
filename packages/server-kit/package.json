@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts -c ../../.eslintrc.node.json --max-warnings 0"
+    "lint": "eslint src --ext .ts -c ../../.eslintrc.node.json --max-warnings 0",
+    "knip": "pnpm -w knip --workspace packages/server-kit"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",

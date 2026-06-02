@@ -117,7 +117,3 @@ export async function sendContributionConfirmationEmail(params: {
     }),
   });
 }
-
-export function resetEventEmailMailer(): void {
-  mailer = null;
-}

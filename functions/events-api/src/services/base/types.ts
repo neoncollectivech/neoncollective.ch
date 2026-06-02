@@ -1,7 +1,7 @@
 import type { ResourceContext } from "@neon/resource-api";
 import type { ServiceContext as BaseServiceContext, ServiceParent } from "@neon/resource-api";
 
-import type { AdminSession } from "../../auth/require-admin-session";
+import type { AdminSession } from "../../auth/resolvers/admin-session";
 
 export type { ServiceParent };
 

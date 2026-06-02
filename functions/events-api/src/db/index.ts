@@ -39,8 +39,3 @@ export { schema, authSchema, fullSchema };
 export function isDatabaseConfigured(): boolean {
   return Boolean(getEventsApiEnv().databaseUrl);
 }
-
-export function resetDbForTests(): void {
-  _db = null;
-  _pool = null;
-}

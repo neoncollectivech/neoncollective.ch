@@ -18,6 +18,7 @@ function bottomInsetPx(): number {
 /** Scroll so the full contribution card is visible, not an inner field or step. */
 export function scrollContributionCardIntoView(elementId: string): void {
   const el = document.getElementById(elementId);
+
   if (!el) {
     return;
   }

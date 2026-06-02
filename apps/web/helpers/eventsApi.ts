@@ -350,13 +350,6 @@ export async function requestRegistrationSessionLink(body: {
   return data.channel ?? "email";
 }
 
-/** Requires participant session cookie set by successful `/registrations/session/exchange`. */
-export async function attachRegistrationProfilePhone(body: {
-  phoneE164: string;
-}): Promise<void> {
-  await eventsClient.post("/registrations/profile/phone", body);
-}
-
 export async function establishAnonymousSession(body: {
   inviteToken?: string | null;
 }): Promise<ParticipantProfile> {

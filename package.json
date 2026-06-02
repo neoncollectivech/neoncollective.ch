@@ -9,6 +9,8 @@
     "e2e:free-ports": "node scripts/free-e2e-ports.mjs",
     "build": "turbo build",
     "lint": "turbo lint",
+    "knip": "knip",
+    "knip:turbo": "turbo knip",
     "typecheck": "turbo typecheck",
     "db:events-api:generate": "pnpm --filter @neon/events-api db:generate",
     "db:events-api:migrate": "pnpm --filter @neon/events-api db:migrate",
@@ -39,6 +41,7 @@
   "devDependencies": {
     "@playwright/test": "^1.52.0",
     "dotenv": "^16.4.7",
+    "knip": "^6.15.0",
     "tsup": "^8.5.0",
     "turbo": "^2.5.0"
   }

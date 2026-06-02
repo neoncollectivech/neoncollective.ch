@@ -24,14 +24,3 @@ export function getStripe(): Stripe {
   }
   return stripeClient;
 }
-
-/** @deprecated Prefer `getStripe()` — kept for gradual migration. */
-export const stripe = new Proxy({} as Stripe, {
-  get(_target, prop, receiver) {
-    return Reflect.get(getStripe(), prop, receiver);
-  },
-});
-
-export function resetStripeClient(): void {
-  stripeClient = null;
-}

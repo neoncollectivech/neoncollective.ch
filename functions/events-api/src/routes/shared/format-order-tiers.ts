@@ -57,37 +57,6 @@ export type RegisteredOrderTierPayload = {
   currency: string;
 };
 
-export async function listRegisteredOrderTiersForOrder(
-  orderId: string,
-  tx?: EntityTx,
-): Promise<RegisteredOrderTierPayload[]> {
-  const lines = await listAdminOrderTierLines(orderId, tx);
-  if (lines.length === 0) {
-    return [];
-  }
-  const tiers = await eventTiersService.getByIds(
-    lines.map((l) => l.id),
-    tx,
-  );
-  const tierById = new Map(tiers.map((t) => [t.id, t]));
-  const out: RegisteredOrderTierPayload[] = [];
-  for (const line of lines) {
-    const tier = tierById.get(line.id);
-    if (!tier) {
-      continue;
-    }
-    out.push({
-      id: tier.id,
-      name: tier.name,
-      description: tier.description.trim(),
-      selectionMode: line.selectionMode,
-      priceCents: line.unitPriceCents,
-      currency: tier.currency,
-    });
-  }
-  return out;
-}
-
 export async function listRegisteredOrderTiersForOrders(
   orderIds: string[],
   tx?: EntityTx,

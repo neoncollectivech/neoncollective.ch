@@ -72,7 +72,3 @@ export async function sendMagicLinkEmail(params: {
     }),
   });
 }
-
-export function resetStripeEmailMailer(): void {
-  mailer = null;
-}

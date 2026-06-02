@@ -94,12 +94,3 @@ export function getEventsApiEnv(): EventsApiEnv {
   }
   return cachedEnv;
 }
-
-/** Override env (tests or Workers bindings). Call before first `getEventsApiEnv()`. */
-export function setEventsApiEnv(env: EventsApiEnv): void {
-  cachedEnv = env;
-}
-
-export function resetEventsApiEnv(): void {
-  cachedEnv = null;
-}

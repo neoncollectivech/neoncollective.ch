@@ -40,7 +40,9 @@ export function EventDetailLayout({
       {splitMainAside ? (
         <div className="flex w-full min-w-0 flex-col gap-10 lg:grid lg:grid-cols-[minmax(0,1fr)_min(26rem,38vw)] lg:gap-10 lg:items-start">
           {mainLead ? (
-            <div className="min-w-0 lg:col-start-1 lg:row-start-1">{mainLead}</div>
+            <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+              {mainLead}
+            </div>
           ) : null}
           <div
             className={

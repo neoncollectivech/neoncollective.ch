@@ -23,9 +23,6 @@ import { peopleService } from "./people.service";
 
 export type EventInviteesTx = EntityTx;
 
-/** Admin CRUD parent column for nested invitee routes. */
-export const eventInviteesEventIdColumn = eventInvitees.eventId;
-
 export type InviteeContactLookup = {
   email: string | null;
   phoneDigits?: string | null;

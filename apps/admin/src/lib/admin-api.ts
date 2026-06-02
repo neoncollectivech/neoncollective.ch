@@ -263,14 +263,6 @@ export async function patchEvent(eventId: string, payload: unknown) {
 
 export const listEventInvitees = listEventInviteesClient;
 
-export async function getEventInvitee(inviteeId: string) {
-  const res = await api.get<ItemResponse<EventInviteeListRow>>(
-    `/admin/event-invitees/${inviteeId}`,
-  );
-
-  return res.data.item;
-}
-
 function filenameFromContentDisposition(
   header: string | undefined,
   fallback: string,

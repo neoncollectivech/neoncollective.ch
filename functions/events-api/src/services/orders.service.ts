@@ -639,10 +639,3 @@ function resolveSalesChartEndMs(
 
   return Math.max(endMs, startMs);
 }
-
-/** Column refs for admin route filters (orders table only). */
-export const orderColumns = {
-  id: orders.id,
-  personId: orders.personId,
-  eventId: orders.eventId,
-} as const;

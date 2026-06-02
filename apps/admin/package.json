@@ -8,6 +8,7 @@
     "build": "tsc --project tsconfig.app.json --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx -c .eslintrc.json --fix --max-warnings 0",
+    "knip": "pnpm -w knip --workspace apps/admin",
     "typecheck": "tsc --project tsconfig.app.json --noEmit"
   },
   "dependencies": {

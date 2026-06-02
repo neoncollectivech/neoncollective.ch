@@ -1,12 +1,10 @@
 import { randomHex } from "@neon/server-kit";
 
 import {
-  buildClearSessionCookieHeader,
   buildSessionCookieHeader,
 } from "../../auth/cookies/participant";
 import { peopleService } from "../../services/people.service";
 import {
-  parseEventInviteeIdFromSessionToken,
   resolveParticipantSessionFromCookie,
   type ParticipantSessionContext,
 } from "../../auth/resolvers/participant-session";
@@ -45,7 +43,6 @@ import {
 } from "./people-orchestration";
 
 export type {
-  ParticipantIdentity,
   ParticipantSessionContext,
   ResolvedParticipantSession,
 } from "../../auth/resolvers/participant-session";
@@ -185,8 +182,6 @@ export function buildEventInvitePendingSessionToken(inviteeId: string): string {
   return `r.${inviteeId}.${randomHex(32)}`;
 }
 
-export { parseEventInviteeIdFromSessionToken };
-
 /**
  * Event-invite guest sign-in before profile completion: session without `person_id`, OTP via
  * `profile_verification_codes` (reuses existing tables — no schema migration).
@@ -305,8 +300,6 @@ export function resolveParticipantSessionCookieCrossSite(_params: {
 function sessionMaxAgeSec(): number {
   return getEventsApiEnv().participantSessionMaxAgeSec;
 }
-
-export { buildSessionCookieHeader, buildClearSessionCookieHeader, resolveParticipantSessionFromCookie };
 
 export async function requestRegistrationSession(params: {
   contact: string;
