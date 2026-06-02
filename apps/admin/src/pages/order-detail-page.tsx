@@ -15,7 +15,12 @@ import {
 } from "@/lib/event-workspace-paths";
 import { isUuid } from "@/lib/uuid";
 
-const DELETABLE_STATUSES = new Set(["pending", "failed"]);
+function isAdminDeletableOrder(order: {
+  amountCents: number;
+  stripePaymentIntentId: string | null;
+}): boolean {
+  return order.amountCents === 0 && order.stripePaymentIntentId == null;
+}
 
 export function OrderDetailPage() {
   const navigate = useNavigate();
@@ -74,7 +79,7 @@ export function OrderDetailPage() {
 
   const refundMutation = useMutation(adminApi.order.refund(orderId));
   const deleteMutation = useMutation(adminApi.order.delete(orderId));
-  const canDelete = order && DELETABLE_STATUSES.has(order.status);
+  const canDelete = order && isAdminDeletableOrder(order);
 
   const isLoading =
     orderQuery.isLoading ||
@@ -122,7 +127,7 @@ export function OrderDetailPage() {
                     onClick={() => {
                       if (
                         confirm(
-                          "Delete this order? This cannot be undone. Tier quota will be released.",
+                          "Delete this free order? This cannot be undone. Related tier lines and admissions will be removed.",
                         )
                       ) {
                         deleteMutation.mutate(orderId, {

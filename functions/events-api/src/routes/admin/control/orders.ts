@@ -16,7 +16,7 @@ const DELETE_ORDER_ERRORS = {
   order_not_found: { status: 404 as ContentfulStatusCode, error: "Order not found." },
   order_not_deletable: {
     status: 400 as ContentfulStatusCode,
-    error: "Only pending or failed orders can be deleted. Refund paid orders instead.",
+    error: "Only zero-amount orders with no Stripe payment can be deleted.",
   },
 } as const;
 

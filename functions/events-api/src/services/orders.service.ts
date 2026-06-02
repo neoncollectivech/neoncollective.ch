@@ -468,13 +468,12 @@ export class OrdersService extends TableService<
     | { ok: true }
     | { ok: false; reason: "order_not_found" | "order_not_deletable" }
   > {
-    const deletable = new Set<typeof orders.$inferSelect.status>(["pending", "failed"]);
     const db = getDb();
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
     if (!order) {
       return { ok: false, reason: "order_not_found" };
     }
-    if (!deletable.has(order.status)) {
+    if (order.amountCents !== 0 || order.stripePaymentIntentId != null) {
       return { ok: false, reason: "order_not_deletable" };
     }
     await db.delete(orders).where(eq(orders.id, orderId));
