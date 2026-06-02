@@ -714,6 +714,36 @@ function EventDetailsInner({ slug }: { slug: string }) {
     />
   );
 
+  const registrationConfirmedCard = registrationSettled ? (
+    <RegistrationConfirmedCard
+      donateHref={donateHref}
+      ev={ev}
+      labels={{
+        addToCalendar: t.addToCalendar,
+        donateCta: nav.donate,
+        hostInviteConversionsEmpty: t.hostInviteConversionsEmpty,
+        hostInviteConversionsTitle: t.hostInviteConversionsTitle,
+        hostInviteCopied: t.hostInviteCopied,
+        hostInviteCopy: t.hostInviteCopy,
+        hostInviteGuestsTitle: t.hostInviteGuestsTitle,
+        hostInviteLinkLabel: t.hostInviteLinkLabel,
+        hostInviteShare: t.hostInviteShare,
+        hostInvitesLeft: t.hostInvitesLeft,
+        registrationConfirmedBodyNoTier: t.registrationConfirmedBodyNoTier,
+        registrationConfirmedIntro: t.registrationConfirmedIntro,
+        registrationConfirmedIntroNoName: t.registrationConfirmedIntroNoName,
+        registrationConfirmedTierAddon: t.registrationConfirmedTierAddon,
+        registrationConfirmedTitle: t.registrationConfirmedTitle,
+        extendContributionCta: t.extendContributionCta ?? t.confirmContribution,
+        supportNeonBeyondEvent: t.supportNeonBeyondEvent,
+      }}
+      locale={locale}
+      slug={slug}
+      showUpsellCta={hasUpsellOptions}
+      onUpsellPress={openUpsellFlow}
+    />
+  ) : null;
+
   return (
     <>
       <ParticipantProfileGateModal eventTitle={ev.title} gate={profileGate} />
@@ -722,52 +752,21 @@ function EventDetailsInner({ slug }: { slug: string }) {
         aside={checkoutAside}
         header={
           <>
-            {registrationSettled ? (
-              <RegistrationConfirmedCard
-                donateHref={donateHref}
-                ev={ev}
-                labels={{
-                  addToCalendar: t.addToCalendar,
-                  donateCta: nav.donate,
-                  hostInviteConversionsEmpty: t.hostInviteConversionsEmpty,
-                  hostInviteConversionsTitle: t.hostInviteConversionsTitle,
-                  hostInviteCopied: t.hostInviteCopied,
-                  hostInviteCopy: t.hostInviteCopy,
-                  hostInviteGuestsTitle: t.hostInviteGuestsTitle,
-                  hostInviteLinkLabel: t.hostInviteLinkLabel,
-                  hostInviteShare: t.hostInviteShare,
-                  hostInvitesLeft: t.hostInvitesLeft,
-                  registrationConfirmedBodyNoTier:
-                    t.registrationConfirmedBodyNoTier,
-                  registrationConfirmedIntro: t.registrationConfirmedIntro,
-                  registrationConfirmedIntroNoName:
-                    t.registrationConfirmedIntroNoName,
-                  registrationConfirmedTierAddon:
-                    t.registrationConfirmedTierAddon,
-                  registrationConfirmedTitle: t.registrationConfirmedTitle,
-                  extendContributionCta:
-                    t.extendContributionCta ?? t.confirmContribution,
-                  supportNeonBeyondEvent: t.supportNeonBeyondEvent,
-                }}
-                locale={locale}
-                slug={slug}
-                showUpsellCta={hasUpsellOptions}
-                onUpsellPress={openUpsellFlow}
-              />
-            ) : null}
-
             {upsellContributionPanel}
 
             {!sideBySideCheckout ? eventHero : null}
           </>
         }
         main={
-          <EventAboutSection
-            className="mb-10 md:mb-12"
-            imageAlt={t.detailImageAlt}
-            images={images}
-            summary={ev.summary ?? null}
-          />
+          <>
+            {registrationConfirmedCard}
+            <EventAboutSection
+              className="mb-10 md:mb-12"
+              imageAlt={t.detailImageAlt}
+              images={images}
+              summary={ev.summary ?? null}
+            />
+          </>
         }
         mainLead={sideBySideCheckout ? eventHero : null}
         stickyBarPadding={
