@@ -683,7 +683,12 @@ function EventDetailsInner({ slug }: { slug: string }) {
     contributionPanel
   );
 
+  const showUpsellPanel =
+    showCheckout && registrationSettled && hasUpsellOptions && showUpsellFlow;
+
   const sideBySideCheckout = Boolean(checkoutAside) && hasAboutContent;
+  const sideBySideUpsell = Boolean(showUpsellPanel && hasAboutContent);
+  const sideBySideLayout = sideBySideCheckout || sideBySideUpsell;
 
   const eventHero = (
     <EventHero
@@ -711,6 +716,15 @@ function EventDetailsInner({ slug }: { slug: string }) {
       summaryDisplay={heroSummary}
       title={ev.title}
       onContributionAnchorClick={scrollToContribution}
+    />
+  );
+
+  const eventAboutSection = (
+    <EventAboutSection
+      className="mb-10 md:mb-12"
+      imageAlt={t.detailImageAlt}
+      images={images}
+      summary={ev.summary ?? null}
     />
   );
 
@@ -749,26 +763,24 @@ function EventDetailsInner({ slug }: { slug: string }) {
       <ParticipantProfileGateModal eventTitle={ev.title} gate={profileGate} />
 
       <EventDetailLayout
-        aside={checkoutAside}
-        header={
-          <>
-            {upsellContributionPanel}
-
-            {!sideBySideCheckout ? eventHero : null}
-          </>
-        }
+        aside={sideBySideUpsell ? upsellContributionPanel : checkoutAside}
+        header={!sideBySideLayout ? eventHero : null}
         main={
-          <>
-            {registrationConfirmedCard}
-            <EventAboutSection
-              className="mb-10 md:mb-12"
-              imageAlt={t.detailImageAlt}
-              images={images}
-              summary={ev.summary ?? null}
-            />
-          </>
+          sideBySideUpsell ? null : (
+            <>
+              {registrationConfirmedCard}
+              {showUpsellPanel && !hasAboutContent
+                ? upsellContributionPanel
+                : null}
+              {eventAboutSection}
+            </>
+          )
         }
-        mainLead={sideBySideCheckout ? eventHero : null}
+        mainAfterAside={sideBySideUpsell ? eventAboutSection : null}
+        mainBeforeAside={
+          sideBySideUpsell ? registrationConfirmedCard : null
+        }
+        mainLead={sideBySideLayout ? eventHero : null}
         stickyBarPadding={
           showActiveCheckout &&
           tierSelectionReady &&
