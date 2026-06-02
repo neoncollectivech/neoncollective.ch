@@ -23,9 +23,11 @@ test.describe("checkout upsell", () => {
     await expect(
       page.getByRole("heading", { name: "You're registered" }),
     ).toBeVisible();
-    await expect(page.getByText("Extend your contribution")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Extend your experience" }),
+    ).toBeVisible();
 
-    await page.getByText("Extend your contribution").click();
+    await page.getByRole("button", { name: "Extend your experience" }).click();
 
     await expect(
       page.getByRole("checkbox", { name: new RegExp(seed.addon2TierName, "i") }),
@@ -63,7 +65,9 @@ test.describe("checkout upsell", () => {
       paymentElementReady: true,
     });
 
-    await expect(page.getByText("Extend your contribution")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Extend your experience" }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("checkbox", { name: new RegExp(seed.addon2TierName, "i") }),
     ).toHaveCount(0);

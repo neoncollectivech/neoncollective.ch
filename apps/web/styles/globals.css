@@ -101,6 +101,15 @@
     @apply text-xs font-mono uppercase tracking-wider text-foreground/40;
   }
 
+  /** Checkout panel: prose and subsection titles (not mono label/meta). */
+  .checkout-section-title {
+    @apply text-sm font-semibold tracking-tight text-foreground/85;
+  }
+
+  .checkout-helper {
+    @apply text-sm text-foreground/50 leading-relaxed;
+  }
+
   .neon-text-action {
     @apply text-sm font-semibold text-neon/80 hover:text-neon underline-offset-2 hover:underline text-left;
   }

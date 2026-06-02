@@ -28,12 +28,12 @@ type EventHeroProps = {
     backToEvents: string;
     detailLocation: string;
     inviteOnly: string;
-    contributionOpen: string;
+    registrationOpen: string;
     eventPassed: string;
-    costTransparencyDisclaimer: string;
+    sharedCostsDisclaimer: string;
     viewFullPoster: string;
     galleryClose: string;
-    heroContributionCta: string;
+    heroRegisterCta: string;
   };
   showContributionAnchor?: boolean;
   onContributionAnchorClick?: () => void;
@@ -111,7 +111,7 @@ export function EventHero({
 
           {status === "open" ? (
             <p className="neon-label text-neon/70 mt-2 normal-case">
-              {labels.contributionOpen}
+              {labels.registrationOpen}
             </p>
           ) : status === "passed" ? (
             <p className="neon-label mt-2 normal-case text-foreground/40">
@@ -131,7 +131,7 @@ export function EventHero({
 
           {showTrustDisclaimer ? (
             <p className="text-sm text-foreground/45 leading-relaxed mt-3">
-              {labels.costTransparencyDisclaimer}
+              {labels.sharedCostsDisclaimer}
             </p>
           ) : null}
 
@@ -141,7 +141,7 @@ export function EventHero({
               className="mt-4 lg:hidden"
               onClick={onContributionAnchorClick}
             >
-              {labels.heroContributionCta}
+              {labels.heroRegisterCta}
             </NeonTextButton>
           ) : null}
         </div>

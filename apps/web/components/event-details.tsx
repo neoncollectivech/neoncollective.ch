@@ -24,7 +24,7 @@ import { RegistrationPendingPanel } from "@/components/event/registration-pendin
 import { StickyContributionBar } from "@/components/event/sticky-contribution-bar";
 import { FormError } from "@/components/form-error";
 import { absoluteSiteUrl } from "@/helpers/site-url";
-import { formatContributionCta } from "@/helpers/contribution-labels";
+import { formatPayShareCta } from "@/helpers/pay-share-cta";
 import {
   defaultExclusiveTierId,
   hasEventAboutContent,
@@ -33,6 +33,7 @@ import {
   isExclusiveTier,
 } from "@/helpers/event-tier-utils";
 import { buildReturnPath } from "@/helpers/event-link-query";
+import { scrollContributionCardIntoView } from "@/helpers/scroll-contribution-card";
 import { eventDetailPath } from "@/helpers/eventRoutes";
 import {
   ParticipantProfileGateModal,
@@ -338,15 +339,11 @@ function EventDetailsInner({ slug }: { slug: string }) {
     : undefined;
 
   const scrollToContribution = useCallback(() => {
-    document
-      .getElementById("event-contribution")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    scrollContributionCardIntoView("event-contribution");
   }, []);
 
   const scrollToUpsellContribution = useCallback(() => {
-    document
-      .getElementById("event-upsell-contribution")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    scrollContributionCardIntoView("event-upsell-contribution");
   }, []);
 
   const handleConfirmContribution = useCallback(() => {
@@ -474,8 +471,13 @@ function EventDetailsInner({ slug }: { slug: string }) {
     ? Boolean(selectedExclusiveId)
     : selectedAddonIds.size > 0;
 
+  const checkoutSelectMessage =
+    exclusiveTiers.length === 0 && addonTiers.length > 0
+      ? t.checkoutSelectActivity
+      : t.checkoutSelectPass;
+
   const checkoutDisabledReason = !tierSelectionReady
-    ? t.checkoutSelectTier
+    ? checkoutSelectMessage
     : profileGate.profileLoading
       ? t.loading
       : !checkoutContactReady
@@ -510,22 +512,26 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const hasAboutContent = hasEventAboutContent(ev.summary ?? null, images);
   const heroSummary = heroSummaryDisplay(ev.summary ?? null, hasAboutContent);
 
-  const contributionLabels = {
-    contributionTitle: hasUpsellOptions
-      ? (t.extendContributionTitle ?? t.contributionTitle)
-      : t.contributionTitle,
-    contributionSubtitle: hasUpsellOptions
-      ? (t.extendContributionSubtitle ?? t.contributionSubtitle)
-      : t.contributionSubtitle,
+  const checkoutPanelTitle = hasUpsellOptions
+    ? t.upsellPanelTitle
+    : t.registerTitle;
+  const checkoutPanelSubtitle = hasUpsellOptions
+    ? t.upsellPanelSubtitle
+    : t.registerSubtitle;
+
+  const checkoutLabels = {
+    registerTitle: checkoutPanelTitle,
+    registerSubtitle: checkoutPanelSubtitle,
+    passTitle: t.passTitle,
     checkoutStepChoose: t.checkoutStepChoose,
     checkoutStepPay: t.checkoutStepPay,
     checkoutStepConfirm: t.checkoutStepConfirm,
-    changeLevel: t.changeLevel,
-    addonsTitle: t.addonsTitle,
+    changePass: t.changePass,
+    activitiesTitle: t.activitiesTitle,
+    activitiesHint: t.activitiesHint,
     placesRemaining: t.placesRemaining,
     placesUnlimited: t.placesUnlimited,
     soldOut: t.soldOut,
-    checkoutSelectTier: t.checkoutSelectTier,
     checkoutEnterContact: t.checkoutEnterContact,
     loading: t.loading,
     email: t.email,
@@ -533,27 +539,27 @@ function EventDetailsInner({ slug }: { slug: string }) {
     contactPrivacyHint: t.contactPrivacyHint,
     alreadyRegistered: t.alreadyRegistered,
     checkoutOnePersonHint: t.checkoutOnePersonHint,
-    pay: t.pay,
+    payYourShareButton: t.payYourShareButton,
     intentError: t.intentError,
-    checkoutTotal: t.checkoutTotal,
+    checkoutYourShare: t.checkoutYourShare,
     checkoutSubtotal: t.checkoutSubtotal,
     promoCodeLabel: t.promoCodeLabel,
     promoDiscount: t.promoDiscount,
     promoInvalid: t.promoInvalid,
     completeRegistration: t.completeRegistration,
-    confirmContribution: t.confirmContribution,
-    allTiersSoldOut: t.allTiersSoldOut,
+    payYourShare: t.payYourShare,
+    allPassesSoldOut: t.allPassesSoldOut,
   };
 
-  const ctaLabel = formatContributionCta(displayTotalCents, {
+  const ctaLabel = formatPayShareCta(displayTotalCents, {
     completeRegistration: t.completeRegistration,
-    confirmContribution: t.confirmContribution,
+    payYourShare: t.payYourShare,
   });
 
   const stickySummary =
     selectedTiers.length > 0
-      ? `${t.checkoutTotal}: CHF ${(displayTotalCents / 100).toFixed(0)}`
-      : t.contributionTitle;
+      ? `${t.checkoutYourShare}: CHF ${(displayTotalCents / 100).toFixed(0)}`
+      : checkoutPanelTitle;
 
   const pendingPanelLabels = {
     checkoutStepChoose: t.checkoutStepChoose,
@@ -562,7 +568,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
     checkoutPaymentReceived: t.checkoutPaymentReceived,
     checkoutConfirming: t.checkoutConfirming,
     confirmingNextSteps: t.confirmingNextSteps,
-    checkoutTotal: t.checkoutTotal,
+    checkoutYourShare: t.checkoutYourShare,
     checkoutSubtotal: t.checkoutSubtotal,
     promoCodeLabel: t.promoCodeLabel,
     promoDiscount: t.promoDiscount,
@@ -592,7 +598,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
     hasCheckoutProfile,
     intentMutationError: intentMutation.error,
     intentMutationPending: intentMutation.isPending,
-    labels: contributionLabels,
+    labels: checkoutLabels,
     phone,
     previewDiscountCents: previewPricing?.discountCents,
     previewSubtotalCents: previewPricing?.subtotalCents,
@@ -680,12 +686,12 @@ function EventDetailsInner({ slug }: { slug: string }) {
       inviteOnly={ev.inviteOnly}
       labels={{
         backToEvents: t.backToEvents,
-        contributionOpen: t.contributionOpen,
-        costTransparencyDisclaimer: t.costTransparencyDisclaimer,
+        registrationOpen: t.registrationOpen,
+        sharedCostsDisclaimer: t.sharedCostsDisclaimer,
         detailLocation: t.detailLocation,
         eventPassed: t.eventPassed,
         galleryClose: t.galleryClose,
-        heroContributionCta: t.heroContributionCta,
+        heroRegisterCta: t.heroRegisterCta,
         inviteOnly: t.inviteOnly,
         viewFullPoster: t.viewFullPoster,
       }}
@@ -733,9 +739,9 @@ function EventDetailsInner({ slug }: { slug: string }) {
         registrationConfirmedBodyNoTier: t.registrationConfirmedBodyNoTier,
         registrationConfirmedIntro: t.registrationConfirmedIntro,
         registrationConfirmedIntroNoName: t.registrationConfirmedIntroNoName,
-        registrationConfirmedTierAddon: t.registrationConfirmedTierAddon,
+        registeredTierActivity: t.registeredTierActivity,
         registrationConfirmedTitle: t.registrationConfirmedTitle,
-        extendContributionCta: t.extendContributionCta ?? t.confirmContribution,
+        upsellScrollCta: t.upsellScrollCta,
         supportNeonBeyondEvent: t.supportNeonBeyondEvent,
       }}
       locale={locale}

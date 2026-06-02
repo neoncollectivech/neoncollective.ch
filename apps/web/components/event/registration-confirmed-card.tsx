@@ -97,7 +97,7 @@ type RegistrationConfirmedCardProps = {
     registrationConfirmedIntro: string;
     registrationConfirmedIntroNoName: string;
     registrationConfirmedBodyNoTier: string;
-    registrationConfirmedTierAddon: string;
+    registeredTierActivity: string;
     hostInviteGuestsTitle: string;
     hostInviteLinkLabel: string;
     hostInviteCopy: string;
@@ -107,7 +107,7 @@ type RegistrationConfirmedCardProps = {
     hostInviteConversionsTitle: string;
     hostInviteConversionsEmpty: string;
     addToCalendar: string;
-    extendContributionCta: string;
+    upsellScrollCta: string;
     supportNeonBeyondEvent: string;
     donateCta: string;
   };
@@ -134,7 +134,7 @@ export function RegistrationConfirmedCard({
         })
       : "";
   const tierLabels = {
-    addon: labels.registrationConfirmedTierAddon,
+    addon: labels.registeredTierActivity,
     bodyNoTier: labels.registrationConfirmedBodyNoTier,
     intro: labels.registrationConfirmedIntro,
     introNoName: labels.registrationConfirmedIntroNoName,
@@ -180,7 +180,7 @@ export function RegistrationConfirmedCard({
         {showUpsellCta && onUpsellPress ? (
           <div className="mt-6">
             <NeonTextButton type="button" onClick={onUpsellPress}>
-              {labels.extendContributionCta}
+              {labels.upsellScrollCta}
             </NeonTextButton>
           </div>
         ) : null}

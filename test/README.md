@@ -127,6 +127,6 @@ Seed (`db:seed:e2e`) creates **Root** (CHF 15, mandatory), **Addon 1** (CHF 8), 
 
 Override with `E2E_HOST_INVITED_PHONE`, `E2E_GUEST_INVITED_PHONE`, `E2E_HOST_INVITED_PROMO_PHONE` (and optional `*_EMAIL` for hosts). Seed JSON uses `hostInvited`, `guestInvited`, `hostInvitedPromo` objects.
 
-Minimal checkout means tier/add-on pickers + **Confirm contribution** only — no inline email/phone fields and no sign-in panel under checkout (a welcome line for signed-in users is OK).
+Minimal checkout means pass/activity pickers + **Pay your share** only — no inline email/phone fields and no sign-in panel under checkout (a welcome line for signed-in users is OK).
 
 **Promotion spec** uses `createIsolatedContext` (fresh browser, no participant cookie) and **Host InvitedPromo** so it never reuses Host Invited’s session or registration.

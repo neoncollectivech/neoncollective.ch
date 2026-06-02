@@ -20,7 +20,7 @@ type ContributionSummaryProps = {
   labels: {
     promoCodeLabel: string;
     checkoutSubtotal: string;
-    checkoutTotal: string;
+    checkoutYourShare: string;
     promoDiscount: string;
     promoInvalid: string;
   };
@@ -55,7 +55,7 @@ export function ContributionSummary({
           {labels.promoCodeLabel}: {promo}
         </p>
       ) : null}
-      <ul className="space-y-1 text-sm text-foreground/75">
+      <ul className="space-y-1.5 text-sm text-foreground/80">
         {selectedTiers.map((tier) => (
           <li
             key={tier.id}
@@ -69,17 +69,20 @@ export function ContributionSummary({
         ))}
       </ul>
       {showPromoSubtotal && previewSubtotalCents != null ? (
-        <p className="text-xs text-foreground/45 line-through">
+        <p className="checkout-helper text-foreground/45 line-through">
           {labels.checkoutSubtotal}: {formatTierPriceChf(previewSubtotalCents)}
         </p>
       ) : null}
       {showPromoSubtotal && previewDiscountCents != null ? (
-        <p className="text-xs text-neon/80">
+        <p className="text-sm text-neon/80">
           {labels.promoDiscount}: {formatTierPriceChf(previewDiscountCents)}
         </p>
       ) : null}
-      <p className="text-sm font-mono text-foreground/55">
-        {labels.checkoutTotal}: {formatTierPriceChf(displayTotalCents)}
+      <p className="text-sm font-semibold text-foreground/90">
+        {labels.checkoutYourShare}:{" "}
+        <span className="font-mono font-normal text-foreground/70">
+          {formatTierPriceChf(displayTotalCents)}
+        </span>
       </p>
       {promoInvalid ? (
         <p className="text-xs text-red-400">{labels.promoInvalid}</p>

@@ -45,7 +45,7 @@ export async function expectMinimalCheckout(page, seed) {
   await expect(page.getByTestId("event-checkout-confirm-contribution")).toBeVisible();
 
   if (seed?.addon1TierName ?? seed?.addonTierName) {
-    await expect(page.getByText("Optional extras", { exact: true })).toBeVisible();
+    await expect(page.getByText("Extras", { exact: true })).toBeVisible();
     await expect(
       page.getByRole("checkbox", {
         name: new RegExp(seed.addon1TierName ?? seed.addonTierName, "i"),
@@ -60,7 +60,7 @@ export async function expectMinimalCheckout(page, seed) {
 }
 
 export async function assertCheckoutTotalChf(page, totalChf, opts = {}) {
-  const totalLabel = `Your contribution: CHF ${totalChf}`;
+  const totalLabel = `Your share: CHF ${totalChf}`;
   const totals = page.getByText(totalLabel);
   const expectedCount = opts.count;
 

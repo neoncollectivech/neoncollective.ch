@@ -19,7 +19,7 @@ export function ContributionStepper({
 }: ContributionStepperProps) {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-3 mb-0">
-      <div className="neon-label flex flex-wrap items-center gap-2 normal-case tracking-wider">
+      <div className="flex flex-wrap items-center gap-2 text-xs font-medium tracking-tight text-foreground/40">
         <span
           className={
             step === 1 ? "text-neon/80" : "text-foreground/30 line-through"

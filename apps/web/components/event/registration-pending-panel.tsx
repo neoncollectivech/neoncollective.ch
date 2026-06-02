@@ -16,7 +16,7 @@ type RegistrationPendingPanelLabels = {
   checkoutPaymentReceived: string;
   checkoutConfirming: string;
   confirmingNextSteps: string;
-  checkoutTotal: string;
+  checkoutYourShare: string;
   checkoutSubtotal: string;
   promoCodeLabel: string;
   promoDiscount: string;
@@ -77,7 +77,7 @@ export function RegistrationPendingPanel({
             displayTotalCents={displayTotalCents}
             labels={{
               checkoutSubtotal: labels.checkoutSubtotal,
-              checkoutTotal: labels.checkoutTotal,
+              checkoutYourShare: labels.checkoutYourShare,
               promoCodeLabel: labels.promoCodeLabel,
               promoDiscount: labels.promoDiscount,
               promoInvalid: labels.promoInvalid,

@@ -21,7 +21,7 @@ import { NeonButton } from "@/components/neon-button";
 import { NeonInput } from "@/components/neon-input";
 import { NeonTextButton } from "@/components/neon-text-button";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
-import { formatContributionCta } from "@/helpers/contribution-labels";
+import { formatPayShareCta } from "@/helpers/pay-share-cta";
 import {
   formatPlacesRemaining,
   formatTierPrice,
@@ -29,17 +29,18 @@ import {
 } from "@/helpers/event-tier-utils";
 
 type ContributionPanelLabels = {
-  contributionTitle: string;
-  contributionSubtitle: string;
+  registerTitle: string;
+  registerSubtitle: string;
+  passTitle: string;
   checkoutStepChoose: string;
   checkoutStepPay: string;
   checkoutStepConfirm: string;
-  changeLevel: string;
-  addonsTitle: string;
+  changePass: string;
+  activitiesTitle: string;
+  activitiesHint: string;
   placesRemaining: string;
   placesUnlimited: string;
   soldOut: string;
-  checkoutSelectTier: string;
   checkoutEnterContact: string;
   loading: string;
   email: string;
@@ -47,16 +48,16 @@ type ContributionPanelLabels = {
   contactPrivacyHint: string;
   alreadyRegistered: string;
   checkoutOnePersonHint: string;
-  pay: string;
+  payYourShareButton: string;
   intentError: string;
-  checkoutTotal: string;
+  checkoutYourShare: string;
   checkoutSubtotal: string;
   promoCodeLabel: string;
   promoDiscount: string;
   promoInvalid: string;
   completeRegistration: string;
-  confirmContribution: string;
-  allTiersSoldOut: string;
+  payYourShare: string;
+  allPassesSoldOut: string;
 };
 
 type ContributionPanelProps = {
@@ -155,10 +156,13 @@ export function ContributionPanel({
   const paymentRef = useRef<HTMLDivElement>(null);
   const step: 1 | 2 = clientSecret ? 2 : 1;
 
-  const ctaLabel = formatContributionCta(displayTotalCents, {
+  const ctaLabel = formatPayShareCta(displayTotalCents, {
     completeRegistration: labels.completeRegistration,
-    confirmContribution: labels.confirmContribution,
+    payYourShare: labels.payYourShare,
   });
+
+  const passHeadingId =
+    addonTiers.length > 0 ? "event-checkout-pass-heading" : "event-checkout-heading";
 
   const scrollToPayment = useCallback(() => {
     paymentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -172,20 +176,23 @@ export function ContributionPanel({
     !hasCheckoutProfile || showContactForm || !clientSecret;
 
   return (
-    <NeonCard
-      className="overflow-x-clip"
-      data-testid={
-        hasCheckoutProfile
-          ? "event-checkout-minimal"
-          : "event-checkout-with-contact"
-      }
+    <div
+      className="min-w-0 scroll-mt-22 scroll-mb-28 lg:scroll-mb-6"
       id={id}
-      surface="default"
     >
+      <NeonCard
+        className="overflow-x-clip"
+        data-testid={
+          hasCheckoutProfile
+            ? "event-checkout-minimal"
+            : "event-checkout-with-contact"
+        }
+        surface="default"
+      >
       <NeonCardBody padding="checkout">
         <div className="space-y-8">
           <ContributionStepper
-            changeLevelLabel={labels.changeLevel}
+            changeLevelLabel={labels.changePass}
             chooseLabel={labels.checkoutStepChoose}
             completeLabel={labels.checkoutStepPay}
             confirmLabel={labels.checkoutStepConfirm}
@@ -195,20 +202,27 @@ export function ContributionPanel({
 
           <div>
             <h2 className="neon-title-section mb-3" id="event-checkout-heading">
-              {labels.contributionTitle}
+              {labels.registerTitle}
             </h2>
-            <p className="neon-meta">{labels.contributionSubtitle}</p>
+            <p className="checkout-helper">{labels.registerSubtitle}</p>
           </div>
 
           {allExclusiveSoldOut ? (
-            <p className="text-sm text-foreground/50">
-              {labels.allTiersSoldOut}
-            </p>
+            <p className="checkout-helper">{labels.allPassesSoldOut}</p>
           ) : null}
 
           {exclusiveTiers.length > 0 ? (
+            <div className="space-y-4">
+              {addonTiers.length > 0 ? (
+                <p
+                  className="checkout-section-title"
+                  id="event-checkout-pass-heading"
+                >
+                  {labels.passTitle}
+                </p>
+              ) : null}
             <RadioGroup
-              aria-labelledby="event-checkout-heading"
+              aria-labelledby={passHeadingId}
               className="min-w-0"
               classNames={{ wrapper: "gap-6 min-w-0 w-full" }}
               isDisabled={checkoutLocked}
@@ -256,7 +270,7 @@ export function ContributionPanel({
                       value={tier.id}
                     >
                       <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
+                        <span className="text-sm font-medium text-foreground/90 wrap-break-word min-w-0">
                           {tier.name}
                         </span>
                         <span className="text-xs font-mono text-foreground/45 shrink-0">
@@ -268,11 +282,15 @@ export function ContributionPanel({
                 );
               })}
             </RadioGroup>
+            </div>
           ) : null}
 
           {addonTiers.length > 0 ? (
             <div className="space-y-4">
-              <p className="neon-label">{labels.addonsTitle}</p>
+              <div className="space-y-1.5">
+                <p className="checkout-section-title">{labels.activitiesTitle}</p>
+                <p className="checkout-helper">{labels.activitiesHint}</p>
+              </div>
               <div className="space-y-3">
                 {addonTiers.map((tier) => {
                   const tierDescription = tier.description.trim();
@@ -310,7 +328,7 @@ export function ContributionPanel({
                       >
                         <div className="w-full min-w-0">
                           <span className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                            <span className="text-sm font-medium text-foreground/80 break-words min-w-0">
+                            <span className="text-sm font-medium text-foreground/90 wrap-break-word min-w-0">
                               {tier.name}
                             </span>
                             <span className="text-xs font-mono text-foreground/45 shrink-0">
@@ -335,7 +353,7 @@ export function ContributionPanel({
             displayTotalCents={displayTotalCents}
             labels={{
               checkoutSubtotal: labels.checkoutSubtotal,
-              checkoutTotal: labels.checkoutTotal,
+              checkoutYourShare: labels.checkoutYourShare,
               promoCodeLabel: labels.promoCodeLabel,
               promoDiscount: labels.promoDiscount,
               promoInvalid: labels.promoInvalid,
@@ -388,7 +406,7 @@ export function ContributionPanel({
                     value={phone}
                     onValueChange={onPhoneChange}
                   />
-                  <p className="text-xs text-foreground/40 leading-relaxed">
+                  <p className="checkout-helper text-foreground/45">
                     {labels.contactPrivacyHint}
                   </p>
                 </div>
@@ -416,7 +434,7 @@ export function ContributionPanel({
                     !tierSelectionReady ||
                     profileLoading ||
                     !checkoutContactReady) ? (
-                    <p className="text-xs text-foreground/40">
+                    <p className="checkout-helper text-foreground/45">
                       {checkoutDisabledReason}
                     </p>
                   ) : null}
@@ -451,7 +469,7 @@ export function ContributionPanel({
               >
                 <PaymentStep
                   onePersonHint={labels.checkoutOnePersonHint}
-                  payLabel={labels.pay}
+                  payLabel={labels.payYourShareButton}
                   returnUrl={checkoutReturnUrl ?? returnUrl}
                   onMounted={scrollToPayment}
                   onPaymentSucceeded={onPaymentSucceeded}
@@ -461,6 +479,7 @@ export function ContributionPanel({
           ) : null}
         </div>
       </NeonCardBody>
-    </NeonCard>
+      </NeonCard>
+    </div>
   );
 }
