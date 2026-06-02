@@ -3,12 +3,14 @@ import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type Stripe from "stripe";
 
-import { getEventsApiEnv } from "../config/runtime-env";
-import { getStripe } from "../helpers/stripe";
+import type { AppEnv } from "../auth/env";
+import { authFactory } from "../auth/factory";
+import { verifyStripeWebhook } from "../auth/middleware/stripe-webhook";
 import { admissionsService } from "../services/admissions.service";
 import { inviteRedemptionsService } from "../services/invite-redemptions.service";
 import { ordersService } from "../services/orders.service";
 import { stripeEventsProcessedService } from "../services/stripe-events-processed.service";
+import { getStripe } from "../helpers/stripe";
 import {
   fulfillPaidOrder,
   type FulfillPaidOrderResult,
@@ -186,26 +188,9 @@ async function handleChargeRefunded(
   return { ok: true };
 }
 
-async function handleStripeWebhook(
-  rawBody: string,
-  signature: string | undefined,
+async function processStripeEvent(
+  event: Stripe.Event,
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const secret = getEventsApiEnv().stripeWebhookSecret;
-  if (!secret) {
-    return { ok: false, status: 500, error: "STRIPE_WEBHOOK_SECRET not configured." };
-  }
-  if (!signature) {
-    return { ok: false, status: 400, error: "Missing Stripe-Signature header." };
-  }
-  let event: Stripe.Event;
-  try {
-    event = getStripe().webhooks.constructEvent(rawBody, signature, secret);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Invalid signature";
-    log.warn({ msg }, "Webhook signature verification failed");
-    return { ok: false, status: 400, error: msg };
-  }
-
   switch (event.type) {
     case "payment_intent.succeeded":
       return handlePaymentIntentSucceeded(event);
@@ -219,18 +204,23 @@ async function handleStripeWebhook(
   }
 }
 
-export function createWebhooksRouter(): Hono {
-  const router = new Hono();
+export function createWebhooksRouter(): Hono<AppEnv> {
+  const router = new Hono<AppEnv>();
 
-  router.post("/webhooks/stripe", async (c) => {
-    const sig = c.req.header("stripe-signature");
-    const raw = await c.req.text();
-    const res = await handleStripeWebhook(raw, sig);
-    if (!res.ok) {
-      return c.text(res.error, res.status as ContentfulStatusCode);
-    }
-    return c.json({ received: true });
-  });
+  router.post(
+    "/webhooks/stripe",
+    ...authFactory.createHandlers(verifyStripeWebhook, async (c) => {
+      const event = c.var.stripeEvent;
+      if (!event) {
+        return c.text("Missing Stripe event.", 500);
+      }
+      const res = await processStripeEvent(event);
+      if (!res.ok) {
+        return c.text(res.error, res.status as ContentfulStatusCode);
+      }
+      return c.json({ received: true });
+    }),
+  );
 
   return router;
 }

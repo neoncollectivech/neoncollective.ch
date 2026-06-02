@@ -1,5 +1,15 @@
 import { randomHex } from "@neon/server-kit";
 
+import {
+  buildClearSessionCookieHeader,
+  buildSessionCookieHeader,
+} from "../../auth/cookies/participant";
+import { peopleService } from "../../services/people.service";
+import {
+  parseEventInviteeIdFromSessionToken,
+  resolveParticipantSessionFromCookie,
+  type ParticipantSessionContext,
+} from "../../auth/resolvers/participant-session";
 import { getEventsApiEnv } from "../../config/runtime-env";
 import { parseContactInput } from "../../helpers/contact";
 import { runTransaction, type EntityTx } from "../../services/transaction";
@@ -15,7 +25,6 @@ import {
 import { createLogger } from "@neon/server-kit";
 import { isSmsEnabled, sendRegistrationSmsCode } from "../../helpers/sms";
 import { isE2eTestMode } from "../../helpers/e2e-test-mode";
-import { e164FromStoredDigits } from "../../helpers/profile";
 import { sha256Hex } from "../../helpers/token";
 import { REGISTRATION_EXCHANGE_TTL_MS } from "../../config/registration";
 import {
@@ -34,7 +43,12 @@ import {
   resolvePersonIdForRegistrationContact,
   syncEventInviteesToPerson,
 } from "./people-orchestration";
-import { peopleService } from "../../services/people.service";
+
+export type {
+  ParticipantIdentity,
+  ParticipantSessionContext,
+  ResolvedParticipantSession,
+} from "../../auth/resolvers/participant-session";
 
 const log = createLogger("registration-session");
 
@@ -114,8 +128,6 @@ function validateParticipantReturnUrl(returnUrl: string): string | null {
   return u.toString();
 }
 
-const COOKIE_NAME = "neon_ev_participant";
-
 /** Appends `code` to an already-validated absolute return URL. */
 export function appendCodeToReturnUrl(safeReturnUrl: string, rawCode: string): string {
   const u = new URL(safeReturnUrl);
@@ -173,10 +185,7 @@ export function buildEventInvitePendingSessionToken(inviteeId: string): string {
   return `r.${inviteeId}.${randomHex(32)}`;
 }
 
-export function parseEventInviteeIdFromSessionToken(token: string): string | null {
-  const m = /^r\.([0-9a-f-]{36})\.([0-9a-f]+)$/i.exec(token.trim());
-  return m?.[1] ?? null;
-}
+export { parseEventInviteeIdFromSessionToken };
 
 /**
  * Event-invite guest sign-in before profile completion: session without `person_id`, OTP via
@@ -286,18 +295,6 @@ export async function sendPostCheckoutParticipantAccessEmail(params: {
   }
 }
 
-function sessionMaxAgeSec(): number {
-  return getEventsApiEnv().participantSessionMaxAgeSec;
-}
-
-/**
- * Participant session cookie for static site + separate API host.
- *
- * - `EVENT_SESSION_CROSS_SITE=0` / `false`: `SameSite=Lax` (rare: API and browser first-party
- *   match).
- * - Default: `SameSite=None; Secure` so cross-origin `fetch(..., { credentials })` keeps the
- *   session after refresh.
- */
 export function resolveParticipantSessionCookieCrossSite(_params: {
   originHeader: string | undefined;
   requestUrl: string;
@@ -305,58 +302,11 @@ export function resolveParticipantSessionCookieCrossSite(_params: {
   return getEventsApiEnv().eventSessionCrossSite;
 }
 
-export function buildSessionCookieHeader(token: string, crossSite: boolean): string {
-  const maxAge = sessionMaxAgeSec();
-  if (crossSite) {
-    return `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; Secure; SameSite=None`;
-  }
-  const secure = getEventsApiEnv().nodeEnv === "production" ? "Secure;" : "";
-  return `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; ${secure} SameSite=Lax`;
+function sessionMaxAgeSec(): number {
+  return getEventsApiEnv().participantSessionMaxAgeSec;
 }
 
-export function buildClearSessionCookieHeader(crossSite: boolean): string {
-  if (crossSite) {
-    return `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; Secure; SameSite=None`;
-  }
-  const secure = getEventsApiEnv().nodeEnv === "production" ? "Secure;" : "";
-  return `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; ${secure} SameSite=Lax`;
-}
-
-function greetingDisplayName(raw: string | null | undefined): string {
-  const t = raw?.trim() ?? "";
-  if (!t) {
-    return "";
-  }
-  if (/^(guest|customer)$/i.test(t)) {
-    return "";
-  }
-  return t;
-}
-
-export type ParticipantIdentity = {
-  personId: string;
-  email: string | null;
-  /** E.164 with leading + when derived from stored digits. */
-  phoneE164: string | null;
-  /** For UI greetings; empty when only a generic placeholder name is stored. */
-  givenName: string;
-  familyName: string;
-};
-
-export type ParticipantSessionContext = {
-  sessionId: string;
-  personId: string | null;
-  /** Parsed from session token when event-invite guest has not completed profile yet. */
-  eventInviteeId: string | null;
-  inviteLinkId: string | null;
-};
-
-export type ResolvedParticipantSession = ParticipantSessionContext & {
-  email: string | null;
-  phoneE164: string | null;
-  givenName: string;
-  familyName: string;
-};
+export { buildSessionCookieHeader, buildClearSessionCookieHeader, resolveParticipantSessionFromCookie };
 
 export async function requestRegistrationSession(params: {
   contact: string;
@@ -551,93 +501,6 @@ export async function exchangeRegistrationCode(params: {
       setCookie: buildSessionCookieHeader(sessionToken, params.crossSiteCookie),
     };
   });
-}
-
-function parseSessionCookieToken(cookieHeader: string | undefined): string | null {
-  if (!cookieHeader) {
-    return null;
-  }
-  const m = cookieHeader.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
-  if (!m?.[1]) {
-    return null;
-  }
-  return decodeURIComponent(m[1].trim());
-}
-
-export async function resolveParticipantSessionFromCookie(
-  cookieHeader: string | undefined,
-): Promise<ResolvedParticipantSession | null> {
-  const raw = parseSessionCookieToken(cookieHeader);
-  if (!raw) {
-    return null;
-  }
-  const eventInviteeId = parseEventInviteeIdFromSessionToken(raw);
-  const tokenHash = await sha256Hex(raw);
-  const row = await participantSessionsService.findActiveByTokenHash(tokenHash);
-  if (!row) {
-    return null;
-  }
-
-  if (!row.personId && eventInviteeId) {
-    const contact = await loadPublishedOrphanInviteeContact(eventInviteeId);
-    if (!contact) {
-      return null;
-    }
-    return {
-      sessionId: row.sessionId,
-      personId: null,
-      eventInviteeId,
-      inviteLinkId: row.inviteLinkId,
-      email: contact.email,
-      phoneE164: contact.phoneE164,
-      givenName: "",
-      familyName: "",
-    };
-  }
-
-  if (!row.personId) {
-    return {
-      sessionId: row.sessionId,
-      personId: null,
-      eventInviteeId: null,
-      inviteLinkId: row.inviteLinkId,
-      email: null,
-      phoneE164: null,
-      givenName: "",
-      familyName: "",
-    };
-  }
-  const person = await peopleService.get(row.personId);
-  if (!person) {
-    return null;
-  }
-  return {
-    sessionId: row.sessionId,
-    personId: row.personId,
-    eventInviteeId: null,
-    inviteLinkId: row.inviteLinkId,
-    email: person.email ?? null,
-    phoneE164: e164FromStoredDigits(person.phone),
-    givenName: person.givenName ? greetingDisplayName(person.givenName) : "",
-    familyName: person.familyName ? greetingDisplayName(person.familyName) : "",
-  };
-}
-
-/** Legacy shape for callers that require a linked person. */
-export async function resolveParticipantIdentityFromCookie(
-  cookieHeader: string | undefined,
-): Promise<ParticipantIdentity | null> {
-  const row = await resolveParticipantSessionFromCookie(cookieHeader);
-  if (!row?.personId) {
-    return null;
-  }
-  return {
-    personId: row.personId,
-    email: row.email,
-    phoneE164: row.phoneE164,
-    givenName: row.givenName,
-    familyName: row.familyName,
-  };
 }
 
 async function insertParticipantSession(params: {

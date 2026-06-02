@@ -4,9 +4,9 @@ import {
   createHttpRequestLogger,
   createLogger,
 } from "@neon/server-kit";
-import { Hono } from "hono";
 
 import { configureAuth, createAuth } from "./auth/auth";
+import { authFactory } from "./auth/factory";
 import { mountBetterAuth } from "./auth/mount";
 import { getEventsApiEnv } from "./config/runtime-env";
 import { createAppRouter } from "./routes";
@@ -17,7 +17,7 @@ const env = getEventsApiEnv();
 const auth = createAuth(env);
 configureAuth(auth);
 
-const app = new Hono();
+const app = authFactory.createApp();
 
 app.use("*", createCorsFromEnv("credentials"));
 app.use("*", createHttpRequestLogger(log));

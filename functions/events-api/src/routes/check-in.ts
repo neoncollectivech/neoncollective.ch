@@ -2,9 +2,10 @@ import { arktypeValidator } from "@hono/arktype-validator";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import { getEventsApiEnv } from "../config/runtime-env";
+import type { AppEnv } from "../auth/env";
+import { authFactory } from "../auth/factory";
+import { eventApiKeyBearerAuth } from "../auth/middleware/event-api-key";
 import { checkInSchema } from "../schemas";
-import { verifyStaffBearer } from "../helpers/staff-auth";
 import { admissionsService } from "../services/admissions.service";
 import { jsonReasonFailure } from "./shared/respond";
 
@@ -15,24 +16,27 @@ const CHECK_IN_ERRORS = {
   },
 } as const;
 
-export function createCheckInRouter(): Hono {
-  const router = new Hono();
+export function createCheckInRouter(): Hono<AppEnv> {
+  const router = new Hono<AppEnv>();
 
-  router.post("/check-in", arktypeValidator("json", checkInSchema), async (c) => {
-    const staff = getEventsApiEnv().staffCheckinToken;
-    if (!verifyStaffBearer(c.req.header("Authorization"), staff)) {
-      return c.json({ error: "Unauthorized." }, 401);
-    }
-    const body = c.req.valid("json");
-    const res = await admissionsService.checkInByToken({
-      token: body.token,
-      staffLabel: "staff",
-    });
-    if (!res.ok) {
-      return jsonReasonFailure(c, res, CHECK_IN_ERRORS);
-    }
-    return c.json({ ok: true });
-  });
+  router.post(
+    "/check-in",
+    ...authFactory.createHandlers(
+      eventApiKeyBearerAuth,
+      arktypeValidator("json", checkInSchema),
+      async (c) => {
+        const body = c.req.valid("json");
+        const res = await admissionsService.checkInByToken({
+          token: body.token,
+          staffLabel: "staff",
+        });
+        if (!res.ok) {
+          return jsonReasonFailure(c, res, CHECK_IN_ERRORS);
+        }
+        return c.json({ ok: true });
+      },
+    ),
+  );
 
   return router;
 }

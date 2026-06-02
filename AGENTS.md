@@ -250,6 +250,29 @@ pnpm deploy:gcp --all
 - **Services (`src/services/`)**: one-table `*.service.ts` exporting `*ResourceMeta` + `tableServiceToBridge`-ready singleton extending `@neon/resource-api` `TableService`; rare `*.view.service.ts` only after `db/views.ts` gate; `services/transaction.ts` is canonical `runTransaction` + `EntityTx` and only allowed non-table/view `getDb().transaction` location (plus `services/db.ts`); forbidden: `services/compose/`, `*-flow.service.ts`, multi-table Drizzle in table services; service-to-service calls only for admin list where helpers; custom admin list logic via `parseListQuery` / `applyListFilters` / `listExecution: "custom"` on the service — never separate `*-list.ts` providers for CRUD tables.
 - **Helpers (`src/helpers/`)**: stateless/outbound IO (contact, OTP, Stripe SDK, email, SMS), never HTTP/Hono/Drizzle; order-tier formatting only in `order-tier-labels.ts`; line loading in `routes/shared/format-order-tiers.ts` + table services.
 
+#### Auth middleware (`src/auth/`)
+
+**Load + assert pattern** — typed Hono middleware via `authFactory` (`createFactory<AppEnv>`):
+
+- **Loaders** (`middleware/loaders.ts`) — run resolver once, `c.set` if valid, **always** `next()` (never 401): `loadParticipantSession`, `loadEventApiKey`, `loadAdminSession`.
+- **Asserts** (`middleware/assert.ts`) — read `c.var.*` only (never re-resolve), **401** if missing: `requireAuth(key, { predicate?, error? })`, `requireParticipantPerson`, `requireAdminSession`.
+- **Resolvers** (`resolvers/*`) — pure DB/Better Auth/Stripe lookups; routes must not call them directly except via loaders / `bearerAuth verifyToken`.
+- **Variables** (`env.ts` `AppEnv`): `participantSession`, `eventApiKey`, `adminSession`, `stripeEvent`.
+
+**When to use what:**
+
+| Need | Tool |
+|------|------|
+| Optional identity enrichment (public `/events*`) | Loaders on route shell only |
+| Required session / admin | `createHandlers(requireAuth(...), validator?, handler)` |
+| Participant OR API key (future protected routes) | Loaders on shell + `some(requireAuth(...), requireAuth(...))` on asserts |
+| Mandatory Bearer (check-in, future admissions) | `eventApiKeyBearerAuth` (`bearerAuth` + DB key stub; interim staff token) |
+| Stripe webhook | `verifyStripeWebhook` (verify + set `stripeEvent`) |
+
+Mount loaders on **route shells** in `routes/index.ts`; participant cookies via `hono/cookie` (`auth/cookies/participant.ts`). Better Auth stays on admin shell only (`loadAdminSession` + `requireAdminSession`); CDN mount unchanged (`auth/public-url.ts`). Entitlement (`invite-only-entitlement.ts`) is authorization, separate from auth loaders/asserts.
+
+Run auth unit tests: `pnpm --filter @neon/events-api test`.
+
 #### Drizzle migrations (events-api)
 
 - Never hand-edit `drizzle/*.sql`.
@@ -330,9 +353,9 @@ Admin table behavior has **one source of truth per table**. Do not define parall
 
 **Layers:** `lib/admin-api.ts` (HTTP + row types), `lib/admin-list-services/` (paginated list pages), `hooks/use-admin-api/` (detail/mutations only — not duplicate list factories for list pages).
 
-**Auth:** Better Auth at `/admin/auth/*` (not `/api/auth`; CDN must route `/neo-events-api/admin/*`), Google OAuth only, `databaseHooks` + session guard enforce `@neonclub.ch`; `AdminSession` type from `require-admin-session.ts`; optional `adminSession` on `ServiceContext` for control handlers; env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
+**Auth:** Better Auth at `/admin/auth/*` (not `/api/auth`; CDN must route `/neo-events-api/admin/*`), Google OAuth only, `databaseHooks` + session guard enforce `@neonclub.ch`; `AdminSession` from `auth/resolvers/admin-session.ts`; optional `adminSession` on `ServiceContext` for control handlers; env: `EVENTS_API_PUBLIC_URL`, `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ADMIN_ALLOWED_ORIGIN`.
 
-**Router:** `functions/events-api/src/routes/admin/router.ts`, mounted at `/admin` via `createAppRouter()`, protected by `requireAdminSession` (never browser `ADMIN_API_KEY`).
+**Router:** `functions/events-api/src/routes/admin/router.ts`, mounted at `/admin` via `createAppRouter()` admin shell (`loadAdminSession` + `requireAdminSession` per route; never browser `ADMIN_API_KEY`).
 
 ---
 

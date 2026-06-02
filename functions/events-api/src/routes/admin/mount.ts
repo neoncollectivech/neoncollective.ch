@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 
-import type { AdminEnv } from "../../auth/require-admin-session";
+import type { AppEnv } from "../../auth/env";
 
 export function adminRoute(
-  admin: Hono<AdminEnv>,
+  admin: Hono<AppEnv>,
   path: string,
   subApp: Hono,
   ...middleware: MiddlewareHandler[]

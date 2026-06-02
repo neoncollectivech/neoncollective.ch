@@ -1,5 +1,5 @@
-import { Hono } from "hono";
-
+import { authFactory } from "../auth/factory";
+import { loadAdminSession, loadEventApiKey, loadParticipantSession } from "../auth/middleware/loaders";
 import { createAdminRouter } from "./admin/router";
 import { createCheckInRouter } from "./check-in";
 import { createCheckoutRouter } from "./checkout";
@@ -9,17 +9,35 @@ import { createInvitesRouter } from "./invites";
 import { createRegistrationsRouter } from "./registrations";
 import { createWebhooksRouter } from "./webhooks";
 
-export function createAppRouter(): Hono {
-  const app = new Hono();
+export function createAppRouter() {
+  const app = authFactory.createApp();
 
   app.route("/", createHealthRouter());
-  app.route("/", createEventsRouter());
   app.route("/", createInvitesRouter());
-  app.route("/", createCheckoutRouter());
+
+  const eventsShell = authFactory.createApp();
+  eventsShell.use("*", loadParticipantSession);
+  eventsShell.use("*", loadEventApiKey);
+  eventsShell.route("/", createEventsRouter());
+  app.route("/", eventsShell);
+
+  const checkoutShell = authFactory.createApp();
+  checkoutShell.use("*", loadParticipantSession);
+  checkoutShell.route("/", createCheckoutRouter());
+  app.route("/", checkoutShell);
+
+  const registrationsShell = authFactory.createApp();
+  registrationsShell.use("*", loadParticipantSession);
+  registrationsShell.route("/", createRegistrationsRouter());
+  app.route("/", registrationsShell);
+
   app.route("/", createWebhooksRouter());
-  app.route("/", createRegistrationsRouter());
   app.route("/", createCheckInRouter());
-  app.route("/admin", createAdminRouter());
+
+  const adminShell = authFactory.createApp();
+  adminShell.use("*", loadAdminSession);
+  adminShell.route("/admin", createAdminRouter());
+  app.route("/", adminShell);
 
   return app;
 }

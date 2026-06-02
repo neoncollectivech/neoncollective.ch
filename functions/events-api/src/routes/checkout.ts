@@ -2,6 +2,9 @@ import { arktypeValidator } from "@hono/arktype-validator";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import type { AppEnv } from "../auth/env";
+import { authFactory } from "../auth/factory";
+import { requireAuth, requireParticipantPerson } from "../auth/middleware/assert";
 import {
   checkoutConfirmSchema,
   checkoutIntentSchema,
@@ -16,7 +19,6 @@ import {
   previewCheckoutPricing,
   type CheckoutPricingPreviewFailureReason,
 } from "./checkout/pricing-preview";
-import { resolveParticipantSessionFromCookie } from "./registrations/session";
 import { databaseUnavailableResponse, requireDatabase } from "./shared/guards";
 import { jsonReasonFailure } from "./shared/respond";
 
@@ -115,41 +117,48 @@ const CHECKOUT_CONFIRM_ERRORS: Record<
   },
 };
 
-export function createCheckoutRouter(): Hono {
-  const router = new Hono();
+export function createCheckoutRouter(): Hono<AppEnv> {
+  const router = new Hono<AppEnv>();
 
-  router.post("/checkout/intent", arktypeValidator("json", checkoutIntentSchema), async (c) => {
-    if (!requireDatabase(c)) {
-      return databaseUnavailableResponse(c);
-    }
-    const session = await resolveParticipantSessionFromCookie(c.req.header("Cookie"));
-    if (!session) {
-      return c.json({ error: CHECKOUT_INTENT_ERRORS.not_authenticated.error }, 401);
-    }
-    const body = c.req.valid("json");
-    const res = await createCheckoutIntent({
-      slug: body.slug,
-      email: body.email,
-      locale: body.locale,
-      phoneE164: body.phoneE164,
-      inviteToken: body.inviteToken,
-      exclusiveTierId: body.exclusiveTierId,
-      addonTierIds: body.addonTierIds,
-      returnPath: body.returnPath,
-      promotionCode: body.promotionCode,
-      session,
-    });
-    if (!res.ok) {
-      return jsonReasonFailure(c, res, CHECKOUT_INTENT_ERRORS);
-    }
-    return c.json({
-      orderId: res.orderId,
-      returnUrl: res.returnUrl,
-      requiresPayment: res.requiresPayment,
-      amountCents: res.amountCents,
-      ...(res.clientSecret ? { clientSecret: res.clientSecret } : {}),
-    });
-  });
+  router.post(
+    "/checkout/intent",
+    ...authFactory.createHandlers(
+      requireAuth("participantSession", { error: CHECKOUT_INTENT_ERRORS.not_authenticated.error }),
+      arktypeValidator("json", checkoutIntentSchema),
+      async (c) => {
+        if (!requireDatabase(c)) {
+          return databaseUnavailableResponse(c);
+        }
+        const session = c.var.participantSession;
+        if (!session) {
+          return c.json({ error: CHECKOUT_INTENT_ERRORS.not_authenticated.error }, 401);
+        }
+        const body = c.req.valid("json");
+        const res = await createCheckoutIntent({
+          slug: body.slug,
+          email: body.email,
+          locale: body.locale,
+          phoneE164: body.phoneE164,
+          inviteToken: body.inviteToken,
+          exclusiveTierId: body.exclusiveTierId,
+          addonTierIds: body.addonTierIds,
+          returnPath: body.returnPath,
+          promotionCode: body.promotionCode,
+          session,
+        });
+        if (!res.ok) {
+          return jsonReasonFailure(c, res, CHECKOUT_INTENT_ERRORS);
+        }
+        return c.json({
+          orderId: res.orderId,
+          returnUrl: res.returnUrl,
+          requiresPayment: res.requiresPayment,
+          amountCents: res.amountCents,
+          ...(res.clientSecret ? { clientSecret: res.clientSecret } : {}),
+        });
+      },
+    ),
+  );
 
   router.post(
     "/checkout/pricing-preview",
@@ -176,25 +185,33 @@ export function createCheckoutRouter(): Hono {
     },
   );
 
-  router.post("/checkout/confirm", arktypeValidator("json", checkoutConfirmSchema), async (c) => {
-    if (!requireDatabase(c)) {
-      return databaseUnavailableResponse(c);
-    }
-    const session = await resolveParticipantSessionFromCookie(c.req.header("Cookie"));
-    if (!session?.personId) {
-      return c.json({ error: "Sign in to confirm your registration." }, 401);
-    }
-    const body = c.req.valid("json");
-    const res = await confirmPaidCheckout({
-      orderId: body.orderId,
-      personId: session.personId,
-    });
-    if (!res.ok) {
-      const mapped = CHECKOUT_CONFIRM_ERRORS[res.reason];
-      return c.json({ error: mapped.error }, mapped.status);
-    }
-    return c.json({ ok: true });
-  });
+  router.post(
+    "/checkout/confirm",
+    ...authFactory.createHandlers(
+      requireParticipantPerson,
+      arktypeValidator("json", checkoutConfirmSchema),
+      async (c) => {
+        if (!requireDatabase(c)) {
+          return databaseUnavailableResponse(c);
+        }
+        const session = c.var.participantSession;
+        if (!session?.personId) {
+          return c.json({ error: "Sign in to confirm your registration." }, 401);
+        }
+        const personId = session.personId;
+        const body = c.req.valid("json");
+        const res = await confirmPaidCheckout({
+          orderId: body.orderId,
+          personId,
+        });
+        if (!res.ok) {
+          const mapped = CHECKOUT_CONFIRM_ERRORS[res.reason];
+          return c.json({ error: mapped.error }, mapped.status);
+        }
+        return c.json({ ok: true });
+      },
+    ),
+  );
 
   return router;
 }

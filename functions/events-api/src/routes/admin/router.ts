@@ -2,8 +2,8 @@ import { composeResourceRouter, createResourceRouter, ResourceApiError } from "@
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import type { AdminEnv } from "../../auth/require-admin-session";
-import { requireAdminSession } from "../../auth/require-admin-session";
+import type { AppEnv } from "../../auth/env";
+import { requireAdminSession } from "../../auth/middleware/assert";
 import { mapCtx } from "../../services/base/map-ctx";
 import { InviteMechanismDisabledError } from "../../services/events.service";
 import { createEventsControlRouter } from "./control/events";
@@ -25,7 +25,7 @@ const adminAuth = [requireAdminSession];
 const resourceRouterOpts = { mapCtx };
 
 function mountResource(
-  admin: Hono<AdminEnv>,
+  admin: Hono<AppEnv>,
   path: string,
   resource: Parameters<typeof composeResourceRouter>[0]["resource"],
   control?: Hono,
@@ -36,8 +36,8 @@ function mountResource(
   adminRoute(admin, path, router, ...adminAuth);
 }
 
-export function createAdminRouter(): Hono<AdminEnv> {
-  const admin = new Hono<AdminEnv>();
+export function createAdminRouter(): Hono<AppEnv> {
+  const admin = new Hono<AppEnv>();
 
   admin.onError((err, c) => {
     if (err instanceof InviteMechanismDisabledError) {

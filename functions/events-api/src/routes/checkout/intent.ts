@@ -382,7 +382,6 @@ export async function createCheckoutIntent(
         return checkoutFailure("event_not_found");
       }
 
-      let capacityExcludeOrderId: string | undefined;
       let inviteLinkMaxRedemptions: number | null = null;
 
       let inviteLinkId: string | null = null;
@@ -518,8 +517,7 @@ export async function createCheckoutIntent(
       const existingOrder = selectedHasExclusive
         ? latestPendingExclusiveOrder
         : latestPendingAddonOnlyOrder;
-      const excludeOrderId = checkoutCapacityExcludeOrderId(existingOrder);
-      capacityExcludeOrderId = excludeOrderId;
+      const capacityExcludeOrderId = checkoutCapacityExcludeOrderId(existingOrder);
 
       if (selectedHasExclusive && inviteLinkId && inviteLinkMaxRedemptions != null) {
         let used = await ordersService.countPendingOrPaidForInviteLink(inviteLinkId, tx);
@@ -538,7 +536,7 @@ export async function createCheckoutIntent(
         eventId: ev.id,
         selectedTiers,
         promotionCodeRaw: input.promotionCode,
-        excludeOrderId,
+        excludeOrderId: capacityExcludeOrderId,
       });
       if (!pricingResult.ok) {
         return checkoutFailure(pricingResult.reason);

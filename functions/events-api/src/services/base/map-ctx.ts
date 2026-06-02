@@ -2,11 +2,12 @@ import type { ResourceContext } from "@neon/resource-api";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 
-import type { AdminEnv, AdminSession } from "../../auth/require-admin-session";
+import type { AppEnv } from "../../auth/env";
+import type { AdminSession } from "../../auth/resolvers/admin-session";
 import type { ServiceContext } from "./types";
 
 export function mapCtx(
-  c: Context<AdminEnv> | ResourceContext,
+  c: Context<AppEnv> | ResourceContext,
   parent?: { param: string; column: PgColumn },
 ): ServiceContext {
   const ctx: ServiceContext = { hono: c };
@@ -16,7 +17,8 @@ export function mapCtx(
       ctx.parent = { param: parent.param, column: parent.column, value };
     }
   }
-  const adminSession = "get" in c ? (c as Context<AdminEnv>).get("adminSession") : undefined;
+  const adminSession =
+    "var" in c ? (c as Context<AppEnv>).var.adminSession : undefined;
   if (adminSession) {
     ctx.adminSession = adminSession as AdminSession;
   }

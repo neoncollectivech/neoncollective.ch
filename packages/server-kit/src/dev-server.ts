@@ -1,10 +1,10 @@
 import { serve } from "@hono/node-server";
-import type { Hono } from "hono";
+import type { Env, Hono } from "hono";
 
 import { createLogger } from "./logger";
 
-export function serveDevApp(options: {
-  app: Hono;
+export function serveDevApp<E extends Env = Env>(options: {
+  app: Hono<E>;
   defaultPort: number;
   /** Logger child name (default `"dev"`). */
   loggerModule?: string;

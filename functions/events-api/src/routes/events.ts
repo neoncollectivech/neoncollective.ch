@@ -1,22 +1,22 @@
 import { Hono } from "hono";
 
+import type { AppEnv } from "../auth/env";
 import { getPublishedEventAvailability } from "./events/availability";
 import {
   getPublishedEventDetailForViewer,
   resolveInviteEventId,
 } from "./events/read";
 import { listPublishedCatalog } from "./events/catalog";
-import { resolveParticipantSessionFromCookie } from "./registrations/session";
 import { databaseUnavailableResponse, requireDatabase } from "./shared/guards";
 
-export function createEventsRouter(): Hono {
-  const router = new Hono();
+export function createEventsRouter(): Hono<AppEnv> {
+  const router = new Hono<AppEnv>();
 
   router.get("/events", async (c) => {
     if (!requireDatabase(c)) {
       return c.json({ events: [] });
     }
-    const session = await resolveParticipantSessionFromCookie(c.req.header("Cookie"));
+    const session = c.var.participantSession ?? null;
     const inviteQ = c.req.query("invite");
     const inviteEventId = await resolveInviteEventId({
       inviteToken: inviteQ,
@@ -44,7 +44,7 @@ export function createEventsRouter(): Hono {
     if (!requireDatabase(c)) {
       return databaseUnavailableResponse(c);
     }
-    const session = await resolveParticipantSessionFromCookie(c.req.header("Cookie"));
+    const session = c.var.participantSession ?? null;
     const body = await getPublishedEventAvailability(c.req.param("slug"), {
       inviteToken: c.req.query("invite"),
       session,
@@ -61,7 +61,7 @@ export function createEventsRouter(): Hono {
     if (!requireDatabase(c)) {
       return databaseUnavailableResponse(c);
     }
-    const session = await resolveParticipantSessionFromCookie(c.req.header("Cookie"));
+    const session = c.var.participantSession ?? null;
     const res = await getPublishedEventDetailForViewer({
       slug: c.req.param("slug"),
       inviteToken: c.req.query("invite"),

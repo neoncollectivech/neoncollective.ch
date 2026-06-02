@@ -2,6 +2,9 @@ import { arktypeValidator } from "@hono/arktype-validator";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import type { AppEnv } from "../auth/env";
+import { authFactory } from "../auth/factory";
+import { requireAuth, requireParticipantPerson } from "../auth/middleware/assert";
 import { normalizeOptionalPhoneE164 } from "../helpers/contact";
 import {
   anonymousSessionSchema,
@@ -28,8 +31,6 @@ import {
   type ExchangeRegistrationCodeFailureReason,
   requestRegistrationSession,
   type RequestRegistrationSessionFailureReason,
-  resolveParticipantIdentityFromCookie,
-  resolveParticipantSessionFromCookie,
   resolveParticipantSessionCookieCrossSite,
 } from "./registrations/session";
 import { peopleService } from "../services/people.service";
@@ -37,7 +38,7 @@ import {
   clientIpForRateLimit,
   consumeExchangeRateLimit,
 } from "./shared/rate-limit";
-import { databaseUnavailableResponse, requireDatabase, requireParticipantSession } from "./shared/guards";
+import { databaseUnavailableResponse, requireDatabase } from "./shared/guards";
 import { jsonReasonFailure } from "./shared/respond";
 
 const SESSION_REQUEST_ERRORS: Record<
@@ -118,14 +119,14 @@ const PROFILE_VERIFY_CONFIRM_ERRORS: Record<
   contact_changed: { status: 400, error: "Contact changed — request a new code." },
 };
 
-export function createRegistrationsRouter(): Hono {
-  const router = new Hono();
+export function createRegistrationsRouter(): Hono<AppEnv> {
+  const router = new Hono<AppEnv>();
 
   router.get("/registrations/session/me", async (c) => {
     if (!requireDatabase(c)) {
       return c.json({ session: false });
     }
-    const row = await resolveParticipantSessionFromCookie(c.req.header("Cookie"));
+    const row = c.var.participantSession;
     if (!row) {
       return c.json({ session: false });
     }
@@ -210,123 +211,143 @@ export function createRegistrationsRouter(): Hono {
     },
   );
 
-  router.get("/registrations/profile/me", async (c) => {
-    if (!requireDatabase(c)) {
-      return databaseUnavailableResponse(c);
-    }
-    const session = await requireParticipantSession(c);
-    if (session instanceof Response) {
-      return session;
-    }
-    const profile = await getParticipantProfile(session);
-    return c.json(profile);
-  });
-
-  router.put("/registrations/profile", arktypeValidator("json", profileUpdateSchema), async (c) => {
-    if (!requireDatabase(c)) {
-      return databaseUnavailableResponse(c);
-    }
-    const session = await requireParticipantSession(c);
-    if (session instanceof Response) {
-      return session;
-    }
-    const body = c.req.valid("json");
-    const res = await updateParticipantProfile({
-      session,
-      givenName: body.givenName,
-      familyName: body.familyName,
-      email: body.email,
-      phoneE164: body.phoneE164,
-    });
-    if (!res.ok) {
-      return jsonReasonFailure(c, res, PROFILE_UPDATE_ERRORS);
-    }
-    return c.json(res.profile);
-  });
-
-  router.post(
-    "/registrations/profile/verification/request",
-    arktypeValidator("json", profileVerificationRequestSchema),
-    async (c) => {
+  router.get(
+    "/registrations/profile/me",
+    ...authFactory.createHandlers(requireAuth("participantSession", { error: "Session required." }), async (c) => {
       if (!requireDatabase(c)) {
         return databaseUnavailableResponse(c);
       }
-      const session = await requireParticipantSession(c);
-      if (session instanceof Response) {
-        return session;
+      const session = c.var.participantSession;
+      if (!session) {
+        return c.json({ error: "Session required." }, 401);
       }
-      const body = c.req.valid("json");
-      const ip = clientIpForRateLimit(c);
-      if (!(await consumeExchangeRateLimit(ip))) {
-        return c.json({ error: "Too many attempts. Try again later." }, 429);
-      }
-      const res = await requestProfileVerification({
-        session,
-        channel: body.channel,
-        locale: body.locale,
-      });
-      if (!res.ok) {
-        return jsonReasonFailure(c, res, PROFILE_VERIFY_REQUEST_ERRORS);
-      }
-      return c.json({ sent: true, channel: res.channel });
-    },
+      const profile = await getParticipantProfile(session);
+      return c.json(profile);
+    }),
+  );
+
+  router.put(
+    "/registrations/profile",
+    ...authFactory.createHandlers(
+      requireAuth("participantSession", { error: "Session required." }),
+      arktypeValidator("json", profileUpdateSchema),
+      async (c) => {
+        if (!requireDatabase(c)) {
+          return databaseUnavailableResponse(c);
+        }
+        const session = c.var.participantSession;
+        if (!session) {
+          return c.json({ error: "Session required." }, 401);
+        }
+        const body = c.req.valid("json");
+        const res = await updateParticipantProfile({
+          session,
+          givenName: body.givenName,
+          familyName: body.familyName,
+          email: body.email,
+          phoneE164: body.phoneE164,
+        });
+        if (!res.ok) {
+          return jsonReasonFailure(c, res, PROFILE_UPDATE_ERRORS);
+        }
+        return c.json(res.profile);
+      },
+    ),
+  );
+
+  router.post(
+    "/registrations/profile/verification/request",
+    ...authFactory.createHandlers(
+      requireAuth("participantSession", { error: "Session required." }),
+      arktypeValidator("json", profileVerificationRequestSchema),
+      async (c) => {
+        if (!requireDatabase(c)) {
+          return databaseUnavailableResponse(c);
+        }
+        const session = c.var.participantSession;
+        if (!session) {
+          return c.json({ error: "Session required." }, 401);
+        }
+        const body = c.req.valid("json");
+        const ip = clientIpForRateLimit(c);
+        if (!(await consumeExchangeRateLimit(ip))) {
+          return c.json({ error: "Too many attempts. Try again later." }, 429);
+        }
+        const res = await requestProfileVerification({
+          session,
+          channel: body.channel,
+          locale: body.locale,
+        });
+        if (!res.ok) {
+          return jsonReasonFailure(c, res, PROFILE_VERIFY_REQUEST_ERRORS);
+        }
+        return c.json({ sent: true, channel: res.channel });
+      },
+    ),
   );
 
   router.post(
     "/registrations/profile/verification/confirm",
-    arktypeValidator("json", profileVerificationConfirmSchema),
-    async (c) => {
-      if (!requireDatabase(c)) {
-        return databaseUnavailableResponse(c);
-      }
-      const session = await requireParticipantSession(c);
-      if (session instanceof Response) {
-        return session;
-      }
-      const body = c.req.valid("json");
-      const ip = clientIpForRateLimit(c);
-      if (!(await consumeExchangeRateLimit(ip))) {
-        return c.json({ error: "Too many attempts. Try again later." }, 429);
-      }
-      const res = await confirmProfileVerification({ session, code: body.code });
-      if (!res.ok) {
-        return jsonReasonFailure(c, res, PROFILE_VERIFY_CONFIRM_ERRORS);
-      }
-      return c.json(res.profile);
-    },
+    ...authFactory.createHandlers(
+      requireAuth("participantSession", { error: "Session required." }),
+      arktypeValidator("json", profileVerificationConfirmSchema),
+      async (c) => {
+        if (!requireDatabase(c)) {
+          return databaseUnavailableResponse(c);
+        }
+        const session = c.var.participantSession;
+        if (!session) {
+          return c.json({ error: "Session required." }, 401);
+        }
+        const body = c.req.valid("json");
+        const ip = clientIpForRateLimit(c);
+        if (!(await consumeExchangeRateLimit(ip))) {
+          return c.json({ error: "Too many attempts. Try again later." }, 429);
+        }
+        const res = await confirmProfileVerification({ session, code: body.code });
+        if (!res.ok) {
+          return jsonReasonFailure(c, res, PROFILE_VERIFY_CONFIRM_ERRORS);
+        }
+        return c.json(res.profile);
+      },
+    ),
   );
 
   router.post(
     "/registrations/profile/phone",
-    arktypeValidator("json", sessionPhoneSchema),
-    async (c) => {
-      if (!requireDatabase(c)) {
-        return databaseUnavailableResponse(c);
-      }
-      const identity = await resolveParticipantIdentityFromCookie(c.req.header("Cookie"));
-      if (!identity?.personId) {
-        return c.json({ error: "Unauthorized." }, 401);
-      }
-      const body = c.req.valid("json");
-      const e164 = normalizeOptionalPhoneE164(body.phoneE164);
-      if (!e164) {
-        return c.json({ error: "Invalid phone number." }, 400);
-      }
-      const res = await peopleService.attachPhoneToPerson({
-        personId: identity.personId,
-        phoneE164: e164,
-      });
-      if (!res.ok) {
-        if (res.code === "not_found") {
-          return c.json({ error: "Profile not found." }, 404);
+    ...authFactory.createHandlers(
+      requireParticipantPerson,
+      arktypeValidator("json", sessionPhoneSchema),
+      async (c) => {
+        if (!requireDatabase(c)) {
+          return databaseUnavailableResponse(c);
         }
-        return c.json(
-          { error: "This phone number is already linked to another profile." },
-          409 as ContentfulStatusCode,
-        );
-      }
-      return c.json({ ok: true });
-    },
+        const session = c.var.participantSession;
+        if (!session?.personId) {
+          return c.json({ error: "Unauthorized." }, 401);
+        }
+        const personId = session.personId;
+        const body = c.req.valid("json");
+        const e164 = normalizeOptionalPhoneE164(body.phoneE164);
+        if (!e164) {
+          return c.json({ error: "Invalid phone number." }, 400);
+        }
+        const res = await peopleService.attachPhoneToPerson({
+          personId,
+          phoneE164: e164,
+        });
+        if (!res.ok) {
+          if (res.code === "not_found") {
+            return c.json({ error: "Profile not found." }, 404);
+          }
+          return c.json(
+            { error: "This phone number is already linked to another profile." },
+            409 as ContentfulStatusCode,
+          );
+        }
+        return c.json({ ok: true });
+      },
+    ),
   );
 
   return router;
