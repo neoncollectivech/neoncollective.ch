@@ -10,6 +10,9 @@ export type ScanFeedbackState =
 
 const ACCEPT_COOLDOWN_MS = 1500;
 const REJECT_COOLDOWN_MS = 800;
+const INVALID_COOLDOWN_MS = 700;
+/** Short pulse when the reader detects any QR payload. */
+const SCAN_VIBRATE_MS = 25;
 
 function vibrate(pattern: number | number[]) {
   if (typeof navigator.vibrate === "function") {
@@ -63,12 +66,25 @@ export function useScanFeedback() {
 
       lastTokenRef.current = token;
       setState("decoded");
-      vibrate(15);
 
       return true;
     },
     [isCoolingDown],
   );
+
+  const onScanned = useCallback(() => {
+    vibrate(SCAN_VIBRATE_MS);
+  }, []);
+
+  const onInvalidAdmission = useCallback(() => {
+    if (isCoolingDown()) {
+      return;
+    }
+
+    setState("rejected");
+    setMessage("Invalid admission code!");
+    startCooldown(INVALID_COOLDOWN_MS, "idle");
+  }, [isCoolingDown, startCooldown]);
 
   const onSubmitting = useCallback(() => {
     setState("submitting");
@@ -115,7 +131,9 @@ export function useScanFeedback() {
     state,
     message,
     isCoolingDown,
+    onScanned,
     onDecoded,
+    onInvalidAdmission,
     onSubmitting,
     onAccepted,
     onRejected,

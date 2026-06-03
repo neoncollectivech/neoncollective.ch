@@ -46,13 +46,17 @@ export function ScanPage() {
         return;
       }
 
+      const fb = feedbackRef.current;
+
+      fb.onScanned();
+
       const token = normalizeAdmissionToken(rawText);
 
       if (!token) {
+        fb.onInvalidAdmission();
+
         return;
       }
-
-      const fb = feedbackRef.current;
 
       if (!fb.onDecoded(token)) {
         return;
