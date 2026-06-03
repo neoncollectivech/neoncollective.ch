@@ -139,6 +139,14 @@ export function ScanPage() {
   }, [queryClient]);
 
   useEffect(() => {
+    document.documentElement.classList.add("door-scan-locked");
+
+    return () => {
+      document.documentElement.classList.remove("door-scan-locked");
+    };
+  }, []);
+
+  useEffect(() => {
     const onGesture = () => unlockScanFeedback();
 
     document.addEventListener("pointerdown", onGesture, {
@@ -157,8 +165,8 @@ export function ScanPage() {
   };
 
   return (
-    <div className="relative flex h-[100dvh] flex-col bg-black">
-      <header className="relative z-10 flex items-center justify-between gap-2 p-3">
+    <div className="fixed inset-0 z-0 flex h-[100svh] max-h-[100svh] flex-col overflow-hidden bg-black">
+      <header className="relative z-10 flex shrink-0 items-center justify-between gap-2 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold tracking-wide">NEON Door</span>
           {!online ? (
@@ -184,7 +192,7 @@ export function ScanPage() {
         </div>
       </header>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <ScannerViewport videoRef={videoRef} />
         {torch.brightScreen ? (
           <div
@@ -210,7 +218,7 @@ export function ScanPage() {
 
       <footer
         className={cn(
-          "relative z-10 flex items-center justify-between gap-2 border-t border-border p-3",
+          "relative z-10 flex shrink-0 items-center justify-between gap-2 border-t border-border px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3",
         )}
       >
         <BrightScreenFallback
