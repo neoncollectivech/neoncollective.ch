@@ -1,3 +1,9 @@
+import {
+  readPersistedItem,
+  removePersistedItem,
+  writePersistedItem,
+} from "@/lib/storage/persisted-storage";
+
 const API_KEY_KEY = "neon:door:apiKey";
 const KEY_LABEL_KEY = "neon:door:keyLabel";
 
@@ -13,7 +19,7 @@ export function isApiKeyTokenFormat(token: string): boolean {
 }
 
 export function getDoorSessionConfig(): DoorSessionConfig | null {
-  const apiKey = sessionStorage.getItem(API_KEY_KEY)?.trim();
+  const apiKey = readPersistedItem(API_KEY_KEY)?.trim();
 
   if (!apiKey || !isApiKeyTokenFormat(apiKey)) {
     return null;
@@ -21,7 +27,7 @@ export function getDoorSessionConfig(): DoorSessionConfig | null {
 
   return {
     apiKey,
-    keyLabel: sessionStorage.getItem(KEY_LABEL_KEY),
+    keyLabel: readPersistedItem(KEY_LABEL_KEY),
   };
 }
 
@@ -29,15 +35,16 @@ export function setDoorSessionConfig(config: {
   apiKey: string;
   keyLabel?: string | null;
 }): void {
-  sessionStorage.setItem(API_KEY_KEY, config.apiKey.trim());
+  writePersistedItem(API_KEY_KEY, config.apiKey.trim());
+
   if (config.keyLabel?.trim()) {
-    sessionStorage.setItem(KEY_LABEL_KEY, config.keyLabel.trim());
+    writePersistedItem(KEY_LABEL_KEY, config.keyLabel.trim());
   } else {
-    sessionStorage.removeItem(KEY_LABEL_KEY);
+    removePersistedItem(KEY_LABEL_KEY);
   }
 }
 
 export function clearDoorSessionConfig(): void {
-  sessionStorage.removeItem(API_KEY_KEY);
-  sessionStorage.removeItem(KEY_LABEL_KEY);
+  removePersistedItem(API_KEY_KEY);
+  removePersistedItem(KEY_LABEL_KEY);
 }

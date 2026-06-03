@@ -1,8 +1,15 @@
 /**
  * Scan feedback (sound) for door check-in.
  *
- * Mobile browsers require user activation before AudioContext can run.
+ * Mobile browsers require user activation for AudioContext; unlock state and
+ * sound preference persist in localStorage across PWA restarts.
  */
+
+import {
+  readPersistedItem,
+  removePersistedItem,
+  writePersistedItem,
+} from "@/lib/storage/persisted-storage";
 
 const STORAGE_KEY = "neon:door:feedbackUnlocked";
 const SOUND_PREF_KEY = "neon:door:feedbackSound";
@@ -23,7 +30,7 @@ export type FeedbackDiagnostics = {
 };
 
 function readBool(key: string, defaultValue: boolean): boolean {
-  const raw = sessionStorage.getItem(key);
+  const raw = readPersistedItem(key);
 
   if (raw === null) {
     return defaultValue;
@@ -33,7 +40,7 @@ function readBool(key: string, defaultValue: boolean): boolean {
 }
 
 function writeBool(key: string, value: boolean): void {
-  sessionStorage.setItem(key, value ? "1" : "0");
+  writePersistedItem(key, value ? "1" : "0");
 }
 
 export function getFeedbackPreferences(): FeedbackPreferences {
@@ -53,7 +60,7 @@ export function setFeedbackPreferences(
 }
 
 export function isScanFeedbackUnlocked(): boolean {
-  return unlocked || sessionStorage.getItem(STORAGE_KEY) === "1";
+  return unlocked || readPersistedItem(STORAGE_KEY) === "1";
 }
 
 export function getFeedbackDiagnostics(): FeedbackDiagnostics {
@@ -135,7 +142,7 @@ export function unlockScanFeedback(): void {
   const ctx = getAudioContext();
 
   unlocked = true;
-  sessionStorage.setItem(STORAGE_KEY, "1");
+  writePersistedItem(STORAGE_KEY, "1");
 
   if (ctx?.state === "suspended") {
     void ctx.resume();
@@ -143,7 +150,7 @@ export function unlockScanFeedback(): void {
 }
 
 export function resetScanFeedbackPermission(): void {
-  sessionStorage.removeItem(STORAGE_KEY);
+  removePersistedItem(STORAGE_KEY);
   unlocked = false;
 }
 

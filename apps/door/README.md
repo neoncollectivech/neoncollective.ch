@@ -2,6 +2,8 @@
 
 Field PWA for fast QR admission check-in against `events-api` `POST /check-in`.
 
+API key, optional key label, and scan feedback settings persist in **localStorage** (survive PWA restarts). Offline check-ins use IndexedDB (`neon-door`).
+
 ## Local development
 
 ```bash
