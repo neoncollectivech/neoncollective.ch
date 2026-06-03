@@ -84,6 +84,8 @@ function drawAndDecode(bitmap: ImageBitmap): void {
       decoding = false;
 
       if (!results.length) {
+        lastPostedToken = "";
+
         return;
       }
 

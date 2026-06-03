@@ -21,11 +21,7 @@ import {
   testFeedbackInUserGesture,
   type FeedbackKind,
 } from "@/lib/scan-feedback";
-import {
-  clearDoorEventSelection,
-  getDoorSessionConfig,
-} from "@/lib/storage/session-config";
-import { clearAllSpentAdmissionsForEvent } from "@/lib/storage/spent-admissions";
+import { clearDoorEventSelection } from "@/lib/storage/session-config";
 import { usePwaUpdate } from "@/hooks/use-pwa-update";
 
 const TEST_ACTIONS: { kind: FeedbackKind; label: string }[] = [
@@ -218,23 +214,6 @@ export function FeedbackSettingsMenu() {
               }}
             >
               Change event
-            </Button>
-            <Button
-              className="w-full"
-              type="button"
-              variant="outline"
-              onClick={() => {
-                const session = getDoorSessionConfig();
-
-                if (!session) {
-                  return;
-                }
-
-                clearAllSpentAdmissionsForEvent(session.eventId);
-                toast.success("Local scan history cleared");
-              }}
-            >
-              Clear local scan history
             </Button>
           </div>
         </div>

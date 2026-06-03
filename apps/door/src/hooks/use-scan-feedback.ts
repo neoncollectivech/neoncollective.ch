@@ -35,7 +35,6 @@ export function useScanFeedback() {
   const [state, setState] = useState<ScanFeedbackState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [coolingDown, setCoolingDown] = useState(false);
-  const lastTokenRef = useRef("");
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearCooldownTimer = useCallback(() => {
@@ -61,34 +60,16 @@ export function useScanFeedback() {
   );
 
   const onDecoded = useCallback(
-    (token: string) => {
+    (_token: string) => {
       if (coolingDown) {
-        if (token === lastTokenRef.current) {
-          setState("duplicate");
-          setMessage(null);
-          startCooldown(RESULT_COOLDOWN_MS, "idle");
-
-          return false;
-        }
-
         return false;
       }
 
-      if (token === lastTokenRef.current) {
-        setState("duplicate");
-        setMessage(null);
-        pulseDuplicate();
-        startCooldown(RESULT_COOLDOWN_MS, "idle");
-
-        return false;
-      }
-
-      lastTokenRef.current = token;
       setState("decoded");
 
       return true;
     },
-    [coolingDown, startCooldown],
+    [coolingDown],
   );
 
   const onScanned = useCallback(() => {
@@ -100,14 +81,11 @@ export function useScanFeedback() {
   }, [coolingDown]);
 
   const onInvalidAdmission = useCallback(
-    (rawText: string) => {
+    (_rawText: string) => {
       if (coolingDown) {
         return;
       }
 
-      const fingerprint = rawText.trim().slice(0, 128) || "__empty__";
-
-      lastTokenRef.current = `invalid:${fingerprint}`;
       setState("rejected");
       setMessage("Invalid admission code!");
       pulseRejected();
@@ -126,7 +104,6 @@ export function useScanFeedback() {
       setMessage(subtitle ?? null);
       pulseAccepted();
       startCooldown(ACCEPT_COOLDOWN_MS, "idle");
-      lastTokenRef.current = "";
 
       return true;
     },
@@ -157,7 +134,6 @@ export function useScanFeedback() {
     setState("idle");
     setMessage(null);
     setCoolingDown(false);
-    lastTokenRef.current = "";
   }, [clearCooldownTimer]);
 
   return {

@@ -28,10 +28,6 @@ import {
   clearDoorSessionConfig,
   getDoorSessionConfig,
 } from "@/lib/storage/session-config";
-import {
-  isAdmissionSpentLocally,
-  markAdmissionSpentLocally,
-} from "@/lib/storage/spent-admissions";
 import { startOutboxSyncScheduler } from "@/lib/storage/sync-outbox";
 import { unlockScanFeedback } from "@/lib/scan-feedback";
 import { cn } from "@/lib/utils";
@@ -102,22 +98,10 @@ export function ScanPage() {
         return;
       }
 
-      const spentLocally = isAdmissionSpentLocally(
-        session.eventId,
-        offlineVerify.admissionId,
-      );
-
-      if (spentLocally && !navigator.onLine) {
-        fb.onDuplicate();
-
-        return;
-      }
-
       processingRef.current = true;
       fb.onSubmitting();
 
       const queueOffline = async () => {
-        markAdmissionSpentLocally(session.eventId, offlineVerify.admissionId);
         await enqueueCheckIn(credential);
         fb.onAccepted("Queued — will sync when online");
         void queryClient.invalidateQueries({
@@ -133,7 +117,6 @@ export function ScanPage() {
         }
 
         await checkInMutation.mutateAsync(credential);
-        markAdmissionSpentLocally(session.eventId, offlineVerify.admissionId);
         fb.onAccepted();
       } catch (error) {
         if (!navigator.onLine) {
