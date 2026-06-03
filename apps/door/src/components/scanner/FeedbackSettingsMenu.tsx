@@ -12,15 +12,14 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
-  enableAllFeedbackInUserGesture,
+  enableSoundFeedbackInUserGesture,
+  getFeedbackDiagnostics,
   getFeedbackPreferences,
-  getHapticDiagnostics,
-  rawMotorTestInUserGesture,
-  resetScanHapticsPermission,
+  resetScanFeedbackPermission,
   setFeedbackPreferences,
   testFeedbackInUserGesture,
   type FeedbackKind,
-} from "@/lib/scan-haptic";
+} from "@/lib/scan-feedback";
 
 const TEST_ACTIONS: { kind: FeedbackKind; label: string }[] = [
   { kind: "scan", label: "Scan detected" },
@@ -32,11 +31,11 @@ const TEST_ACTIONS: { kind: FeedbackKind; label: string }[] = [
 export function FeedbackSettingsMenu() {
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState(getFeedbackPreferences);
-  const [diagnostics, setDiagnostics] = useState(getHapticDiagnostics);
+  const [diagnostics, setDiagnostics] = useState(getFeedbackDiagnostics);
 
   const refresh = useCallback(() => {
     setPrefs(getFeedbackPreferences());
-    setDiagnostics(getHapticDiagnostics());
+    setDiagnostics(getFeedbackDiagnostics());
   }, []);
 
   const handleOpenChange = (next: boolean) => {
@@ -47,13 +46,6 @@ export function FeedbackSettingsMenu() {
     }
   };
 
-  const toggleVibration = () => {
-    const next = setFeedbackPreferences({ vibration: !prefs.vibration });
-
-    setPrefs(next);
-    toast.message(`Vibration ${next.vibration ? "on" : "off"}`);
-  };
-
   const toggleSound = () => {
     const next = setFeedbackPreferences({ sound: !prefs.sound });
 
@@ -61,62 +53,32 @@ export function FeedbackSettingsMenu() {
     toast.message(`Sound ${next.sound ? "on" : "off"}`);
   };
 
-  const handleEnableAll = () => {
-    const result = enableAllFeedbackInUserGesture();
+  const handleEnableSound = () => {
+    const result = enableSoundFeedbackInUserGesture();
 
     refresh();
 
-    if (!result.vibrated) {
+    if (!result.played) {
       toast.error(
-        "Pattern rejected. Try Raw motor test below or check system vibration settings.",
+        "Sound could not play. Tap Enable sound again or check device mute settings.",
       );
 
       return;
     }
 
-    toast.success("Feedback enabled — pattern sent to motor.");
-  };
-
-  const handleRawMotor = () => {
-    const result = rawMotorTestInUserGesture();
-
-    refresh();
-
-    if (!result.apiPresent) {
-      toast.error("Vibration API not available in this browser.");
-
-      return;
-    }
-
-    if (!result.accepted) {
-      toast.error(
-        "500ms motor test rejected. Chrome blocked vibration — check DND, silent mode, and touch vibration in system settings.",
-      );
-
-      return;
-    }
-
-    toast.success("500ms motor test sent (API accepted). Did you feel it?");
+    toast.success("Sound feedback enabled.");
   };
 
   const handleTest = (kind: FeedbackKind, label: string) => {
-    const result = testFeedbackInUserGesture(kind);
-
+    testFeedbackInUserGesture(kind);
     refresh();
-
-    if (!result.vibrated) {
-      toast.warning(`${label}: vibration not accepted — try Raw motor test.`);
-
-      return;
-    }
-
     toast.success(`Testing: ${label}`);
   };
 
   const handleReset = () => {
-    resetScanHapticsPermission();
+    resetScanFeedbackPermission();
     refresh();
-    toast.message("Feedback permission reset — tap Enable all again.");
+    toast.message("Sound permission reset — tap Enable sound again.");
   };
 
   return (
@@ -130,25 +92,16 @@ export function FeedbackSettingsMenu() {
         <SheetHeader>
           <SheetTitle>Scan feedback</SheetTitle>
           <SheetDescription>
-            On Pixel / Chrome: tap and hold the camera area while scanning, or
-            tap the screen right after a read. Use Raw motor test first to
-            verify the hardware path.
+            Enable sound once per session (required on iOS). Use the test
+            buttons to preview each scan outcome.
           </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col gap-4 px-4 pb-6">
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Permissions
+              Sound
             </p>
-            <Button
-              className="w-full justify-start"
-              type="button"
-              variant={prefs.vibration ? "default" : "outline"}
-              onClick={toggleVibration}
-            >
-              Vibration: {prefs.vibration ? "On" : "Off"}
-            </Button>
             <Button
               className="w-full justify-start"
               type="button"
@@ -160,17 +113,9 @@ export function FeedbackSettingsMenu() {
             <Button
               className="w-full"
               type="button"
-              onPointerDown={handleEnableAll}
+              onPointerDown={handleEnableSound}
             >
-              Enable all & test
-            </Button>
-            <Button
-              className="w-full"
-              type="button"
-              variant="destructive"
-              onPointerDown={handleRawMotor}
-            >
-              Raw motor test (500ms)
+              Enable sound & test
             </Button>
             <Button
               className="w-full"
@@ -184,7 +129,7 @@ export function FeedbackSettingsMenu() {
 
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Test patterns
+              Test sounds
             </p>
             {TEST_ACTIONS.map(({ kind, label }) => (
               <Button
@@ -200,17 +145,9 @@ export function FeedbackSettingsMenu() {
           </div>
 
           <div className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            <p>
-              Vibration API: {diagnostics.vibrationApiPresent ? "yes" : "no"}
-            </p>
-            <p>Last call accepted: {String(diagnostics.lastVibrateAccepted)}</p>
-            <p>Active touches: {diagnostics.activeTouches}</p>
-            <p>
-              User activation:{" "}
-              {diagnostics.userActivationActive ? "active" : "inactive"}
-            </p>
             <p>Audio context: {diagnostics.audioContextState ?? "n/a"}</p>
             <p>Unlocked: {diagnostics.unlocked ? "yes" : "no"}</p>
+            <p>Sound enabled: {diagnostics.soundEnabled ? "yes" : "no"}</p>
           </div>
         </div>
       </SheetContent>

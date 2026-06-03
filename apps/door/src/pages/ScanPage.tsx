@@ -22,7 +22,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { enqueueCheckIn } from "@/lib/storage/check-in-outbox";
 import { startOutboxSyncScheduler } from "@/lib/storage/sync-outbox";
 import { clearDoorSessionConfig } from "@/lib/storage/session-config";
-import { flushScanHapticsFromUserGesture } from "@/lib/scan-haptic";
+import { unlockScanFeedback } from "@/lib/scan-feedback";
 import { cn } from "@/lib/utils";
 
 export function ScanPage() {
@@ -139,13 +139,14 @@ export function ScanPage() {
   }, [queryClient]);
 
   useEffect(() => {
-    const onGesture = () => flushScanHapticsFromUserGesture();
+    const onGesture = () => unlockScanFeedback();
 
-    document.addEventListener("touchstart", onGesture, { passive: true });
-    document.addEventListener("pointerdown", onGesture, { passive: true });
+    document.addEventListener("pointerdown", onGesture, {
+      once: true,
+      passive: true,
+    });
 
     return () => {
-      document.removeEventListener("touchstart", onGesture);
       document.removeEventListener("pointerdown", onGesture);
     };
   }, []);
@@ -183,10 +184,7 @@ export function ScanPage() {
         </div>
       </header>
 
-      <div
-        className="relative min-h-0 flex-1"
-        onPointerDown={flushScanHapticsFromUserGesture}
-      >
+      <div className="relative min-h-0 flex-1">
         <ScannerViewport videoRef={videoRef} />
         {torch.brightScreen ? (
           <div

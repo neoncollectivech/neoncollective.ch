@@ -5,7 +5,7 @@ import {
   pulseDuplicate,
   pulseRejected,
   pulseScan,
-} from "@/lib/scan-haptic";
+} from "@/lib/scan-feedback";
 
 export type ScanFeedbackState =
   | "idle"
