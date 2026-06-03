@@ -26,6 +26,7 @@ import {
   getDoorSessionConfig,
 } from "@/lib/storage/session-config";
 import { clearAllSpentAdmissionsForEvent } from "@/lib/storage/spent-admissions";
+import { usePwaUpdate } from "@/hooks/use-pwa-update";
 
 const TEST_ACTIONS: { kind: FeedbackKind; label: string }[] = [
   { kind: "scan", label: "Scan detected" },
@@ -36,6 +37,7 @@ const TEST_ACTIONS: { kind: FeedbackKind; label: string }[] = [
 
 export function FeedbackSettingsMenu() {
   const navigate = useNavigate();
+  const { needRefresh, checking, checkForUpdate, applyUpdate } = usePwaUpdate();
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState(getFeedbackPreferences);
   const [diagnostics, setDiagnostics] = useState(getFeedbackDiagnostics);
@@ -155,6 +157,50 @@ export function FeedbackSettingsMenu() {
             <p>Audio context: {diagnostics.audioContextState ?? "n/a"}</p>
             <p>Unlocked: {diagnostics.unlocked ? "yes" : "no"}</p>
             <p>Sound enabled: {diagnostics.soundEnabled ? "yes" : "no"}</p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              App
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Build {__DOOR_BUILD_LABEL__}
+              {needRefresh ? " · update ready" : ""}
+            </p>
+            {needRefresh ? (
+              <Button
+                className="w-full"
+                type="button"
+                onClick={() => applyUpdate()}
+              >
+                Install update
+              </Button>
+            ) : null}
+            <Button
+              className="w-full"
+              disabled={checking}
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void checkForUpdate().then((result) => {
+                  if (result === "unsupported") {
+                    toast.message("Updates are not available in this browser.");
+
+                    return;
+                  }
+
+                  if (result === "available") {
+                    toast.info("Update ready — tap Install update.");
+
+                    return;
+                  }
+
+                  toast.success("You are on the latest version.");
+                });
+              }}
+            >
+              {checking ? "Checking…" : "Check for updates"}
+            </Button>
           </div>
 
           <div className="space-y-2">

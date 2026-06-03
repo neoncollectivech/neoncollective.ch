@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { AuthGuard } from "@/components/AuthGuard";
+import { PwaUpdateNotifier } from "@/components/PwaUpdateNotifier";
 import { doorBasename } from "@/lib/door-base";
 import { queryClient } from "@/lib/query-client";
 import {
@@ -57,6 +58,7 @@ export function App() {
           </Route>
           <Route element={<Navigate replace to="/" />} path="*" />
         </Routes>
+        <PwaUpdateNotifier />
         <Toaster richColors theme="dark" />
       </BrowserRouter>
     </QueryClientProvider>

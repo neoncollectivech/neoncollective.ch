@@ -28,6 +28,8 @@ pnpm --filter @neon/door build
 
 Installable PWA output is in `apps/door/dist/` (service worker + self-hosted `zxing_reader.wasm`).
 
+After a deploy, open the app and use **Settings → Check for updates** (or accept the **Update now** toast when a new version is ready). Uninstall is not required.
+
 ## GitHub Pages (`/door/`)
 
 Production deploy merges `apps/door/dist` into `apps/web/out/door/` in [`.github/workflows/nextjs.yml`](../../.github/workflows/nextjs.yml) (same pattern as admin at `/admin/`). After merging to `main`, Pages serves https://neoncollective.ch/door/.

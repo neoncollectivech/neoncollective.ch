@@ -53,6 +53,13 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: doorBase,
+    define: {
+      __DOOR_BUILD_LABEL__: JSON.stringify(
+        process.env.VITE_DOOR_BUILD_LABEL ??
+          env.VITE_DOOR_BUILD_LABEL ??
+          new Date().toISOString().slice(0, 10),
+      ),
+    },
     plugins: [
       react(),
       tailwindcss(),
@@ -65,7 +72,7 @@ export default defineConfig(({ mode }) => {
         ],
       }),
       VitePWA({
-        registerType: "autoUpdate",
+        registerType: "prompt",
         injectRegister: false,
         scope: doorBase,
         includeAssets: pwaIncludeAssets,
