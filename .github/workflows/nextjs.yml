@@ -58,11 +58,18 @@ jobs:
         env:
           VITE_ADMIN_BASE: /admin/
           VITE_PUBLIC_SITE_URL: https://neoncollective.ch
-      - name: Merge admin into Pages artifact
+      - name: Build door for GitHub Pages
+        run: pnpm --filter @neon/door build
+        env:
+          VITE_DOOR_BASE: /door/
+          VITE_PUBLIC_SITE_URL: https://neoncollective.ch
+          VITE_EVENTS_API_URL: https://api.neoncollective.ch/neo-events-api
+      - name: Merge admin and door into Pages artifact
         run: |
-          mkdir -p apps/web/out/admin
+          mkdir -p apps/web/out/admin apps/web/out/door
           cp -r apps/admin/dist/* apps/web/out/admin/
-      - name: Patch 404 for admin SPA deep links
+          cp -r apps/door/dist/* apps/web/out/door/
+      - name: Patch 404 for admin and door SPA deep links
         run: node scripts/patch-github-pages-admin-404.mjs
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
