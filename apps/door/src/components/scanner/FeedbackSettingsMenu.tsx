@@ -15,6 +15,7 @@ import {
   enableAllFeedbackInUserGesture,
   getFeedbackPreferences,
   getHapticDiagnostics,
+  rawMotorTestInUserGesture,
   resetScanHapticsPermission,
   setFeedbackPreferences,
   testFeedbackInUserGesture,
@@ -65,21 +66,51 @@ export function FeedbackSettingsMenu() {
 
     refresh();
 
-    if (!result.vibrated && result.preferences.vibration) {
-      toast.warning(
-        "Vibration API accepted but the motor may be blocked — check system sound/vibration settings.",
+    if (!result.vibrated) {
+      toast.error(
+        "Pattern rejected. Try Raw motor test below or check system vibration settings.",
       );
 
       return;
     }
 
-    toast.success("Feedback enabled — you should feel/hear the test pattern.");
+    toast.success("Feedback enabled — pattern sent to motor.");
+  };
+
+  const handleRawMotor = () => {
+    const result = rawMotorTestInUserGesture();
+
+    refresh();
+
+    if (!result.apiPresent) {
+      toast.error("Vibration API not available in this browser.");
+
+      return;
+    }
+
+    if (!result.accepted) {
+      toast.error(
+        "500ms motor test rejected. Chrome blocked vibration — check DND, silent mode, and touch vibration in system settings.",
+      );
+
+      return;
+    }
+
+    toast.success("500ms motor test sent (API accepted). Did you feel it?");
   };
 
   const handleTest = (kind: FeedbackKind, label: string) => {
-    testFeedbackInUserGesture(kind);
+    const result = testFeedbackInUserGesture(kind);
+
     refresh();
-    toast.message(`Testing: ${label}`);
+
+    if (!result.vibrated) {
+      toast.warning(`${label}: vibration not accepted — try Raw motor test.`);
+
+      return;
+    }
+
+    toast.success(`Testing: ${label}`);
   };
 
   const handleReset = () => {
@@ -99,8 +130,9 @@ export function FeedbackSettingsMenu() {
         <SheetHeader>
           <SheetTitle>Scan feedback</SheetTitle>
           <SheetDescription>
-            Enable vibration and sound, then test each pattern. On Android
-            Chrome, feedback works best after tapping Enable or any test button.
+            On Pixel / Chrome: tap and hold the camera area while scanning, or
+            tap the screen right after a read. Use Raw motor test first to
+            verify the hardware path.
           </SheetDescription>
         </SheetHeader>
 
@@ -125,8 +157,20 @@ export function FeedbackSettingsMenu() {
             >
               Sound: {prefs.sound ? "On" : "Off"}
             </Button>
-            <Button className="w-full" type="button" onClick={handleEnableAll}>
+            <Button
+              className="w-full"
+              type="button"
+              onPointerDown={handleEnableAll}
+            >
               Enable all & test
+            </Button>
+            <Button
+              className="w-full"
+              type="button"
+              variant="destructive"
+              onPointerDown={handleRawMotor}
+            >
+              Raw motor test (500ms)
             </Button>
             <Button
               className="w-full"
@@ -148,7 +192,7 @@ export function FeedbackSettingsMenu() {
                 className="w-full justify-start"
                 type="button"
                 variant="outline"
-                onClick={() => handleTest(kind, label)}
+                onPointerDown={() => handleTest(kind, label)}
               >
                 {label}
               </Button>
@@ -158,6 +202,12 @@ export function FeedbackSettingsMenu() {
           <div className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
             <p>
               Vibration API: {diagnostics.vibrationApiPresent ? "yes" : "no"}
+            </p>
+            <p>Last call accepted: {String(diagnostics.lastVibrateAccepted)}</p>
+            <p>Active touches: {diagnostics.activeTouches}</p>
+            <p>
+              User activation:{" "}
+              {diagnostics.userActivationActive ? "active" : "inactive"}
             </p>
             <p>Audio context: {diagnostics.audioContextState ?? "n/a"}</p>
             <p>Unlocked: {diagnostics.unlocked ? "yes" : "no"}</p>

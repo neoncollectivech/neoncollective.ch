@@ -1,10 +1,9 @@
 /**
- * Scan haptics for mobile browsers.
+ * Scan haptics for mobile browsers (incl. Pixel / Chrome Android).
  *
- * Chrome Android requires **sticky user activation**: `navigator.vibrate()` from
- * the QR worker/async path usually returns true but does nothing. We queue
- * feedback and flush it on the next touch/pointer event, and play audio after
- * an explicit unlock gesture.
+ * Chrome requires user activation for `navigator.vibrate()`. Decode is async, so
+ * we also vibrate when a finger is still on screen or `navigator.userActivation`
+ * is active, and queue + flush on the next touch otherwise.
  */
 
 const STORAGE_KEY = "neon:door:hapticsEnabled";
@@ -13,6 +12,9 @@ const SOUND_PREF_KEY = "neon:door:feedbackSound";
 
 let audioContext: AudioContext | null = null;
 let unlocked = false;
+let touchTrackingInstalled = false;
+let activeTouches = 0;
+let lastVibrateAccepted: boolean | null = null;
 
 type PendingPulse = "scan" | "success" | "error" | "duplicate" | null;
 
@@ -20,15 +22,16 @@ export type FeedbackKind = Exclude<PendingPulse, null>;
 
 let pending: PendingPulse = null;
 
-/** Longer pulses — many Android devices barely feel sub-100ms vibrations. */
+/** Pixel-class devices often ignore sub-150ms pulses. */
 const PATTERNS = {
-  scan: [100, 60, 140] as const,
-  duplicate: [80, 40, 80] as const,
-  success: [80, 50, 120, 50, 120] as const,
-  error: [100, 70, 100, 70, 140] as const,
+  scan: [180, 80, 180] as const,
+  duplicate: [120, 60, 120] as const,
+  success: [120, 60, 180, 60, 180] as const,
+  error: [150, 80, 150, 80, 200] as const,
 };
 
-const TEST_PATTERN = [80, 50, 120, 50, 120] as const;
+const TEST_PATTERN = [150, 80, 200, 80, 200] as const;
+const RAW_MOTOR_MS = 500;
 
 export type FeedbackPreferences = {
   vibration: boolean;
@@ -41,7 +44,51 @@ export type HapticDiagnostics = {
   soundEnabled: boolean;
   unlocked: boolean;
   audioContextState: string | null;
+  activeTouches: number;
+  userActivationActive: boolean;
+  lastVibrateAccepted: boolean | null;
 };
+
+export function initScanHapticTouchTracking(): void {
+  if (touchTrackingInstalled || typeof document === "undefined") {
+    return;
+  }
+
+  touchTrackingInstalled = true;
+
+  const onStart = () => {
+    activeTouches += 1;
+  };
+
+  const onEnd = () => {
+    activeTouches = Math.max(0, activeTouches - 1);
+  };
+
+  document.addEventListener("touchstart", onStart, {
+    passive: true,
+    capture: true,
+  });
+  document.addEventListener("touchend", onEnd, {
+    passive: true,
+    capture: true,
+  });
+  document.addEventListener("touchcancel", onEnd, {
+    passive: true,
+    capture: true,
+  });
+}
+
+function isUserActivationActive(): boolean {
+  const nav = navigator as Navigator & {
+    userActivation?: { isActive: boolean };
+  };
+
+  return nav.userActivation?.isActive === true;
+}
+
+function isInUserGestureContext(): boolean {
+  return activeTouches > 0 || isUserActivationActive();
+}
 
 function readBool(key: string, defaultValue: boolean): boolean {
   const raw = sessionStorage.getItem(key);
@@ -96,6 +143,9 @@ export function getHapticDiagnostics(): HapticDiagnostics {
     soundEnabled: prefs.sound,
     unlocked: areScanHapticsUnlocked(),
     audioContextState: ctx?.state ?? null,
+    activeTouches,
+    userActivationActive: isUserActivationActive(),
+    lastVibrateAccepted,
   };
 }
 
@@ -111,14 +161,32 @@ function getAudioContext(): AudioContext | null {
   return audioContext;
 }
 
-function tryVibrate(pattern: number | number[]): boolean {
-  if (!isVibrationApiPresent() || !getFeedbackPreferences().vibration) {
+function invokeVibrate(
+  pattern: number | number[],
+  respectPrefs = true,
+): boolean {
+  if (!isVibrationApiPresent()) {
+    lastVibrateAccepted = false;
+
+    return false;
+  }
+
+  if (respectPrefs && !getFeedbackPreferences().vibration) {
+    lastVibrateAccepted = false;
+
     return false;
   }
 
   try {
-    return navigator.vibrate(pattern);
+    navigator.vibrate(0);
+    const accepted = navigator.vibrate(pattern);
+
+    lastVibrateAccepted = accepted;
+
+    return accepted;
   } catch {
+    lastVibrateAccepted = false;
+
     return false;
   }
 }
@@ -183,11 +251,9 @@ function tickFor(kind: FeedbackKind): "scan" | "success" | "error" {
   return "scan";
 }
 
-function fire(kind: FeedbackKind, fromUserGesture: boolean): void {
-  const pattern = patternFor(kind);
-
-  if (fromUserGesture) {
-    tryVibrate(pattern);
+function fire(kind: FeedbackKind, inGesture: boolean): void {
+  if (inGesture) {
+    invokeVibrate(patternFor(kind));
 
     if (unlocked) {
       playTick(tickFor(kind));
@@ -196,7 +262,7 @@ function fire(kind: FeedbackKind, fromUserGesture: boolean): void {
     return;
   }
 
-  tryVibrate(pattern);
+  invokeVibrate(patternFor(kind));
 
   if (unlocked) {
     playTick(tickFor(kind));
@@ -205,6 +271,14 @@ function fire(kind: FeedbackKind, fromUserGesture: boolean): void {
 
 function queue(kind: FeedbackKind): void {
   pending = kind;
+
+  if (isInUserGestureContext()) {
+    pending = null;
+    fire(kind, true);
+
+    return;
+  }
+
   fire(kind, false);
 }
 
@@ -236,19 +310,45 @@ export function resetScanHapticsPermission(): void {
   sessionStorage.removeItem(STORAGE_KEY);
   unlocked = false;
   pending = null;
+  lastVibrateAccepted = null;
 }
 
 /**
- * Enable vibration + sound and run unlock test inside a user gesture.
+ * Direct motor test — call synchronously from pointerdown/click only.
+ * Ignores vibration pref so you can verify the hardware path.
  */
+export function rawMotorTestInUserGesture(): {
+  apiPresent: boolean;
+  accepted: boolean;
+} {
+  unlockScanHaptics();
+  pending = null;
+
+  if (!isVibrationApiPresent()) {
+    return { apiPresent: false, accepted: false };
+  }
+
+  const accepted = invokeVibrate(RAW_MOTOR_MS, false);
+
+  return { apiPresent: true, accepted };
+}
+
 export function enableAllFeedbackInUserGesture(): {
   vibrated: boolean;
   preferences: FeedbackPreferences;
 } {
   setFeedbackPreferences({ vibration: true, sound: true });
+  unlockScanHaptics();
+  pending = null;
+
+  const vibrated = invokeVibrate([...TEST_PATTERN]);
+
+  if (unlocked) {
+    playTick("success");
+  }
 
   return {
-    vibrated: unlockAndTestScanHaptics(),
+    vibrated,
     preferences: getFeedbackPreferences(),
   };
 }
@@ -257,10 +357,9 @@ export function unlockAndTestScanHaptics(): boolean {
   unlockScanHaptics();
   pending = null;
 
-  return tryVibrate([...TEST_PATTERN]);
+  return invokeVibrate([...TEST_PATTERN]);
 }
 
-/** Test a specific scan feedback pattern (must run inside click/touch handler). */
 export function testFeedbackInUserGesture(kind: FeedbackKind): {
   vibrated: boolean;
 } {
@@ -268,9 +367,7 @@ export function testFeedbackInUserGesture(kind: FeedbackKind): {
   pending = null;
   fire(kind, true);
 
-  return {
-    vibrated: isVibrationApiPresent() && getFeedbackPreferences().vibration,
-  };
+  return { vibrated: lastVibrateAccepted === true };
 }
 
 export function pulseScan(): void {
@@ -288,3 +385,6 @@ export function pulseRejected(): void {
 export function pulseDuplicate(): void {
   queue("duplicate");
 }
+
+// Auto-init when loaded in browser.
+initScanHapticTouchTracking();
