@@ -21,6 +21,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { enqueueCheckIn } from "@/lib/storage/check-in-outbox";
 import { startOutboxSyncScheduler } from "@/lib/storage/sync-outbox";
 import { clearDoorSessionConfig } from "@/lib/storage/session-config";
+import { unlockScanHaptics } from "@/lib/scan-haptic";
 import { cn } from "@/lib/utils";
 
 export function ScanPage() {
@@ -136,6 +137,21 @@ export function ScanPage() {
     return stop;
   }, [queryClient]);
 
+  useEffect(() => {
+    const unlock = () => unlockScanHaptics();
+
+    document.addEventListener("touchstart", unlock, {
+      once: true,
+      passive: true,
+    });
+    document.addEventListener("click", unlock, { once: true, passive: true });
+
+    return () => {
+      document.removeEventListener("touchstart", unlock);
+      document.removeEventListener("click", unlock);
+    };
+  }, []);
+
   const handleSignOut = () => {
     clearDoorSessionConfig();
     navigate("/setup", { replace: true });
@@ -168,7 +184,7 @@ export function ScanPage() {
         </div>
       </header>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1" onTouchStart={unlockScanHaptics}>
         <ScannerViewport videoRef={videoRef} />
         {torch.brightScreen ? (
           <div

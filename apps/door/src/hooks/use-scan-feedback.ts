@@ -1,5 +1,12 @@
 import { useCallback, useRef, useState } from "react";
 
+import {
+  pulseAccepted,
+  pulseDuplicate,
+  pulseRejected,
+  pulseScan,
+} from "@/lib/scan-haptic";
+
 export type ScanFeedbackState =
   | "idle"
   | "decoded"
@@ -11,14 +18,6 @@ export type ScanFeedbackState =
 const ACCEPT_COOLDOWN_MS = 1500;
 const REJECT_COOLDOWN_MS = 800;
 const INVALID_COOLDOWN_MS = 700;
-/** Short pulse when the reader detects any QR payload. */
-const SCAN_VIBRATE_MS = 25;
-
-function vibrate(pattern: number | number[]) {
-  if (typeof navigator.vibrate === "function") {
-    navigator.vibrate(pattern);
-  }
-}
 
 export function useScanFeedback() {
   const [state, setState] = useState<ScanFeedbackState>("idle");
@@ -59,7 +58,7 @@ export function useScanFeedback() {
 
       if (token === lastTokenRef.current) {
         setState("duplicate");
-        vibrate(20);
+        pulseDuplicate();
 
         return false;
       }
@@ -73,7 +72,7 @@ export function useScanFeedback() {
   );
 
   const onScanned = useCallback(() => {
-    vibrate(SCAN_VIBRATE_MS);
+    pulseScan();
   }, []);
 
   const onInvalidAdmission = useCallback(() => {
@@ -83,6 +82,7 @@ export function useScanFeedback() {
 
     setState("rejected");
     setMessage("Invalid admission code!");
+    pulseRejected();
     startCooldown(INVALID_COOLDOWN_MS, "idle");
   }, [isCoolingDown, startCooldown]);
 
@@ -94,7 +94,7 @@ export function useScanFeedback() {
     (subtitle?: string) => {
       setState("accepted");
       setMessage(subtitle ?? null);
-      vibrate(40);
+      pulseAccepted();
       startCooldown(ACCEPT_COOLDOWN_MS, "idle");
       lastTokenRef.current = "";
 
@@ -107,7 +107,7 @@ export function useScanFeedback() {
     (errorMessage: string) => {
       setState("rejected");
       setMessage(errorMessage);
-      vibrate([30, 30, 30]);
+      pulseRejected();
       startCooldown(REJECT_COOLDOWN_MS, "idle");
 
       return false;
