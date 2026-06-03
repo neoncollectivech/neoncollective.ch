@@ -4,7 +4,7 @@
   "packageManager": "pnpm@10.29.3",
   "scripts": {
     "dev": "pnpm -w run dev:apps & pnpm -w run stripe:listen & wait",
-    "dev:apps": "turbo dev --filter=@neon/web --filter=@neon/events-api --filter=@neon/stripe-api --filter=@neon/admin",
+    "dev:apps": "turbo dev --filter=@neon/web --filter=@neon/events-api --filter=@neon/stripe-api --filter=@neon/admin --filter=@neon/door",
     "dev:e2e": "E2E_TEST_MODE=1 turbo dev --filter=@neon/web --filter=@neon/events-api",
     "e2e:free-ports": "node scripts/free-e2e-ports.mjs",
     "build": "turbo build",

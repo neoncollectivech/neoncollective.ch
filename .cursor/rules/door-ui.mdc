@@ -1,0 +1,11 @@
+---
+description: Door scanner app UI — Shadcn only (mirrors admin)
+globs: apps/door/**
+---
+
+# Door UI (Shadcn only)
+
+- Import UI only from `@/components/ui/*` (Button, Input, Dialog, Card, etc.).
+- Never add `@radix-ui/*` imports outside `apps/door/src/components/ui/**`. Radix is an implementation detail of the Shadcn primitive layer only.
+- Prefer Shadcn wrappers over raw HTML controls (`<button>`, `<input>`, `<select>`, `<textarea>`).
+- Do not use HeroUI or other component libraries in door (`apps/web` uses HeroUI; door uses Shadcn like admin).

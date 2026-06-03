@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#050505" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="NEON Door" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="any" />
+    <link
+      rel="icon"
+      href="%BASE_URL%favicon-32x32.png"
+      type="image/png"
+      sizes="32x32"
+    />
+    <link
+      rel="icon"
+      href="%BASE_URL%favicon-16x16.png"
+      type="image/png"
+      sizes="16x16"
+    />
+    <title>NEON Door</title>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("%BASE_URL%sw.js", {
+          scope: "%BASE_URL%",
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

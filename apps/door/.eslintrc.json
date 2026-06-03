@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json.schemastore.org/eslintrc.json",
+  "extends": [
+    "plugin:react/recommended",
+    "plugin:prettier/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:jsx-a11y/recommended",
+    "@neon/eslint-config/react-rules"
+  ],
+  "plugins": ["react", "unused-imports", "import", "jsx-a11y", "prettier", "@tanstack/query"],
+  "rules": {
+    "@tanstack/query/exhaustive-deps": "warn",
+    "import/order": [
+      "warn",
+      {
+        "groups": [
+          "type",
+          "builtin",
+          "object",
+          "external",
+          "internal",
+          "parent",
+          "sibling",
+          "index"
+        ],
+        "pathGroups": [
+          {
+            "pattern": "@/**",
+            "group": "internal",
+            "position": "before"
+          }
+        ],
+        "pathGroupsExcludedImportTypes": ["type"],
+        "newlines-between": "always"
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.{ts,tsx}"],
+      "excludedFiles": ["src/components/ui/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@radix-ui/*"],
+                "message": "Do not import Radix directly. Use Shadcn components from @/components/ui/*."
+              }
+            ]
+          }
+        ],
+        "react/forbid-elements": [
+          "error",
+          {
+            "forbid": [
+              {
+                "element": "button",
+                "message": "Use Button from @/components/ui/button."
+              },
+              {
+                "element": "input",
+                "message": "Use Input from @/components/ui/input."
+              },
+              {
+                "element": "select",
+                "message": "Use Select from @/components/ui/select."
+              },
+              {
+                "element": "textarea",
+                "message": "Use Textarea from @/components/ui/textarea."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -13,7 +13,8 @@
   "ignoreExportsUsedInFile": true,
   "exclude": ["types"],
   "ignoreIssues": {
-    "apps/admin/src/components/ui/**": ["exports"]
+    "apps/admin/src/components/ui/**": ["exports"],
+    "apps/door/src/components/ui/**": ["exports"]
   },
   "workspaces": {
     ".": {
@@ -27,6 +28,11 @@
       "entry": ["lib/content/local/*.ts"]
     },
     "apps/admin": {
+      "vite": false,
+      "entry": ["index.html", "src/main.tsx", "vite.config.ts"],
+      "ignoreFiles": ["public/**", "src/vite-env.d.ts"]
+    },
+    "apps/door": {
       "vite": false,
       "entry": ["index.html", "src/main.tsx", "vite.config.ts"],
       "ignoreFiles": ["public/**", "src/vite-env.d.ts"]
