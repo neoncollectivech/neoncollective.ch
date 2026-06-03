@@ -43,3 +43,7 @@ export function isAdmissionSpentLocally(
 ): boolean {
   return readSpentAdmissionIds(eventId).has(admissionId);
 }
+
+export function clearAllSpentAdmissionsForEvent(eventId: string): void {
+  writePersistedItem(storageKey(eventId), JSON.stringify([]));
+}

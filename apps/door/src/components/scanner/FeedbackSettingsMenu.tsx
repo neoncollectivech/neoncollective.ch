@@ -21,7 +21,11 @@ import {
   testFeedbackInUserGesture,
   type FeedbackKind,
 } from "@/lib/scan-feedback";
-import { clearDoorEventSelection } from "@/lib/storage/session-config";
+import {
+  clearDoorEventSelection,
+  getDoorSessionConfig,
+} from "@/lib/storage/session-config";
+import { clearAllSpentAdmissionsForEvent } from "@/lib/storage/spent-admissions";
 
 const TEST_ACTIONS: { kind: FeedbackKind; label: string }[] = [
   { kind: "scan", label: "Scan detected" },
@@ -168,6 +172,23 @@ export function FeedbackSettingsMenu() {
               }}
             >
               Change event
+            </Button>
+            <Button
+              className="w-full"
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const session = getDoorSessionConfig();
+
+                if (!session) {
+                  return;
+                }
+
+                clearAllSpentAdmissionsForEvent(session.eventId);
+                toast.success("Local scan history cleared");
+              }}
+            >
+              Clear local scan history
             </Button>
           </div>
         </div>

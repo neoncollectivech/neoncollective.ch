@@ -104,7 +104,12 @@ export function ScanPage() {
         return;
       }
 
-      if (isAdmissionSpentLocally(session.eventId, offlineVerify.admissionId)) {
+      const spentLocally = isAdmissionSpentLocally(
+        session.eventId,
+        offlineVerify.admissionId,
+      );
+
+      if (spentLocally && !navigator.onLine) {
         fb.onDuplicate();
 
         return;
@@ -141,6 +146,12 @@ export function ScanPage() {
 
         if (axios.isAxiosError(error) && !error.response) {
           await queueOffline();
+
+          return;
+        }
+
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          fb.onDuplicate();
 
           return;
         }
