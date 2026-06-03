@@ -23,5 +23,15 @@ export async function listDoorEvents(
     headers: { Authorization: `Bearer ${apiKey}` },
   });
 
-  return data.events.flatMap((row) => (row.id ? [{ ...row, id: row.id }] : []));
+  const withIds = data.events.flatMap((row) =>
+    row.id ? [{ ...row, id: row.id }] : [],
+  );
+
+  if (data.events.length > 0 && withIds.length === 0) {
+    throw new Error(
+      "Event catalog did not include event IDs. Update events-api and try again.",
+    );
+  }
+
+  return withIds;
 }

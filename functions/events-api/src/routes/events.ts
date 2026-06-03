@@ -50,6 +50,7 @@ export function createEventsRouter(): Hono<AppEnv> {
     });
     return c.json({
       events: rows.map((r) => ({
+        ...(r.id ? { id: r.id } : {}),
         slug: r.slug,
         title: r.title,
         summary: r.summary,
