@@ -5,8 +5,9 @@ import ws from "ws";
 import { getEventsApiEnv } from "../config/runtime-env";
 import * as authSchema from "./auth-schema";
 import * as schema from "./schema";
+import * as views from "./views";
 
-const fullSchema = { ...schema, ...authSchema };
+const fullSchema = { ...schema, ...authSchema, ...views };
 
 neonConfig.webSocketConstructor = ws;
 

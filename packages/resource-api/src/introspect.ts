@@ -1,5 +1,6 @@
-import { getTableColumns, getTableName } from "drizzle-orm";
-import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import type { PgColumn } from "drizzle-orm/pg-core";
+
+import { queryableColumns, queryableName, type PgQueryable } from "./pg-queryable";
 
 import { filterable } from "./filter-helpers";
 import type { FilterableColumn } from "./filter-types";
@@ -95,12 +96,12 @@ function resolveIdColumn(
   return fallback;
 }
 
-export function introspectTable<T extends PgTable>(
+export function introspectTable<T extends PgQueryable>(
   table: T,
   opts: IntrospectOptions = {},
 ): ResourceMeta {
-  const columns = getTableColumns(table);
-  const tableName = getTableName(table);
+  const columns = queryableColumns(table);
+  const tableName = queryableName(table);
   const idColumn = resolveIdColumn(columns, opts.idColumn);
   const exclude = opts.exclude ?? {};
   const allKeys = Object.keys(columns);

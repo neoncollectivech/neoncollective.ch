@@ -1,5 +1,7 @@
 import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
-import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import type { PgColumn } from "drizzle-orm/pg-core";
+
+import type { PgQueryable } from "./pg-queryable";
 
 import { buildFilterConditions } from "./filter-helpers";
 import type { FilterableColumn } from "./filter-types";
@@ -138,7 +140,7 @@ export function listMetaFromScope(
   };
 }
 
-export async function runAdminListFromScope<TTable extends PgTable>(params: {
+export async function runAdminListFromScope<TTable extends PgQueryable>(params: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any;
   table: TTable;

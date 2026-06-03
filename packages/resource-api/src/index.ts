@@ -59,6 +59,11 @@ export {
   type IntrospectExclude,
   type IntrospectListOverrides,
 } from "./introspect";
+export type {
+  InferQueryableInsert,
+  InferQueryableSelect,
+  PgQueryable,
+} from "./pg-queryable";
 export { detailProvider, type DetailProviderHandler } from "./detail-provider";
 export { listProvider, type ListProviderHandler, type ListProviderResult } from "./list-provider";
 export {

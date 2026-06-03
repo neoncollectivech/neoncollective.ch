@@ -10,8 +10,10 @@ import type { FilterableColumn } from "./filter-types";
 import type { ResourceMeta } from "./introspect";
 import { BadRequestError, NotFoundError } from "./errors";
 import { and, count, eq, type SQL } from "drizzle-orm";
-import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
-import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import type { InferQueryableInsert, InferQueryableSelect } from "./pg-queryable";
+import type { PgColumn } from "drizzle-orm/pg-core";
+
+import type { PgQueryable } from "./pg-queryable";
 
 import { AbstractTableService } from "./abstract-table-service";
 import { BulkLimitError } from "./errors";
@@ -23,7 +25,7 @@ import type { ServiceContext } from "./service-context";
 type AnyDb = any;
 
 export type TableServiceConfig<
-  TTable extends PgTable,
+  TTable extends PgQueryable,
   TFilterable extends readonly FilterableColumn[] = ResourceMeta["filterable"],
 > = {
   table: TTable;
@@ -42,10 +44,10 @@ export type TableServiceConfig<
 };
 
 export class TableService<
-  TTable extends PgTable,
-  TRow = InferSelectModel<TTable>,
-  TCreate = Partial<InferInsertModel<TTable>>,
-  TUpdate = Partial<InferInsertModel<TTable>>,
+  TTable extends PgQueryable,
+  TRow = InferQueryableSelect<TTable>,
+  TCreate = InferQueryableInsert<TTable>,
+  TUpdate = InferQueryableInsert<TTable>,
   TFilters extends Record<string, unknown> = Record<string, never>,
   TListItem = TRow,
   TFilterable extends readonly FilterableColumn[] = readonly FilterableColumn[],

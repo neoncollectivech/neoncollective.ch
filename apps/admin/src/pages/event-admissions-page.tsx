@@ -28,6 +28,22 @@ import { eventOrderPath, eventOrdersPath } from "@/lib/event-workspace-paths";
 function admissionColumns(eventId: string): ColumnDef<AdmissionRow>[] {
   return [
     {
+      id: "guest",
+      header: "Guest",
+      cell: ({ row }) => {
+        const { personId, givenName, familyName } = row.original;
+        const label = `${givenName} ${familyName}`.trim();
+        return (
+          <Link
+            className="text-primary underline-offset-4 hover:underline"
+            to={`/people/${personId}`}
+          >
+            {label || personId.slice(0, 8)}
+          </Link>
+        );
+      },
+    },
+    {
       accessorKey: "orderId",
       header: "Order",
       cell: ({ row }) => (

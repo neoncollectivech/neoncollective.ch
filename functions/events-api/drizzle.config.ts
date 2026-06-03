@@ -9,7 +9,7 @@ import { defineConfig } from "drizzle-kit";
  * - `pnpm db:push:local` — push schema directly to the DB (dev only; bypasses migration files).
  */
 export default defineConfig({
-  schema: ["./src/db/schema.ts", "./src/db/auth-schema.ts"],
+  schema: ["./src/db/schema.ts", "./src/db/auth-schema.ts", "./src/db/views.ts"],
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {

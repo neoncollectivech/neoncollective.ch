@@ -1,14 +1,13 @@
 import type { BulkUpdateItem, ListQuery, ListResult } from "./list-scope";
-import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
-import type { PgTable } from "drizzle-orm/pg-core";
+import type { InferQueryableInsert, InferQueryableSelect, PgQueryable } from "./pg-queryable";
 
 import type { ServiceContext } from "./service-context";
 
 export abstract class AbstractTableService<
-  TTable extends PgTable,
-  TRow = InferSelectModel<TTable>,
-  TCreate = InferInsertModel<TTable>,
-  TUpdate = Partial<InferInsertModel<TTable>>,
+  TTable extends PgQueryable,
+  TRow = InferQueryableSelect<TTable>,
+  TCreate = InferQueryableInsert<TTable>,
+  TUpdate = InferQueryableInsert<TTable>,
   TFilters extends Record<string, unknown> = Record<string, never>,
   TListItem = TRow,
 > {

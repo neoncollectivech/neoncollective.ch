@@ -8,12 +8,12 @@ import type { DetailProviderHandler } from "./detail-provider";
 import type { ListProviderHandler } from "./list-provider";
 import type { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
-import type { PgTable } from "drizzle-orm/pg-core";
+import type { PgQueryable } from "./pg-queryable";
 
 import type { ServiceBridge } from "./table-service-bridge";
 
 export type ResourceDef = {
-  table?: PgTable;
+  table?: PgQueryable;
   meta?: ResourceMeta;
   opts?: Omit<ResourceProviderOptions, "operations"> & {
     operations?: ResourceOperation[];

@@ -168,12 +168,15 @@ export type OrderTierRow = {
   unitPriceCents: number;
 };
 
-/** Mirrors admissionsResourceMeta.project.list. */
+/** Mirrors admissionsAdminListResourceMeta.project.list. */
 export type AdmissionRow = {
   id: string;
   orderId: string;
   eventId: string;
   signedCredential: string;
+  personId: string;
+  givenName: string;
+  familyName: string;
   checkedInAt: string | null;
   revokedAt: string | null;
   createdAt: string;

@@ -64,6 +64,13 @@
       "when": 1780500000000,
       "tag": "0008_admission_jwt",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780600000000,
+      "tag": "0009_admissions_admin_list_view",
+      "breakpoints": true
     }
   ]
 }

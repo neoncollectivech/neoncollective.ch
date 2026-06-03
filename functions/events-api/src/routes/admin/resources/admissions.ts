@@ -1,14 +1,14 @@
 import {
-  admissionsResourceMeta,
-  admissionsService,
-  admissionsTable,
-} from "../../../services/admissions.service";
+  admissionsAdminListResourceMeta,
+  admissionsAdminListTable,
+  admissionsAdminListViewService,
+} from "../../../services/admissions-admin-list.view.service";
 import { defineResource, tableServiceToBridge } from "@neon/resource-api";
 
 export const admissionsResource = defineResource({
-  table: admissionsTable,
-  meta: admissionsResourceMeta,
-  service: tableServiceToBridge(admissionsService),
+  table: admissionsAdminListTable,
+  meta: admissionsAdminListResourceMeta,
+  service: tableServiceToBridge(admissionsAdminListViewService),
   opts: {
     operations: ["list"],
   },

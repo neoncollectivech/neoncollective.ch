@@ -13,20 +13,8 @@ import { ordersService } from "./orders.service";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base/table-service";
 
-export { admissions as admissionsTable };
-
-export const admissionsResourceMeta = introspectTable(admissions, {
-  fields: {
-    list: [
-      "id",
-      "orderId",
-      "eventId",
-      "signedCredential",
-      "checkedInAt",
-      "revokedAt",
-      "createdAt",
-    ],
-  },
+const admissionsTableMeta = introspectTable(admissions, {
+  fields: { list: [], read: [], create: [], update: [] },
 });
 
 export type AdmissionTx = EntityTx;
@@ -48,7 +36,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
   constructor() {
     super({
       table: admissions,
-      meta: admissionsResourceMeta,
+      meta: admissionsTableMeta,
     });
   }
 

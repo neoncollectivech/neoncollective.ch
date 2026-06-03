@@ -2,22 +2,26 @@ import {
   TableService as BaseTableService,
   type TableServiceConfig as BaseTableServiceConfig,
 } from "@neon/resource-api";
-import type { FilterableColumn } from "@neon/resource-api";
-import type { ResourceMeta } from "@neon/resource-api";
-import type { PgTable } from "drizzle-orm/pg-core";
+import type {
+  FilterableColumn,
+  InferQueryableInsert,
+  InferQueryableSelect,
+  PgQueryable,
+  ResourceMeta,
+} from "@neon/resource-api";
 
 import { getDb } from "../../db/index";
 
 export type TableServiceConfig<
-  TTable extends PgTable,
+  TTable extends PgQueryable,
   TFilterable extends readonly FilterableColumn[] = ResourceMeta["filterable"],
 > = Omit<BaseTableServiceConfig<TTable, TFilterable>, "getDb">;
 
 export class TableService<
-  TTable extends PgTable,
-  TRow = import("drizzle-orm").InferSelectModel<TTable>,
-  TCreate = Partial<import("drizzle-orm").InferInsertModel<TTable>>,
-  TUpdate = Partial<import("drizzle-orm").InferInsertModel<TTable>>,
+  TTable extends PgQueryable,
+  TRow = InferQueryableSelect<TTable>,
+  TCreate = InferQueryableInsert<TTable>,
+  TUpdate = InferQueryableInsert<TTable>,
   TFilters extends Record<string, unknown> = Record<string, never>,
   TListItem = TRow,
   TFilterable extends readonly FilterableColumn[] = readonly FilterableColumn[],
