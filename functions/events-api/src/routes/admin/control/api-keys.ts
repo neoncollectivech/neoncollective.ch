@@ -103,10 +103,30 @@ export async function revokeApiKeyHandler(c: Context<AppEnv>): Promise<Response>
   return c.body(null, 204);
 }
 
+export async function rotateApiKeyHandler(c: Context<AppEnv>): Promise<Response> {
+  const id = c.req.param("id")!;
+  const { row, rawToken } = await apiKeysService.rotate(id, adminEmail(c));
+  return c.json(
+    {
+      item: serializeApiKey(row),
+      token: rawToken,
+    },
+    201,
+  );
+}
+
+export async function deleteApiKeyHandler(c: Context<AppEnv>): Promise<Response> {
+  const id = c.req.param("id")!;
+  await apiKeysService.delete(id);
+  return c.body(null, 204);
+}
+
 export function createApiKeysControlRouter(): Hono {
   const router = new Hono();
   router.get("/", listAllApiKeysHandler);
   router.post("/", createApiKeyHandler);
   router.post("/:id/revoke", revokeApiKeyHandler);
+  router.post("/:id/rotate", rotateApiKeyHandler);
+  router.delete("/:id", deleteApiKeyHandler);
   return router;
 }

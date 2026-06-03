@@ -1,7 +1,6 @@
-import type { ApiKeyRow } from "@/lib/admin-api";
+import type { ApiKeyCreateResult, ApiKeyRow } from "@/lib/admin-api";
 
 import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
 
 import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { Badge } from "@/components/ui/badge";
@@ -26,17 +25,26 @@ type ApiKeysTableProps = {
   rows: ApiKeyRow[];
   /** Hide event column when all keys are for one event. */
   showEventColumn?: boolean;
+  onTokenIssued?: (result: ApiKeyCreateResult) => void;
 };
 
 export function ApiKeysTable({
   rows,
   showEventColumn = true,
+  onTokenIssued,
 }: ApiKeysTableProps) {
   const revokeMutation = useMutation(adminApi.apiKeys.revoke());
+  const rotateMutation = useMutation(adminApi.apiKeys.rotate());
+  const deleteMutation = useMutation(adminApi.apiKeys.delete());
   const fk = useForeignKey({
     rows,
     load: showEventColumn ? [eventFkService] : [],
   });
+
+  const isPending =
+    revokeMutation.isPending ||
+    rotateMutation.isPending ||
+    deleteMutation.isPending;
 
   function handleRevoke(row: ApiKeyRow) {
     if (row.revokedAt) {
@@ -49,9 +57,37 @@ export function ApiKeysTable({
     ) {
       return;
     }
-    revokeMutation.mutate(row.id, {
-      onError: () => toast.error("Failed to revoke API key"),
+    revokeMutation.mutate(row.id);
+  }
+
+  function handleRotate(row: ApiKeyRow) {
+    if (row.revokedAt) {
+      return;
+    }
+    if (
+      !confirm(
+        `Rotate API key "${row.label}" (${row.keyPrefix}…)? The current token will be revoked and a new one issued.`,
+      )
+    ) {
+      return;
+    }
+    rotateMutation.mutate(row.id, {
+      onSuccess: (result) => onTokenIssued?.(result),
     });
+  }
+
+  function handleDelete(row: ApiKeyRow) {
+    if (!row.revokedAt) {
+      return;
+    }
+    if (
+      !confirm(
+        `Permanently delete revoked key "${row.label}" (${row.keyPrefix}…)? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    deleteMutation.mutate(row.id);
   }
 
   if (rows.length === 0) {
@@ -68,7 +104,7 @@ export function ApiKeysTable({
           <TableHead>Status</TableHead>
           <TableHead>Created</TableHead>
           <TableHead>Last used</TableHead>
-          <TableHead className="w-24" />
+          <TableHead className="w-48 text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -106,14 +142,37 @@ export function ApiKeysTable({
               {row.lastUsedAt ? formatDateTime(row.lastUsedAt) : "Never"}
             </TableCell>
             <TableCell className="text-right">
-              <Button
-                disabled={Boolean(row.revokedAt) || revokeMutation.isPending}
-                size="sm"
-                variant="outline"
-                onClick={() => handleRevoke(row)}
-              >
-                Revoke
-              </Button>
+              <div className="flex flex-wrap justify-end gap-2">
+                {row.revokedAt ? (
+                  <Button
+                    disabled={isPending}
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDelete(row)}
+                  >
+                    Delete
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      disabled={isPending}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRotate(row)}
+                    >
+                      Rotate
+                    </Button>
+                    <Button
+                      disabled={isPending}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRevoke(row)}
+                    >
+                      Revoke
+                    </Button>
+                  </>
+                )}
+              </div>
             </TableCell>
           </TableRow>
         ))}

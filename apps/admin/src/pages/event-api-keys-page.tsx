@@ -23,12 +23,16 @@ function EventApiKeysContent({ eventId }: EventApiKeysContentProps) {
   const [tokenDialog, setTokenDialog] = useState<{
     token: string;
     label: string;
+    variant: "create" | "rotate";
   } | null>(null);
 
   const keysQuery = useQuery(adminApi.apiKeys.forEvent(eventId));
 
-  function handleCreated(result: ApiKeyCreateResult) {
-    setTokenDialog({ token: result.token, label: result.item.label });
+  function handleTokenIssued(
+    result: ApiKeyCreateResult,
+    variant: "create" | "rotate" = "create",
+  ) {
+    setTokenDialog({ token: result.token, label: result.item.label, variant });
   }
 
   return (
@@ -53,7 +57,11 @@ function EventApiKeysContent({ eventId }: EventApiKeysContentProps) {
               {getApiErrorMessage(keysQuery.error)}
             </p>
           ) : (
-            <ApiKeysTable rows={keysQuery.data ?? []} showEventColumn={false} />
+            <ApiKeysTable
+              rows={keysQuery.data ?? []}
+              showEventColumn={false}
+              onTokenIssued={(result) => handleTokenIssued(result, "rotate")}
+            />
           )}
         </CardContent>
       </Card>
@@ -61,7 +69,7 @@ function EventApiKeysContent({ eventId }: EventApiKeysContentProps) {
       <ApiKeyFormDialog
         fixedEventId={eventId}
         open={createOpen}
-        onCreated={handleCreated}
+        onCreated={(result) => handleTokenIssued(result, "create")}
         onOpenChange={setCreateOpen}
       />
 
@@ -69,6 +77,7 @@ function EventApiKeysContent({ eventId }: EventApiKeysContentProps) {
         label={tokenDialog?.label ?? ""}
         open={tokenDialog !== null}
         token={tokenDialog?.token ?? null}
+        variant={tokenDialog?.variant ?? "create"}
         onOpenChange={(open) => {
           if (!open) {
             setTokenDialog(null);

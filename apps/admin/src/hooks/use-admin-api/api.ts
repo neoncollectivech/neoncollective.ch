@@ -51,6 +51,8 @@ import {
   createApiKey,
   createEventApiKey,
   revokeApiKey,
+  rotateApiKey,
+  deleteApiKey,
 } from "@/lib/admin-api";
 import { fetchAllEventInvitees } from "@/lib/fetch-all-event-invitees";
 import { getApiErrorMessage } from "@/lib/api-error";
@@ -651,6 +653,31 @@ export const adminApi = {
         },
         onError: (error) => {
           toast.error(getApiErrorMessage(error, "Failed to revoke API key"));
+        },
+      }),
+    rotate: () =>
+      mutationOptions({
+        mutationFn: (id: string) => rotateApiKey(id),
+        onSuccess: () => {
+          void queryClient.invalidateQueries({
+            queryKey: adminKeys.apiKeys.all,
+          });
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, "Failed to rotate API key"));
+        },
+      }),
+    delete: () =>
+      mutationOptions({
+        mutationFn: (id: string) => deleteApiKey(id),
+        onSuccess: () => {
+          toast.success("API key deleted");
+          void queryClient.invalidateQueries({
+            queryKey: adminKeys.apiKeys.all,
+          });
+        },
+        onError: (error) => {
+          toast.error(getApiErrorMessage(error, "Failed to delete API key"));
         },
       }),
   },

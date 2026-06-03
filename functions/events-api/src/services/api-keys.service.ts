@@ -1,10 +1,12 @@
-import { introspectTable, NotFoundError } from "@neon/resource-api";
+import { ConflictError, introspectTable, NotFoundError } from "@neon/resource-api";
+import type { ServiceContext } from "@neon/resource-api";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { apiKeys } from "../db/schema";
 import { randomTokenHex, sha256Hex } from "../helpers/token";
 import { TableService } from "./base/table-service";
+import { runTransaction } from "./transaction";
 
 export { apiKeys as apiKeysTable };
 
@@ -116,6 +118,77 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
       .returning({ id: apiKeys.id });
     if (!row) {
       throw new NotFoundError("API key not found.");
+    }
+  }
+
+  async rotate(
+    id: string,
+    createdByEmail: string | null,
+  ): Promise<{ row: ApiKeyListItem; rawToken: string }> {
+    return runTransaction(async (tx) => {
+      const [existing] = await tx
+        .select({
+          id: apiKeys.id,
+          eventId: apiKeys.eventId,
+          label: apiKeys.label,
+          revokedAt: apiKeys.revokedAt,
+        })
+        .from(apiKeys)
+        .where(eq(apiKeys.id, id))
+        .limit(1);
+      if (!existing) {
+        throw new NotFoundError("API key not found.");
+      }
+      if (existing.revokedAt) {
+        throw new ConflictError("Cannot rotate a revoked API key.");
+      }
+
+      await tx
+        .update(apiKeys)
+        .set({ revokedAt: new Date() })
+        .where(eq(apiKeys.id, id));
+
+      const rawToken = `${API_KEY_PREFIX}${randomTokenHex(24)}`;
+      const tokenHash = await sha256Hex(rawToken);
+      const keyPrefix = rawToken.slice(0, KEY_PREFIX_DISPLAY_LEN);
+      const [row] = await tx
+        .insert(apiKeys)
+        .values({
+          label: existing.label,
+          eventId: existing.eventId,
+          tokenHash,
+          keyPrefix,
+          createdByEmail,
+        })
+        .returning({
+          id: apiKeys.id,
+          eventId: apiKeys.eventId,
+          label: apiKeys.label,
+          keyPrefix: apiKeys.keyPrefix,
+          createdAt: apiKeys.createdAt,
+          revokedAt: apiKeys.revokedAt,
+          lastUsedAt: apiKeys.lastUsedAt,
+          createdByEmail: apiKeys.createdByEmail,
+        });
+      if (!row) {
+        throw new Error("Failed to rotate API key");
+      }
+      return { row, rawToken };
+    });
+  }
+
+  protected override async beforeDelete(id: string, _ctx?: ServiceContext): Promise<void> {
+    const db = getDb();
+    const [row] = await db
+      .select({ revokedAt: apiKeys.revokedAt })
+      .from(apiKeys)
+      .where(eq(apiKeys.id, id))
+      .limit(1);
+    if (!row) {
+      return;
+    }
+    if (!row.revokedAt) {
+      throw new ConflictError("Revoke the API key before deleting it.");
     }
   }
 

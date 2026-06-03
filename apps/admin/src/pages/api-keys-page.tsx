@@ -18,6 +18,7 @@ export function ApiKeysPage() {
   const [tokenDialog, setTokenDialog] = useState<{
     token: string;
     label: string;
+    variant: "create" | "rotate";
   } | null>(null);
 
   const keysQuery = useQuery(adminApi.apiKeys.list());
@@ -29,8 +30,11 @@ export function ApiKeysPage() {
     }),
   );
 
-  function handleCreated(result: ApiKeyCreateResult) {
-    setTokenDialog({ token: result.token, label: result.item.label });
+  function handleTokenIssued(
+    result: ApiKeyCreateResult,
+    variant: "create" | "rotate" = "create",
+  ) {
+    setTokenDialog({ token: result.token, label: result.item.label, variant });
   }
 
   return (
@@ -61,7 +65,10 @@ export function ApiKeysPage() {
               {getApiErrorMessage(keysQuery.error)}
             </p>
           ) : (
-            <ApiKeysTable rows={keysQuery.data ?? []} />
+            <ApiKeysTable
+              rows={keysQuery.data ?? []}
+              onTokenIssued={(result) => handleTokenIssued(result, "rotate")}
+            />
           )}
         </CardContent>
       </Card>
@@ -69,7 +76,7 @@ export function ApiKeysPage() {
       <ApiKeyFormDialog
         events={eventsQuery.data?.items ?? []}
         open={createOpen}
-        onCreated={handleCreated}
+        onCreated={(result) => handleTokenIssued(result, "create")}
         onOpenChange={setCreateOpen}
       />
 
@@ -77,6 +84,7 @@ export function ApiKeysPage() {
         label={tokenDialog?.label ?? ""}
         open={tokenDialog !== null}
         token={tokenDialog?.token ?? null}
+        variant={tokenDialog?.variant ?? "create"}
         onOpenChange={(open) => {
           if (!open) {
             setTokenDialog(null);

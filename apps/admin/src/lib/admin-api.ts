@@ -759,3 +759,15 @@ export async function createEventApiKey(
 export async function revokeApiKey(id: string) {
   await api.post(`/admin/api-keys/${id}/revoke`);
 }
+
+export async function rotateApiKey(id: string) {
+  const res = await api.post<ApiKeyCreateResult>(
+    `/admin/api-keys/${id}/rotate`,
+  );
+
+  return res.data;
+}
+
+export async function deleteApiKey(id: string) {
+  await api.delete(`/admin/api-keys/${id}`);
+}
