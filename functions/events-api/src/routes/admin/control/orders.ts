@@ -2,23 +2,13 @@ import { actionProvider } from "@neon/resource-api";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import { ordersService } from "../../../services/orders.service";
 import { refundOrder, type RefundOrderFailureReason } from "../refund";
-import { jsonReasonFailure } from "../../shared/respond";
 
 const REFUND_ERRORS: Record<RefundOrderFailureReason, { status: ContentfulStatusCode; error: string }> = {
   order_not_found: { status: 404, error: "Order not found." },
   order_not_refundable: { status: 400, error: "Order cannot be refunded in its current state." },
   stripe_failed: { status: 502, error: "Stripe refund failed" },
 };
-
-const DELETE_ORDER_ERRORS = {
-  order_not_found: { status: 404 as ContentfulStatusCode, error: "Order not found." },
-  order_not_deletable: {
-    status: 400 as ContentfulStatusCode,
-    error: "Only zero-amount orders with no Stripe payment can be deleted.",
-  },
-} as const;
 
 export function createOrdersControlRouter(): Hono {
   const control = new Hono();
@@ -37,17 +27,6 @@ export function createOrdersControlRouter(): Hono {
               return c.json({ error: res.error || mapped.error }, mapped.status);
             }
             return c.json({ ok: true, pending: true }, 202);
-          },
-        },
-        {
-          method: "delete",
-          path: "/:id",
-          handler: async (c) => {
-            const res = await ordersService.deleteDeletableAdminOrder(c.req.param("id")!);
-            if (!res.ok) {
-              return jsonReasonFailure(c, res, DELETE_ORDER_ERRORS);
-            }
-            return c.json({ ok: true });
           },
         },
       ],

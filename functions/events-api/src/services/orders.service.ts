@@ -1,5 +1,7 @@
 import {
+  BadRequestError,
   introspectTable,
+  NotFoundError,
   parseListQuery,
   type FilterParams,
 } from "@neon/resource-api";
@@ -8,12 +10,25 @@ import type { SQL } from "drizzle-orm";
 
 import { STALE_ORDERS_RETENTION_DAYS } from "../config/maintenance";
 import { getDb } from "../db/index";
-import { events, orders } from "../db/schema";
+import { events, orderTiers, orders } from "../db/schema";
 import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base/table-service";
+import type { ServiceContext } from "./base/types";
+import { runTransaction } from "./transaction";
 
 export { orders as ordersTable };
+
+function isAdminDeletableOrder(order: typeof orders.$inferSelect): boolean {
+  if (order.status === "pending") {
+    return true;
+  }
+  return (
+    order.status === "paid" &&
+    order.amountCents === 0 &&
+    order.stripePaymentIntentId == null
+  );
+}
 
 export type OrdersListFilters = FilterParams;
 
@@ -462,22 +477,28 @@ export class OrdersService extends TableService<
     return new Set(rows.map((r) => r.slug));
   }
 
-  async deleteDeletableAdminOrder(
-    orderId: string,
-  ): Promise<
-    | { ok: true }
-    | { ok: false; reason: "order_not_found" | "order_not_deletable" }
-  > {
-    const db = getDb();
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  protected override async beforeDelete(id: string, ctx?: ServiceContext): Promise<void> {
+    const order = await this.get(id, ctx);
     if (!order) {
-      return { ok: false, reason: "order_not_found" };
+      throw new NotFoundError();
     }
-    if (order.amountCents !== 0 || order.stripePaymentIntentId != null) {
-      return { ok: false, reason: "order_not_deletable" };
+    if (!isAdminDeletableOrder(order)) {
+      throw new BadRequestError(
+        "Only pending orders, or paid orders with zero amount and no Stripe payment, can be deleted.",
+      );
     }
-    await db.delete(orders).where(eq(orders.id, orderId));
-    return { ok: true };
+  }
+
+  override async delete(id: string, ctx?: ServiceContext): Promise<void> {
+    const existing = await this.get(id, ctx);
+    if (!existing) {
+      throw new NotFoundError();
+    }
+    await this.beforeDelete(id, ctx);
+    await runTransaction(async (tx) => {
+      await tx.delete(orderTiers).where(eq(orderTiers.orderId, id));
+      await tx.delete(orders).where(eq(orders.id, id));
+    });
   }
 
   parseListQuery(raw: Record<string, string | string[] | undefined>) {

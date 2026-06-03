@@ -16,10 +16,18 @@ import {
 import { isUuid } from "@/lib/uuid";
 
 function isAdminDeletableOrder(order: {
+  status: string;
   amountCents: number;
   stripePaymentIntentId: string | null;
 }): boolean {
-  return order.amountCents === 0 && order.stripePaymentIntentId == null;
+  if (order.status === "pending") {
+    return true;
+  }
+  return (
+    order.status === "paid" &&
+    order.amountCents === 0 &&
+    order.stripePaymentIntentId == null
+  );
 }
 
 export function OrderDetailPage() {
@@ -127,7 +135,9 @@ export function OrderDetailPage() {
                     onClick={() => {
                       if (
                         confirm(
-                          "Delete this free order? This cannot be undone. Related tier lines and admissions will be removed.",
+                          order.status === "pending"
+                            ? "Delete this pending order? This cannot be undone. Related tier lines and admissions will be removed."
+                            : "Delete this free order? This cannot be undone. Related tier lines and admissions will be removed.",
                         )
                       ) {
                         deleteMutation.mutate(orderId, {

@@ -11,6 +11,6 @@ export const orders = defineResource({
   meta: ordersResourceMeta,
   service: tableServiceToBridge(ordersService),
   opts: {
-    operations: ["list", "read"],
+    operations: ["list", "read", "delete"],
   },
 });
