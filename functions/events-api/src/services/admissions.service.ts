@@ -121,9 +121,6 @@ export class AdmissionsService extends TableService<typeof admissions> {
 
     const credential = await signAdmissionCredential({
       admissionId: admission.id,
-      eventId: admission.eventId,
-      orderId: admission.orderId,
-      tierIds,
       kid: signingKey.kid,
       privateJwk: signingKey.privateJwk,
     });
@@ -167,9 +164,6 @@ export class AdmissionsService extends TableService<typeof admissions> {
         const admissionId = crypto.randomUUID();
         const credential = await signAdmissionCredential({
           admissionId,
-          eventId: order.eventId,
-          orderId,
-          tierIds,
           kid: signingKey.kid,
           privateJwk: signingKey.privateJwk,
         });
@@ -234,23 +228,14 @@ export class AdmissionsService extends TableService<typeof admissions> {
     }
 
     let admissionId: string;
-    let eventIdFromJwt: string;
     try {
       const payload = decodeJwt(trimmed);
       admissionId = typeof payload.sub === "string" ? payload.sub : "";
-      eventIdFromJwt = typeof payload.evt === "string" ? payload.evt : "";
     } catch {
       return { ok: false, reason: "admission_not_found" };
     }
 
-    if (!admissionId || !eventIdFromJwt) {
-      return { ok: false, reason: "admission_not_found" };
-    }
-
-    if (
-      params.restrictToEventId !== null &&
-      eventIdFromJwt !== params.restrictToEventId
-    ) {
+    if (!admissionId) {
       return { ok: false, reason: "admission_not_found" };
     }
 
@@ -261,7 +246,6 @@ export class AdmissionsService extends TableService<typeof admissions> {
       .where(
         and(
           eq(admissions.id, admissionId),
-          eq(admissions.eventId, eventIdFromJwt),
           isNull(admissions.revokedAt),
           isNull(admissions.checkedInAt),
         ),
@@ -269,6 +253,13 @@ export class AdmissionsService extends TableService<typeof admissions> {
       .limit(1);
 
     if (!admission) {
+      return { ok: false, reason: "admission_not_found" };
+    }
+
+    if (
+      params.restrictToEventId !== null &&
+      admission.eventId !== params.restrictToEventId
+    ) {
       return { ok: false, reason: "admission_not_found" };
     }
 
@@ -281,7 +272,6 @@ export class AdmissionsService extends TableService<typeof admissions> {
       credential: trimmed,
       kid: signingKey.kid,
       publicJwk: signingKey.publicJwk,
-      expectedEventId: admission.eventId,
     });
 
     if (!verified || verified.admissionId !== admission.id) {
@@ -456,6 +446,59 @@ export class AdmissionsService extends TableService<typeof admissions> {
       .where(eq(admissions.orderId, orderId))
       .limit(1);
     return row?.id ?? null;
+  }
+
+  async regenerateAllAdmissionsForEventInTx(
+    tx: AdmissionTx,
+    eventId: string,
+  ): Promise<{ regenerated: number; created: number; skipped: number; failed: number }> {
+    let regenerated = 0;
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    const paidOrderIds = await ordersService.listPaidOrderIdsForEventInTx(tx, eventId);
+
+    for (const orderId of paidOrderIds) {
+      const order = await ordersService.getInTx(tx, orderId);
+      if (!order) {
+        failed += 1;
+        continue;
+      }
+
+      const tierIds = await orderTiersService.getEventTierIdsForOrder(orderId, tx);
+      const hasExclusive = Boolean(
+        await eventTiersService.findExclusiveTierIdAmong(tierIds, tx),
+      );
+      if (!hasExclusive) {
+        skipped += 1;
+        continue;
+      }
+
+      const admission = await this.findByOrderId(orderId, tx);
+      if (admission) {
+        const refreshed = await this.refreshSignedCredentialInTx(
+          tx,
+          admission,
+          order.personId,
+        );
+        if (refreshed) {
+          regenerated += 1;
+        } else {
+          failed += 1;
+        }
+        continue;
+      }
+
+      const issued = await this.issueAdmissionForPaidOrderInTx(tx, orderId);
+      if (issued.ok) {
+        created += 1;
+      } else {
+        failed += 1;
+      }
+    }
+
+    return { regenerated, created, skipped, failed };
   }
 
   async countPaidExclusiveOrdersWithoutAdmissionInTx(

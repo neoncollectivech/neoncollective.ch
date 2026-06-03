@@ -95,9 +95,7 @@ export function ScanPage() {
         const message =
           offlineVerify.reason === "jwks_missing"
             ? "Missing JWKS — re-run setup."
-            : offlineVerify.reason === "wrong_event"
-              ? "Credential is for another event."
-              : "Invalid admission credential.";
+            : "Invalid admission credential.";
 
         fb.onRejected(message);
 

@@ -98,6 +98,7 @@ type EventAdmissionsContentProps = {
 
 function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
 
   const summaryQuery = useQuery(adminApi.event.admissionsSummary(eventId));
   const provisionMutation = useMutation(
@@ -106,11 +107,16 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
   const generateMutation = useMutation(
     adminApi.event.generateAdmissions(eventId),
   );
+  const regenerateMutation = useMutation(
+    adminApi.event.regenerateAdmissions(eventId),
+  );
 
   const columns = useMemo(() => admissionColumns(eventId), [eventId]);
 
   const summary = summaryQuery.data;
   const eligible = summary?.eligibleWithoutAdmission ?? 0;
+  const withAdmission = summary?.withAdmission ?? 0;
+  const paidExclusive = summary?.paidExclusiveOrders ?? 0;
   const hasKey = Boolean(summary?.signingKey);
 
   return (
@@ -192,6 +198,25 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
         >
           Generate missing admissions
         </Button>
+        <Button
+          disabled={
+            !hasKey ||
+            paidExclusive === 0 ||
+            regenerateMutation.isPending ||
+            generateMutation.isPending
+          }
+          title={
+            !hasKey
+              ? "Create a signing key first"
+              : paidExclusive === 0
+                ? "No paid exclusive orders"
+                : undefined
+          }
+          variant="outline"
+          onClick={() => setRegenerateOpen(true)}
+        >
+          Regenerate all credentials
+        </Button>
         <Button asChild variant="outline">
           <Link to={eventOrdersPath(eventId)}>View orders</Link>
         </Button>
@@ -233,6 +258,47 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
               }
             >
               Generate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={regenerateOpen} onOpenChange={setRegenerateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerate all credentials</DialogTitle>
+            <DialogDescription>
+              Re-sign compact JWTs for {withAdmission} existing admission
+              {withAdmission === 1 ? "" : "s"}
+              {eligible > 0
+                ? ` and create ${eligible} missing`
+                : ""}
+              . Guests must use the new QR codes; check-in status is unchanged.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenerateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={regenerateMutation.isPending}
+              onClick={() =>
+                regenerateMutation.mutate(undefined, {
+                  onSuccess: (data) => {
+                    setRegenerateOpen(false);
+                    toast.success(
+                      `Regenerated ${data.regenerated}, created ${data.created}, failed ${data.failed}`,
+                    );
+                    void summaryQuery.refetch();
+                  },
+                  onError: (err) =>
+                    toast.error(
+                      getApiErrorMessage(err, "Regenerate failed"),
+                    ),
+                })
+              }
+            >
+              Regenerate all
             </Button>
           </DialogFooter>
         </DialogContent>

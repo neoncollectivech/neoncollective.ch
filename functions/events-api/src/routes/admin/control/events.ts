@@ -38,6 +38,7 @@ import {
   generateEventAdmissionsHandler,
   getEventAdmissionsSummaryHandler,
   provisionEventAdmissionSigningKeyHandler,
+  regenerateEventAdmissionsHandler,
 } from "./event-admissions";
 import { jsonReasonFailure } from "../../shared/respond";
 
@@ -151,6 +152,11 @@ export function createEventsControlRouter(): Hono {
           method: "post",
           path: "/:id/admissions/generate",
           handler: generateEventAdmissionsHandler,
+        },
+        {
+          method: "post",
+          path: "/:id/admissions/regenerate-all",
+          handler: regenerateEventAdmissionsHandler,
         },
         {
           method: "post",

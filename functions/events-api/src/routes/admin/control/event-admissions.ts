@@ -126,3 +126,24 @@ export async function generateEventAdmissionsHandler(
 
   return c.json(result);
 }
+
+export async function regenerateEventAdmissionsHandler(
+  c: Context<AppEnv>,
+): Promise<Response> {
+  const eventId = c.req.param("id")!;
+  const ev = await eventsService.get(eventId);
+  if (!ev) {
+    return jsonReasonFailure(c, { reason: "event_not_found" }, ADMISSION_ERRORS);
+  }
+
+  const signingKey = await admissionSigningKeysService.getForEvent(eventId);
+  if (!signingKey) {
+    return jsonReasonFailure(c, { reason: "signing_key_missing" }, ADMISSION_ERRORS);
+  }
+
+  const result = await runTransaction((tx) =>
+    admissionsService.regenerateAllAdmissionsForEventInTx(tx, eventId),
+  );
+
+  return c.json(result);
+}

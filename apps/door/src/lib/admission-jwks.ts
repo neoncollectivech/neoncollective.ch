@@ -64,7 +64,7 @@ export async function verifyAdmissionCredentialOffline(params: {
   eventId: string;
 }): Promise<
   | { ok: true; admissionId: string }
-  | { ok: false; reason: "invalid" | "wrong_event" | "jwks_missing" }
+  | { ok: false; reason: "invalid" | "jwks_missing" }
 > {
   const cached = readCachedAdmissionJwks(params.eventId);
 
@@ -82,13 +82,9 @@ export async function verifyAdmissionCredentialOffline(params: {
     });
 
     const admissionId = typeof payload.sub === "string" ? payload.sub : "";
-    const evt = typeof payload.evt === "string" ? payload.evt : "";
 
-    if (!admissionId || evt !== params.eventId) {
-      return {
-        ok: false,
-        reason: evt !== params.eventId ? "wrong_event" : "invalid",
-      };
+    if (!admissionId) {
+      return { ok: false, reason: "invalid" };
     }
 
     return { ok: true, admissionId };

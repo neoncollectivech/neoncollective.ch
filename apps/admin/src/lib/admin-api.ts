@@ -201,6 +201,13 @@ export type GenerateEventAdmissionsResult = {
   failed: number;
 };
 
+export type RegenerateEventAdmissionsResult = {
+  regenerated: number;
+  created: number;
+  skipped: number;
+  failed: number;
+};
+
 export type InviteRedemptionRow = {
   id: string;
   orderId: string;
@@ -571,6 +578,14 @@ export async function provisionEventAdmissionSigningKey(eventId: string) {
 export async function generateEventAdmissions(eventId: string) {
   const res = await api.post<GenerateEventAdmissionsResult>(
     `/admin/events/${eventId}/admissions/generate`,
+  );
+
+  return res.data;
+}
+
+export async function regenerateEventAdmissions(eventId: string) {
+  const res = await api.post<RegenerateEventAdmissionsResult>(
+    `/admin/events/${eventId}/admissions/regenerate-all`,
   );
 
   return res.data;

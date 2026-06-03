@@ -157,18 +157,18 @@ function AdmissionDetailContent({
           <CardTitle className="text-base">Credential</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-start gap-4">
-          <div className="rounded-lg bg-background p-4">
+          <div className="inline-block rounded-lg border border-border bg-white p-4">
             <QRCodeSVG
               aria-label="Admission credential QR code"
-              bgColor="var(--color-background)"
-              fgColor="var(--color-primary)"
-              level="M"
-              size={220}
+              bgColor="#ffffff"
+              fgColor="#000000"
+              level="L"
+              size={240}
               value={admission.signedCredential}
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            Door apps scan this JWT at check-in.
+            High-contrast code for door scanners (same JWT as Copy JWT).
           </p>
           <Button
             variant="outline"

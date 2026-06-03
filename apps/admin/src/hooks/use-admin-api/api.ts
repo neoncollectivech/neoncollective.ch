@@ -19,6 +19,7 @@ import {
   getEventAdmissionsSummary,
   provisionEventAdmissionSigningKey,
   generateEventAdmissions,
+  regenerateEventAdmissions,
   getAdmission,
   cancelAdmissionCheckIn,
   getPromotionCode,
@@ -179,6 +180,18 @@ export const adminApi = {
     generateAdmissions: (eventId: string) =>
       mutationOptions({
         mutationFn: () => generateEventAdmissions(eventId),
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: adminKeys.events.admissionsSummary(eventId),
+          });
+          await queryClient.invalidateQueries({
+            queryKey: adminKeys.admissions.all,
+          });
+        },
+      }),
+    regenerateAdmissions: (eventId: string) =>
+      mutationOptions({
+        mutationFn: () => regenerateEventAdmissions(eventId),
         onSuccess: async () => {
           await queryClient.invalidateQueries({
             queryKey: adminKeys.events.admissionsSummary(eventId),
