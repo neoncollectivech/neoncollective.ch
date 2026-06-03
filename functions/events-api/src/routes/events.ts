@@ -46,6 +46,7 @@ export function createEventsRouter(): Hono<AppEnv> {
       viewerPersonId: session?.personId ?? null,
       inviteEventId,
       ...catalogParamsFromApiKey(apiKey),
+      includeEventIds: Boolean(apiKey),
     });
     return c.json({
       events: rows.map((r) => ({

@@ -24,18 +24,21 @@ import { normalizeAdmissionCredential } from "@/lib/admission-credential";
 import { verifyAdmissionCredentialOffline } from "@/lib/admission-jwks";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { enqueueCheckIn } from "@/lib/storage/check-in-outbox";
-import { getDoorSessionConfig } from "@/lib/storage/session-config";
+import {
+  clearDoorSessionConfig,
+  getDoorSessionConfig,
+} from "@/lib/storage/session-config";
 import {
   isAdmissionSpentLocally,
   markAdmissionSpentLocally,
 } from "@/lib/storage/spent-admissions";
 import { startOutboxSyncScheduler } from "@/lib/storage/sync-outbox";
-import { clearDoorSessionConfig } from "@/lib/storage/session-config";
 import { unlockScanFeedback } from "@/lib/scan-feedback";
 import { cn } from "@/lib/utils";
 
 export function ScanPage() {
   const navigate = useNavigate();
+  const session = getDoorSessionConfig();
   const online = useOnlineStatus();
   const queryClient = useQueryClient();
   const feedback = useScanFeedback();
@@ -208,8 +211,13 @@ export function ScanPage() {
   return (
     <div className="fixed inset-0 z-0 flex h-[100svh] max-h-[100svh] flex-col overflow-hidden bg-black">
       <header className="relative z-10 flex shrink-0 items-center justify-between gap-2 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
           <span className="text-sm font-semibold tracking-wide">NEON Door</span>
+          {session?.eventTitle ? (
+            <p className="truncate text-xs text-muted-foreground">
+              {session.eventTitle}
+            </p>
+          ) : null}
           {!online ? (
             <span className="text-xs text-amber-400">Offline</span>
           ) : null}

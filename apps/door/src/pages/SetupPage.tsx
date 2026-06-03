@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -8,19 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchAdmissionJwks } from "@/lib/admission-jwks";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { isJwksEventRequiredError } from "@/lib/jwks-errors";
 import {
   isApiKeyTokenFormat,
+  setDoorApiKeyConfig,
   setDoorSessionConfig,
 } from "@/lib/storage/session-config";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function SetupPage() {
   const navigate = useNavigate();
   const [apiKey, setApiKey] = useState("");
   const [keyLabel, setKeyLabel] = useState("");
-  const [eventId, setEventId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -35,20 +34,12 @@ export function SetupPage() {
       return;
     }
 
-    const eventIdTrimmed = eventId.trim();
-
-    if (eventIdTrimmed && !UUID_RE.test(eventIdTrimmed)) {
-      toast.error("Event ID must be a valid UUID (for global API keys).");
-
-      return;
-    }
-
     setSubmitting(true);
 
     try {
       const jwks = await fetchAdmissionJwks({
         apiKey: trimmed,
-        eventId: eventIdTrimmed || null,
+        eventId: null,
       });
 
       setDoorSessionConfig({
@@ -58,10 +49,26 @@ export function SetupPage() {
       });
       navigate("/", { replace: true });
     } catch (error) {
+      if (isJwksEventRequiredError(error)) {
+        setDoorApiKeyConfig({
+          apiKey: trimmed,
+          keyLabel: keyLabel.trim() || null,
+        });
+        navigate("/setup/event", { replace: true });
+
+        return;
+      }
+
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        toast.error("Invalid API key.");
+
+        return;
+      }
+
       toast.error(
         getApiErrorMessage(
           error,
-          "Could not load admission signing keys. Check the API key and event ID.",
+          "Could not validate API key or load signing keys.",
         ),
       );
     } finally {
@@ -90,21 +97,7 @@ export function SetupPage() {
               />
               <p className="text-xs text-muted-foreground">
                 Create a key in NEON Admin → API Keys. Paste the token shown
-                once at creation.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="eventId">Event ID (global keys only)</Label>
-              <Input
-                autoComplete="off"
-                id="eventId"
-                placeholder="uuid"
-                value={eventId}
-                onChange={(e) => setEventId(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Event-scoped keys resolve the event automatically. Global keys
-                require the event UUID here.
+                once at creation. You will choose the event next.
               </p>
             </div>
             <div className="space-y-2">
@@ -117,7 +110,7 @@ export function SetupPage() {
               />
             </div>
             <Button className="w-full" disabled={submitting} type="submit">
-              {submitting ? "Loading keys…" : "Save and open scanner"}
+              {submitting ? "Validating…" : "Continue"}
             </Button>
           </form>
         </CardContent>

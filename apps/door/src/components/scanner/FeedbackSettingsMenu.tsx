@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Settings } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +21,7 @@ import {
   testFeedbackInUserGesture,
   type FeedbackKind,
 } from "@/lib/scan-feedback";
+import { clearDoorEventSelection } from "@/lib/storage/session-config";
 
 const TEST_ACTIONS: { kind: FeedbackKind; label: string }[] = [
   { kind: "scan", label: "Scan detected" },
@@ -29,6 +31,7 @@ const TEST_ACTIONS: { kind: FeedbackKind; label: string }[] = [
 ];
 
 export function FeedbackSettingsMenu() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState(getFeedbackPreferences);
   const [diagnostics, setDiagnostics] = useState(getFeedbackDiagnostics);
@@ -148,6 +151,24 @@ export function FeedbackSettingsMenu() {
             <p>Audio context: {diagnostics.audioContextState ?? "n/a"}</p>
             <p>Unlocked: {diagnostics.unlocked ? "yes" : "no"}</p>
             <p>Sound enabled: {diagnostics.soundEnabled ? "yes" : "no"}</p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Event
+            </p>
+            <Button
+              className="w-full"
+              type="button"
+              variant="outline"
+              onClick={() => {
+                clearDoorEventSelection();
+                setOpen(false);
+                navigate("/setup/event", { replace: true });
+              }}
+            >
+              Change event
+            </Button>
           </div>
         </div>
       </SheetContent>

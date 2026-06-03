@@ -150,6 +150,10 @@ export default defineConfig(({ mode }) => {
           target: "http://localhost:8082",
           changeOrigin: true,
         },
+        "/admission": {
+          target: "http://localhost:8082",
+          changeOrigin: true,
+        },
       },
     },
   };

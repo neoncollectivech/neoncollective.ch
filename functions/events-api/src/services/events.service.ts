@@ -28,6 +28,8 @@ export class InviteMechanismDisabledError extends Error {
 export type EventAccess = "full" | "minimal";
 
 export type CatalogListRow = {
+  /** Present when catalog is requested with an event API key (door / integrations). */
+  id?: string;
   slug: string;
   title: string;
   summary: string | null;
@@ -43,6 +45,8 @@ export type CatalogListParams = {
   inviteEventId: string | null;
   /** When set, global key (eventId null) unlocks all invite-only events; scoped key unlocks one. */
   apiKeyEventId?: string | null;
+  /** Include event UUID on each row (Bearer API key only). */
+  includeEventIds?: boolean;
   apiKeyIsGlobal?: boolean;
 };
 

@@ -24,8 +24,10 @@ function catalogRow(
   inviteOnly: boolean,
   registeredSlugs: Set<string>,
   images: PublicEventImage[],
+  includeEventId: boolean,
 ): CatalogListRow {
   return {
+    ...(includeEventId ? { id: row.id } : {}),
     slug: row.slug,
     title: row.title,
     summary: row.summary ?? null,
@@ -48,6 +50,11 @@ export async function listPublishedCatalog(
     params != null && typeof params !== "string" ? params.apiKeyEventId : undefined;
   const apiKeyIsGlobal =
     params != null && typeof params !== "string" ? params.apiKeyIsGlobal : false;
+  const includeEventIds = Boolean(
+    params != null &&
+      typeof params !== "string" &&
+      params.includeEventIds,
+  );
 
   const registeredSlugs = viewerPersonId
     ? await ordersService.listPaidEventSlugsForPerson(viewerPersonId)
@@ -114,6 +121,7 @@ export async function listPublishedCatalog(
       inviteOnlyBySlug.get(row.slug) ?? false,
       registeredSlugs,
       imagesByEventId.get(row.id) ?? [],
+      includeEventIds,
     ),
   );
 

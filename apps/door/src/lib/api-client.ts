@@ -1,6 +1,9 @@
 import axios from "axios";
 
-import { getDoorSessionConfig } from "@/lib/storage/session-config";
+import {
+  getDoorApiKeyConfig,
+  getDoorSessionConfig,
+} from "@/lib/storage/session-config";
 
 const baseURL = import.meta.env.DEV
   ? ""
@@ -13,10 +16,11 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const session = getDoorSessionConfig();
+  const apiKey =
+    getDoorSessionConfig()?.apiKey ?? getDoorApiKeyConfig()?.apiKey;
 
-  if (session?.apiKey) {
-    config.headers.Authorization = `Bearer ${session.apiKey}`;
+  if (apiKey) {
+    config.headers.Authorization = `Bearer ${apiKey}`;
   }
 
   return config;

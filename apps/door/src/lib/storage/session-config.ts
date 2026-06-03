@@ -7,11 +7,18 @@ import {
 const API_KEY_KEY = "neon:door:apiKey";
 const KEY_LABEL_KEY = "neon:door:keyLabel";
 const EVENT_ID_KEY = "neon:door:eventId";
+const EVENT_TITLE_KEY = "neon:door:eventTitle";
 
 export type DoorSessionConfig = {
   apiKey: string;
   keyLabel: string | null;
   eventId: string;
+  eventTitle: string | null;
+};
+
+export type DoorApiKeyConfig = {
+  apiKey: string;
+  keyLabel: string | null;
 };
 
 export function isApiKeyTokenFormat(token: string): boolean {
@@ -20,25 +27,55 @@ export function isApiKeyTokenFormat(token: string): boolean {
   return token.startsWith(prefix) && token.length > prefix.length + 16;
 }
 
-export function getDoorSessionConfig(): DoorSessionConfig | null {
+export function getDoorApiKeyConfig(): DoorApiKeyConfig | null {
   const apiKey = readPersistedItem(API_KEY_KEY)?.trim();
-  const eventId = readPersistedItem(EVENT_ID_KEY)?.trim();
 
-  if (!apiKey || !isApiKeyTokenFormat(apiKey) || !eventId) {
+  if (!apiKey || !isApiKeyTokenFormat(apiKey)) {
     return null;
   }
 
   return {
     apiKey,
     keyLabel: readPersistedItem(KEY_LABEL_KEY),
-    eventId,
   };
+}
+
+export function getDoorSessionConfig(): DoorSessionConfig | null {
+  const keyConfig = getDoorApiKeyConfig();
+  const eventId = readPersistedItem(EVENT_ID_KEY)?.trim();
+
+  if (!keyConfig || !eventId) {
+    return null;
+  }
+
+  return {
+    ...keyConfig,
+    eventId,
+    eventTitle: readPersistedItem(EVENT_TITLE_KEY),
+  };
+}
+
+/** Saves API key (and optional label) before an event is chosen. */
+export function setDoorApiKeyConfig(config: {
+  apiKey: string;
+  keyLabel?: string | null;
+}): void {
+  writePersistedItem(API_KEY_KEY, config.apiKey.trim());
+  removePersistedItem(EVENT_ID_KEY);
+  removePersistedItem(EVENT_TITLE_KEY);
+
+  if (config.keyLabel?.trim()) {
+    writePersistedItem(KEY_LABEL_KEY, config.keyLabel.trim());
+  } else {
+    removePersistedItem(KEY_LABEL_KEY);
+  }
 }
 
 export function setDoorSessionConfig(config: {
   apiKey: string;
   keyLabel?: string | null;
   eventId: string;
+  eventTitle?: string | null;
 }): void {
   writePersistedItem(API_KEY_KEY, config.apiKey.trim());
   writePersistedItem(EVENT_ID_KEY, config.eventId.trim());
@@ -48,10 +85,23 @@ export function setDoorSessionConfig(config: {
   } else {
     removePersistedItem(KEY_LABEL_KEY);
   }
+
+  if (config.eventTitle?.trim()) {
+    writePersistedItem(EVENT_TITLE_KEY, config.eventTitle.trim());
+  } else {
+    removePersistedItem(EVENT_TITLE_KEY);
+  }
+}
+
+/** Keeps API key; clears event so the picker can run again. */
+export function clearDoorEventSelection(): void {
+  removePersistedItem(EVENT_ID_KEY);
+  removePersistedItem(EVENT_TITLE_KEY);
 }
 
 export function clearDoorSessionConfig(): void {
   removePersistedItem(API_KEY_KEY);
   removePersistedItem(KEY_LABEL_KEY);
   removePersistedItem(EVENT_ID_KEY);
+  removePersistedItem(EVENT_TITLE_KEY);
 }
