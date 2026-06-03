@@ -15,7 +15,10 @@ import { Button } from "@/components/ui/button";
 import { doorApi, doorKeys } from "@/hooks/use-door-api";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useQrScanner } from "@/hooks/use-qr-scanner";
-import { useScanFeedback } from "@/hooks/use-scan-feedback";
+import {
+  isScannerLockedState,
+  useScanFeedback,
+} from "@/hooks/use-scan-feedback";
 import { useTorch } from "@/hooks/use-torch";
 import { normalizeAdmissionToken } from "@/lib/admission-token";
 import { getApiErrorMessage } from "@/lib/api-error";
@@ -32,9 +35,7 @@ export function ScanPage() {
   const feedback = useScanFeedback();
   const processingRef = useRef(false);
   const scanPaused =
-    feedback.state === "submitting" ||
-    feedback.state === "accepted" ||
-    feedback.isCoolingDown();
+    feedback.coolingDown || isScannerLockedState(feedback.state);
 
   const checkInMutation = useMutation(doorApi.checkIn.submit());
 
@@ -50,12 +51,16 @@ export function ScanPage() {
 
       const fb = feedbackRef.current;
 
+      if (fb.coolingDown) {
+        return;
+      }
+
       fb.onScanned();
 
       const token = normalizeAdmissionToken(rawText);
 
       if (!token) {
-        fb.onInvalidAdmission();
+        fb.onInvalidAdmission(rawText);
 
         return;
       }

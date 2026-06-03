@@ -16,39 +16,57 @@ export type ScanFeedbackState =
   | "duplicate";
 
 const ACCEPT_COOLDOWN_MS = 3000;
-const REJECT_COOLDOWN_MS = 800;
-const INVALID_COOLDOWN_MS = 700;
+/** Reject, invalid, and duplicate share one cooldown so overlay + scanner stay locked together. */
+const RESULT_COOLDOWN_MS = 2500;
+
+const COOLDOWN_STATES: ScanFeedbackState[] = [
+  "decoded",
+  "submitting",
+  "accepted",
+  "rejected",
+  "duplicate",
+];
+
+export function isScannerLockedState(state: ScanFeedbackState): boolean {
+  return COOLDOWN_STATES.includes(state);
+}
 
 export function useScanFeedback() {
   const [state, setState] = useState<ScanFeedbackState>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [coolingDown, setCoolingDown] = useState(false);
   const lastTokenRef = useRef("");
-  const cooldownUntilRef = useRef(0);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isCoolingDown = useCallback(() => {
-    return Date.now() < cooldownUntilRef.current;
-  }, []);
-
-  const startCooldown = useCallback((ms: number, next: ScanFeedbackState) => {
-    cooldownUntilRef.current = Date.now() + ms;
-
+  const clearCooldownTimer = useCallback(() => {
     if (cooldownTimerRef.current) {
       clearTimeout(cooldownTimerRef.current);
-    }
-
-    cooldownTimerRef.current = setTimeout(() => {
-      setState(next);
-      setMessage(null);
       cooldownTimerRef.current = null;
-    }, ms);
+    }
   }, []);
+
+  const startCooldown = useCallback(
+    (ms: number, next: ScanFeedbackState) => {
+      clearCooldownTimer();
+      setCoolingDown(true);
+
+      cooldownTimerRef.current = setTimeout(() => {
+        setState(next);
+        setMessage(null);
+        setCoolingDown(false);
+        cooldownTimerRef.current = null;
+      }, ms);
+    },
+    [clearCooldownTimer],
+  );
 
   const onDecoded = useCallback(
     (token: string) => {
-      if (isCoolingDown()) {
+      if (coolingDown) {
         if (token === lastTokenRef.current) {
           setState("duplicate");
+          setMessage(null);
+          startCooldown(RESULT_COOLDOWN_MS, "idle");
 
           return false;
         }
@@ -58,7 +76,9 @@ export function useScanFeedback() {
 
       if (token === lastTokenRef.current) {
         setState("duplicate");
+        setMessage(null);
         pulseDuplicate();
+        startCooldown(RESULT_COOLDOWN_MS, "idle");
 
         return false;
       }
@@ -68,23 +88,33 @@ export function useScanFeedback() {
 
       return true;
     },
-    [isCoolingDown],
+    [coolingDown, startCooldown],
   );
 
   const onScanned = useCallback(() => {
-    pulseScan();
-  }, []);
-
-  const onInvalidAdmission = useCallback(() => {
-    if (isCoolingDown()) {
+    if (coolingDown) {
       return;
     }
 
-    setState("rejected");
-    setMessage("Invalid admission code!");
-    pulseRejected();
-    startCooldown(INVALID_COOLDOWN_MS, "idle");
-  }, [isCoolingDown, startCooldown]);
+    pulseScan();
+  }, [coolingDown]);
+
+  const onInvalidAdmission = useCallback(
+    (rawText: string) => {
+      if (coolingDown) {
+        return;
+      }
+
+      const fingerprint = rawText.trim().slice(0, 128) || "__empty__";
+
+      lastTokenRef.current = `invalid:${fingerprint}`;
+      setState("rejected");
+      setMessage("Invalid admission code!");
+      pulseRejected();
+      startCooldown(RESULT_COOLDOWN_MS, "idle");
+    },
+    [coolingDown, startCooldown],
+  );
 
   const onSubmitting = useCallback(() => {
     setState("submitting");
@@ -108,7 +138,7 @@ export function useScanFeedback() {
       setState("rejected");
       setMessage(errorMessage);
       pulseRejected();
-      startCooldown(REJECT_COOLDOWN_MS, "idle");
+      startCooldown(RESULT_COOLDOWN_MS, "idle");
 
       return false;
     },
@@ -116,21 +146,17 @@ export function useScanFeedback() {
   );
 
   const reset = useCallback(() => {
+    clearCooldownTimer();
     setState("idle");
     setMessage(null);
+    setCoolingDown(false);
     lastTokenRef.current = "";
-    cooldownUntilRef.current = 0;
-
-    if (cooldownTimerRef.current) {
-      clearTimeout(cooldownTimerRef.current);
-      cooldownTimerRef.current = null;
-    }
-  }, []);
+  }, [clearCooldownTimer]);
 
   return {
     state,
     message,
-    isCoolingDown,
+    coolingDown,
     onScanned,
     onDecoded,
     onInvalidAdmission,
