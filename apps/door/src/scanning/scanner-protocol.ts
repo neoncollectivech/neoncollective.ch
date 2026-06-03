@@ -14,8 +14,7 @@ export type ScannerControlMessage =
   | { type: "start" }
   | { type: "stop" }
   | { type: "pause" }
-  | { type: "resume" }
-  | { type: "resize"; width: number; height: number };
+  | { type: "resume" };
 
 export type ScannerWorkerInMessage =
   | ScannerInitMessage
@@ -41,7 +40,6 @@ export type ScannerWorkerOutMessage =
   | ScannerReadyMessage
   | ScannerErrorMessage;
 
-export const SCAN_WIDTH_DEFAULT = 640;
-export const SCAN_HEIGHT_DEFAULT = 480;
-export const SCAN_WIDTH_SMALL = 480;
-export const SCAN_HEIGHT_SMALL = 360;
+/** Center square ROI decode resolution (ZXing fallback). */
+export const SCAN_WIDTH_DEFAULT = 720;
+export const SCAN_HEIGHT_DEFAULT = 720;

@@ -12,3 +12,19 @@ interface ImportMeta {
 }
 
 declare const __DOOR_BUILD_LABEL__: string;
+
+interface Window {
+  BarcodeDetector?: {
+    new (options?: { formats: string[] }): BarcodeDetector;
+    getSupportedFormats(): Promise<string[]>;
+  };
+}
+
+/** Chromium / Safari 17+ native QR scanning */
+declare class BarcodeDetector {
+  constructor(options?: { formats: string[] });
+  static getSupportedFormats(): Promise<string[]>;
+  detect(
+    source: ImageBitmapSource,
+  ): Promise<{ rawValue: string; format: string }[]>;
+}

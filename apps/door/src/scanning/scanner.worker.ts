@@ -6,20 +6,18 @@ import type {
   ScannerWorkerOutMessage,
 } from "./scanner-protocol";
 
-import { readBarcodes } from "zxing-wasm/reader";
-
 import {
   computeCenterCrop,
   copyFrameFromContext,
   createFrameBuffer,
-  createReaderOptions,
+  readQrFromFrame,
   type FrameBuffer,
 } from "./frame-pipeline";
 import { initZxingReader } from "./zxing-init";
+
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;
 let frameBuffer: FrameBuffer | null = null;
-const readerOptions = createReaderOptions();
 let decoding = false;
 let paused = false;
 let running = false;
@@ -36,10 +34,6 @@ function ensureCanvas(width: number, height: number): void {
     ctx = canvas.getContext("2d", { willReadFrequently: true });
     frameBuffer = createFrameBuffer(width, height);
   }
-}
-
-function handleResize(width: number, height: number): void {
-  ensureCanvas(width, height);
 }
 
 async function handleInit(msg: ScannerInitMessage): Promise<void> {
@@ -79,19 +73,17 @@ function drawAndDecode(bitmap: ImageBitmap): void {
 
   copyFrameFromContext(ctx, frameBuffer);
 
-  readBarcodes(frameBuffer.frame, readerOptions)
-    .then((results) => {
+  void readQrFromFrame(frameBuffer.frame)
+    .then((text) => {
       decoding = false;
 
-      if (!results.length) {
+      if (!text) {
         lastPostedToken = "";
 
         return;
       }
 
-      const text = results[0]?.text?.trim() ?? "";
-
-      if (!text || text === lastPostedToken) {
+      if (text === lastPostedToken) {
         return;
       }
 
@@ -132,12 +124,6 @@ function handleControl(msg: ScannerControlMessage): void {
   if (msg.type === "resume") {
     paused = false;
     lastPostedToken = "";
-
-    return;
-  }
-
-  if (msg.type === "resize") {
-    handleResize(msg.width, msg.height);
   }
 }
 

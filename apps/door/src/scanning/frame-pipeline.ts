@@ -1,5 +1,7 @@
 import type { ReaderOptions } from "zxing-wasm/reader";
 
+import { readBarcodes } from "zxing-wasm/reader";
+
 export type FrameBuffer = {
   rgba: Uint8ClampedArray;
   frame: ImageData;
@@ -28,12 +30,31 @@ export function copyFrameFromContext(
   buffer.rgba.set(snap.data);
 }
 
-export function createReaderOptions(): ReaderOptions {
+export function createReaderOptions(tryHarder: boolean): ReaderOptions {
   return {
     formats: ["QRCode"],
     maxNumberOfSymbols: 1,
-    tryHarder: false,
+    tryHarder,
   };
+}
+
+/** Fast pass first; hard pass only when fast pass misses. */
+export async function readQrFromFrame(
+  frame: ImageData,
+): Promise<string | null> {
+  const fast = await readBarcodes(frame, createReaderOptions(false));
+
+  if (fast.length > 0) {
+    return fast[0]?.text?.trim() ?? null;
+  }
+
+  const hard = await readBarcodes(frame, createReaderOptions(true));
+
+  if (hard.length > 0) {
+    return hard[0]?.text?.trim() ?? null;
+  }
+
+  return null;
 }
 
 export type CropRect = {

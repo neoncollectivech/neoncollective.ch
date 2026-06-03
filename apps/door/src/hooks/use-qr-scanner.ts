@@ -8,15 +8,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   SCAN_HEIGHT_DEFAULT,
-  SCAN_HEIGHT_SMALL,
   SCAN_WIDTH_DEFAULT,
-  SCAN_WIDTH_SMALL,
 } from "@/scanning/scanner-protocol";
 import ScannerWorker from "@/scanning/scanner.worker?worker";
+import { applyCameraEnhancements } from "@/lib/camera-enhancements";
+import {
+  createNativeQrDetector,
+  detectQrFromVideo,
+} from "@/lib/native-barcode-detector";
 
 const WASM_BASE = import.meta.env.BASE_URL;
-const FRAME_P95_WINDOW = 24;
-const DOWNGRADE_P95_MS = 33;
 
 type UseQrScannerOptions = {
   enabled: boolean;
@@ -34,13 +35,11 @@ export function useQrScanner({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const nativeDetectorRef = useRef<BarcodeDetector | null>(null);
+  const useNativeRef = useRef(false);
   const rafRef = useRef<number | null>(null);
   const capturingRef = useRef(false);
-  const decodeLatenciesRef = useRef<number[]>([]);
-  const scanSizeRef = useRef({
-    width: SCAN_WIDTH_DEFAULT,
-    height: SCAN_HEIGHT_DEFAULT,
-  });
+  const lastPostedTokenRef = useRef("");
   const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
   const [ready, setReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -48,14 +47,33 @@ export function useQrScanner({
   const onErrorRef = useRef(onError);
   const pausedRef = useRef(paused);
   const readyRef = useRef(ready);
+  const workerReadyRef = useRef(false);
 
   onDecodedRef.current = onDecoded;
   onErrorRef.current = onError;
   pausedRef.current = paused;
   readyRef.current = ready;
 
+  const postDecoded = useCallback((text: string) => {
+    if (!text || text === lastPostedTokenRef.current) {
+      return;
+    }
+
+    lastPostedTokenRef.current = text;
+    onDecodedRef.current(text);
+  }, []);
+
   const postToWorker = useCallback((msg: ScannerWorkerInMessage) => {
     workerRef.current?.postMessage(msg);
+  }, []);
+
+  const trySetReady = useCallback(() => {
+    const canScan = workerReadyRef.current || useNativeRef.current;
+
+    if (canScan && !readyRef.current) {
+      readyRef.current = true;
+      setReady(true);
+    }
   }, []);
 
   const tick = useCallback(() => {
@@ -73,6 +91,27 @@ export function useQrScanner({
 
     capturingRef.current = true;
 
+    const nativeDetector = nativeDetectorRef.current;
+
+    if (useNativeRef.current && nativeDetector) {
+      void detectQrFromVideo(nativeDetector, video)
+        .then((text) => {
+          if (!text) {
+            lastPostedTokenRef.current = "";
+
+            return;
+          }
+
+          postDecoded(text);
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          capturingRef.current = false;
+        });
+
+      return;
+    }
+
     void createImageBitmap(video)
       .then((bitmap) => {
         workerRef.current?.postMessage(
@@ -84,12 +123,24 @@ export function useQrScanner({
       .finally(() => {
         capturingRef.current = false;
       });
-  }, []);
+  }, [postDecoded]);
 
   useEffect(() => {
     if (!enabled) {
       return;
     }
+
+    let cancelled = false;
+
+    void createNativeQrDetector().then((detector) => {
+      if (cancelled) {
+        return;
+      }
+
+      nativeDetectorRef.current = detector;
+      useNativeRef.current = detector !== null;
+      trySetReady();
+    });
 
     const worker = new ScannerWorker();
 
@@ -99,45 +150,15 @@ export function useQrScanner({
       const msg = event.data;
 
       if (msg.type === "ready") {
-        readyRef.current = true;
-        setReady(true);
+        workerReadyRef.current = true;
         postToWorker({ type: "start" });
+        trySetReady();
 
         return;
       }
 
       if (msg.type === "decoded") {
-        const start = performance.now();
-
-        onDecodedRef.current(msg.text);
-        const elapsed = performance.now() - start;
-        const samples = decodeLatenciesRef.current;
-
-        samples.push(elapsed);
-
-        if (samples.length > FRAME_P95_WINDOW) {
-          samples.shift();
-        }
-
-        if (samples.length >= FRAME_P95_WINDOW) {
-          const sorted = [...samples].sort((a, b) => a - b);
-          const p95 = sorted[Math.floor(sorted.length * 0.95)] ?? 0;
-
-          if (
-            p95 > DOWNGRADE_P95_MS &&
-            scanSizeRef.current.width === SCAN_WIDTH_DEFAULT
-          ) {
-            scanSizeRef.current = {
-              width: SCAN_WIDTH_SMALL,
-              height: SCAN_HEIGHT_SMALL,
-            };
-            postToWorker({
-              type: "resize",
-              width: SCAN_WIDTH_SMALL,
-              height: SCAN_HEIGHT_SMALL,
-            });
-          }
-        }
+        postDecoded(msg.text);
 
         return;
       }
@@ -156,15 +177,18 @@ export function useQrScanner({
     } satisfies ScannerInitMessage);
 
     return () => {
+      cancelled = true;
       worker.removeEventListener("message", onMessage);
       worker.postMessage({ type: "stop" });
       worker.terminate();
       workerRef.current = null;
+      workerReadyRef.current = false;
+      nativeDetectorRef.current = null;
+      useNativeRef.current = false;
       readyRef.current = false;
       setReady(false);
     };
-    // Worker + WASM init once per mount; callbacks read from refs (stable identity).
-  }, [enabled, postToWorker]);
+  }, [enabled, postDecoded, postToWorker, trySetReady]);
 
   useEffect(() => {
     if (!enabled) {
@@ -177,12 +201,12 @@ export function useQrScanner({
       .getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
         },
         audio: false,
       })
-      .then((stream) => {
+      .then(async (stream) => {
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
 
@@ -192,13 +216,17 @@ export function useQrScanner({
         streamRef.current = stream;
         const track = stream.getVideoTracks()[0] ?? null;
 
+        if (track) {
+          await applyCameraEnhancements(track);
+        }
+
         setVideoTrack(track);
 
         const video = videoRef.current;
 
         if (video) {
           video.srcObject = stream;
-          void video.play();
+          await video.play();
         }
       })
       .catch((err: unknown) => {
@@ -240,8 +268,10 @@ export function useQrScanner({
   useEffect(() => {
     if (paused) {
       postToWorker({ type: "pause" });
+      lastPostedTokenRef.current = "";
     } else if (ready) {
       postToWorker({ type: "resume" });
+      lastPostedTokenRef.current = "";
     }
   }, [paused, ready, postToWorker]);
 
