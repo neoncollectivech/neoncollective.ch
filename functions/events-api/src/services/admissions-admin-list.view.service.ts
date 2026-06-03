@@ -14,25 +14,29 @@ export type AdmissionsAdminListRow = {
   givenName: string;
   familyName: string;
   checkedInAt: Date | null;
+  checkedInBy: string | null;
   revokedAt: Date | null;
   createdAt: Date;
 };
 
+export const admissionsAdminListReadFields = [
+  "id",
+  "orderId",
+  "eventId",
+  "signedCredential",
+  "personId",
+  "givenName",
+  "familyName",
+  "checkedInAt",
+  "checkedInBy",
+  "revokedAt",
+  "createdAt",
+] as const;
+
 export const admissionsAdminListResourceMeta = introspectTable(admissionsAdminListView, {
   fields: {
-    list: [
-      "id",
-      "orderId",
-      "eventId",
-      "signedCredential",
-      "personId",
-      "givenName",
-      "familyName",
-      "checkedInAt",
-      "revokedAt",
-      "createdAt",
-    ],
-    read: [],
+    list: [...admissionsAdminListReadFields],
+    read: [...admissionsAdminListReadFields],
     create: [],
     update: [],
   },

@@ -14,6 +14,7 @@ import { EventPromotionsPage } from "@/pages/event-promotions-page";
 import { EventSettingsPage } from "@/pages/event-settings-page";
 import { EventTiersPage } from "@/pages/event-tiers-page";
 import { EventAdmissionsPage } from "@/pages/event-admissions-page";
+import { AdmissionDetailPage } from "@/pages/admission-detail-page";
 import { EventApiKeysPage } from "@/pages/event-api-keys-page";
 import { EventsPage } from "@/pages/events-page";
 import { LoginPage } from "@/pages/login-page";
@@ -50,6 +51,10 @@ export function App() {
               <Route element={<EventInviteesPage />} path="invitees" />
               <Route element={<EventOrdersPage />} path="orders" />
               <Route element={<EventAdmissionsPage />} path="admissions" />
+              <Route
+                element={<AdmissionDetailPage />}
+                path="admissions/:admissionId"
+              />
               <Route element={<OrderDetailPage />} path="orders/:orderId" />
             </Route>
             <Route element={<PeoplePage />} path="people" />

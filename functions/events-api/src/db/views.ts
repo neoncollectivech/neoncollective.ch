@@ -10,6 +10,7 @@ export const admissionsAdminListView = pgView("admissions_admin_list", {
   givenName: text("given_name").notNull(),
   familyName: text("family_name").notNull(),
   checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+  checkedInBy: text("checked_in_by"),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 }).existing();

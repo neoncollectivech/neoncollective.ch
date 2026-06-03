@@ -23,7 +23,11 @@ import { adminApi } from "@/hooks/use-admin-api";
 import { useEventIdParam } from "@/hooks/use-event-id-param";
 import { admissionsListService } from "@/lib/admin-list-services";
 import { getApiErrorMessage } from "@/lib/api-error";
-import { eventOrderPath, eventOrdersPath } from "@/lib/event-workspace-paths";
+import {
+  eventAdmissionPath,
+  eventOrderPath,
+  eventOrdersPath,
+} from "@/lib/event-workspace-paths";
 
 function admissionColumns(eventId: string): ColumnDef<AdmissionRow>[] {
   return [
@@ -31,12 +35,13 @@ function admissionColumns(eventId: string): ColumnDef<AdmissionRow>[] {
       id: "guest",
       header: "Guest",
       cell: ({ row }) => {
-        const { personId, givenName, familyName } = row.original;
+        const { id, personId, givenName, familyName } = row.original;
         const label = `${givenName} ${familyName}`.trim();
+
         return (
           <Link
             className="text-primary underline-offset-4 hover:underline"
-            to={`/people/${personId}`}
+            to={eventAdmissionPath(eventId, id)}
           >
             {label || personId.slice(0, 8)}
           </Link>

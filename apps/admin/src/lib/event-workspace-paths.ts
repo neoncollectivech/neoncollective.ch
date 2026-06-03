@@ -59,6 +59,13 @@ export function eventOrderPath(eventId: string, orderId: string): string {
   return `${eventBasePath(eventId)}/orders/${orderId}`;
 }
 
+export function eventAdmissionPath(
+  eventId: string,
+  admissionId: string,
+): string {
+  return `${eventBasePath(eventId)}/admissions/${admissionId}`;
+}
+
 export function eventWorkspaceSectionPath(
   eventId: string,
   section: EventWorkspaceSection,
@@ -80,6 +87,10 @@ export function workspaceSuffixFromPathname(pathname: string): string {
     return "orders";
   }
 
+  if (/^admissions\/[^/]+$/.test(suffix)) {
+    return "admissions";
+  }
+
   const first = suffix.split("/")[0] ?? "overview";
 
   return WORKSPACE_SECTIONS.has(first) ? first : "overview";
@@ -91,6 +102,10 @@ export function pathAfterEventSwitch(
 ): string {
   if (suffix === "orders" || suffix.startsWith("orders/")) {
     return eventOrdersPath(newEventId);
+  }
+
+  if (suffix === "admissions" || suffix.startsWith("admissions/")) {
+    return eventWorkspaceSectionPath(newEventId, "admissions");
   }
 
   if (WORKSPACE_SECTIONS.has(suffix)) {

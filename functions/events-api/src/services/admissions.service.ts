@@ -299,6 +299,43 @@ export class AdmissionsService extends TableService<typeof admissions> {
     return { ok: true };
   }
 
+  async cancelCheckIn(
+    admissionId: string,
+  ): Promise<
+    | { ok: true }
+    | { ok: false; reason: "not_found" | "not_checked_in" | "revoked" }
+  > {
+    const db = getDb();
+    const [admission] = await db
+      .select({
+        id: admissions.id,
+        checkedInAt: admissions.checkedInAt,
+        revokedAt: admissions.revokedAt,
+      })
+      .from(admissions)
+      .where(eq(admissions.id, admissionId))
+      .limit(1);
+
+    if (!admission) {
+      return { ok: false, reason: "not_found" };
+    }
+
+    if (admission.revokedAt) {
+      return { ok: false, reason: "revoked" };
+    }
+
+    if (!admission.checkedInAt) {
+      return { ok: false, reason: "not_checked_in" };
+    }
+
+    await db
+      .update(admissions)
+      .set({ checkedInAt: null, checkedInBy: null })
+      .where(eq(admissions.id, admissionId));
+
+    return { ok: true };
+  }
+
   async listPublicForEvent(
     eventId: string,
     scope: PublicAdmissionsListScope,

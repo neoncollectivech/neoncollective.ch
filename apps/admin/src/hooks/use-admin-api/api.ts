@@ -19,6 +19,8 @@ import {
   getEventAdmissionsSummary,
   provisionEventAdmissionSigningKey,
   generateEventAdmissions,
+  getAdmission,
+  cancelAdmissionCheckIn,
   getPromotionCode,
   getOrder,
   getPerson,
@@ -491,6 +493,28 @@ export const adminApi = {
           await invalidateOrders(boundOrderId);
         },
         onError: (err) => toast.error(getApiErrorMessage(err, "Delete failed")),
+      }),
+  },
+  admission: {
+    detail: (admissionId: string) =>
+      queryOptions({
+        queryKey: adminKeys.admissions.detail(admissionId),
+        queryFn: () => getAdmission(admissionId),
+        enabled: Boolean(admissionId),
+      }),
+    cancelCheckIn: (admissionId: string) =>
+      mutationOptions({
+        mutationFn: () => cancelAdmissionCheckIn(admissionId),
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: adminKeys.admissions.detail(admissionId),
+          });
+          await queryClient.invalidateQueries({
+            queryKey: adminKeys.admissions.all,
+          });
+        },
+        onError: (err) =>
+          toast.error(getApiErrorMessage(err, "Failed to cancel check-in")),
       }),
   },
   people: {

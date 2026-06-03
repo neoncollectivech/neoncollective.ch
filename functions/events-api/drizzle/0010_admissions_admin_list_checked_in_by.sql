@@ -1,3 +1,5 @@
+DROP VIEW IF EXISTS "admissions_admin_list";
+--> statement-breakpoint
 CREATE VIEW "admissions_admin_list" AS
 SELECT
   a."id",

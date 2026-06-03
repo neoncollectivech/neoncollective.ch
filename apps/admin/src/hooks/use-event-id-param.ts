@@ -15,3 +15,10 @@ export function useOrderIdParam() {
 
   return { orderId, isValid: Boolean(orderId) };
 }
+
+export function useAdmissionIdParam() {
+  const { admissionId: raw } = useParams();
+  const admissionId = isUuid(raw ?? "") ? raw! : "";
+
+  return { admissionId, isValid: Boolean(admissionId) };
+}

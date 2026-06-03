@@ -13,7 +13,7 @@ import { createPeopleControlRouter } from "./control/people";
 import { createApiKeysControlRouter } from "./control/api-keys";
 import { adminRoute } from "./mount";
 import { createInviteesProvider } from "./providers/invitees";
-import { admissionsResource } from "./resources/admissions";
+import { admissionsResourceWithControl } from "./resources/admissions";
 import { eventInviteesResource } from "./resources/event-invitees";
 import { eventTiersResource } from "./resources/event-tiers";
 import { events, orders, people } from "./resources/index";
@@ -56,7 +56,12 @@ export function createAdminRouter(): Hono<AppEnv> {
   mountResource(admin, "/event-invitees", eventInviteesResource);
   mountResource(admin, "/event-tiers", eventTiersResource);
   mountResource(admin, "/order-tiers", orderTiersResource);
-  mountResource(admin, "/admissions", admissionsResource);
+  mountResource(
+    admin,
+    "/admissions",
+    admissionsResourceWithControl.resource,
+    admissionsResourceWithControl.control,
+  );
   mountResource(admin, "/invite-redemptions", inviteRedemptionsResource);
   mountResource(admin, "/invite-links", inviteLinksResource);
   mountResource(admin, "/promotion-codes", promotionCodesResource);

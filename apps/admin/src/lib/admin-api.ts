@@ -178,8 +178,14 @@ export type AdmissionRow = {
   givenName: string;
   familyName: string;
   checkedInAt: string | null;
+  checkedInBy?: string | null;
   revokedAt: string | null;
   createdAt: string;
+};
+
+/** Mirrors admissionsAdminListResourceMeta.project.read. */
+export type AdmissionReadRow = AdmissionRow & {
+  checkedInBy: string | null;
 };
 
 export type EventAdmissionsSummary = {
@@ -699,6 +705,19 @@ export async function deletePerson(personId: string) {
 export const listEventTiers = listEventTiersClient;
 export const listOrderTiers = listOrderTiersClient;
 export const listAdmissions = listAdmissionsClient;
+
+export async function getAdmission(admissionId: string) {
+  const res = await api.get<ItemResponse<AdmissionReadRow>>(
+    `/admin/admissions/${admissionId}`,
+  );
+
+  return res.data.item;
+}
+
+export async function cancelAdmissionCheckIn(admissionId: string) {
+  await api.post(`/admin/admissions/${admissionId}/cancel-check-in`);
+}
+
 export const listInviteRedemptions = listInviteRedemptionsClient;
 export const listInviteLinks = listInviteLinksClient;
 
