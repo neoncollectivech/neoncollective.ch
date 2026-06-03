@@ -44,6 +44,15 @@ export function useQrScanner({
   const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
   const [ready, setReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const onDecodedRef = useRef(onDecoded);
+  const onErrorRef = useRef(onError);
+  const pausedRef = useRef(paused);
+  const readyRef = useRef(ready);
+
+  onDecodedRef.current = onDecoded;
+  onErrorRef.current = onError;
+  pausedRef.current = paused;
+  readyRef.current = ready;
 
   const postToWorker = useCallback((msg: ScannerWorkerInMessage) => {
     workerRef.current?.postMessage(msg);
@@ -52,7 +61,7 @@ export function useQrScanner({
   const tick = useCallback(() => {
     rafRef.current = requestAnimationFrame(tick);
 
-    if (paused || capturingRef.current || !ready) {
+    if (pausedRef.current || capturingRef.current || !readyRef.current) {
       return;
     }
 
@@ -75,7 +84,7 @@ export function useQrScanner({
       .finally(() => {
         capturingRef.current = false;
       });
-  }, [paused, ready]);
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -90,6 +99,7 @@ export function useQrScanner({
       const msg = event.data;
 
       if (msg.type === "ready") {
+        readyRef.current = true;
         setReady(true);
         postToWorker({ type: "start" });
 
@@ -99,7 +109,7 @@ export function useQrScanner({
       if (msg.type === "decoded") {
         const start = performance.now();
 
-        onDecoded(msg.text);
+        onDecodedRef.current(msg.text);
         const elapsed = performance.now() - start;
         const samples = decodeLatenciesRef.current;
 
@@ -133,7 +143,7 @@ export function useQrScanner({
       }
 
       if (msg.type === "error") {
-        onError?.(msg.message);
+        onErrorRef.current?.(msg.message);
       }
     };
 
@@ -150,9 +160,11 @@ export function useQrScanner({
       worker.postMessage({ type: "stop" });
       worker.terminate();
       workerRef.current = null;
+      readyRef.current = false;
       setReady(false);
     };
-  }, [enabled, onDecoded, onError, postToWorker]);
+    // Worker + WASM init once per mount; callbacks read from refs (stable identity).
+  }, [enabled, postToWorker]);
 
   useEffect(() => {
     if (!enabled) {

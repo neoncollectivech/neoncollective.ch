@@ -36,6 +36,10 @@ export function ScanPage() {
 
   const checkInMutation = useMutation(doorApi.checkIn.submit());
 
+  const feedbackRef = useRef(feedback);
+
+  feedbackRef.current = feedback;
+
   const handleCheckIn = useCallback(
     async (rawText: string) => {
       if (processingRef.current) {
@@ -48,17 +52,19 @@ export function ScanPage() {
         return;
       }
 
-      if (!feedback.onDecoded(token)) {
+      const fb = feedbackRef.current;
+
+      if (!fb.onDecoded(token)) {
         return;
       }
 
       processingRef.current = true;
-      feedback.onSubmitting();
+      fb.onSubmitting();
 
       try {
         if (!navigator.onLine) {
           await enqueueCheckIn(token);
-          feedback.onAccepted("Queued — will sync when online");
+          fb.onAccepted("Queued — will sync when online");
           void queryClient.invalidateQueries({
             queryKey: doorKeys.outbox.stats(),
           });
@@ -67,11 +73,11 @@ export function ScanPage() {
         }
 
         await checkInMutation.mutateAsync(token);
-        feedback.onAccepted();
+        fb.onAccepted();
       } catch (error) {
         if (!navigator.onLine) {
           await enqueueCheckIn(token);
-          feedback.onAccepted("Queued — will sync when online");
+          fb.onAccepted("Queued — will sync when online");
           void queryClient.invalidateQueries({
             queryKey: doorKeys.outbox.stats(),
           });
@@ -81,7 +87,7 @@ export function ScanPage() {
 
         if (axios.isAxiosError(error) && !error.response) {
           await enqueueCheckIn(token);
-          feedback.onAccepted("Queued — will sync when online");
+          fb.onAccepted("Queued — will sync when online");
           void queryClient.invalidateQueries({
             queryKey: doorKeys.outbox.stats(),
           });
@@ -89,23 +95,31 @@ export function ScanPage() {
           return;
         }
 
-        feedback.onRejected(getApiErrorMessage(error, "Check-in failed"));
+        fb.onRejected(getApiErrorMessage(error, "Check-in failed"));
       } finally {
         processingRef.current = false;
       }
     },
-    [checkInMutation, feedback, queryClient],
+    [checkInMutation, queryClient],
   );
+
+  const handleCheckInRef = useRef(handleCheckIn);
+
+  handleCheckInRef.current = handleCheckIn;
+
+  const onScanDecoded = useCallback((text: string) => {
+    void handleCheckInRef.current(text);
+  }, []);
+
+  const onScanError = useCallback((message: string) => {
+    toast.error(message);
+  }, []);
 
   const { videoRef, videoTrack, ready, cameraError } = useQrScanner({
     enabled: true,
     paused: scanPaused,
-    onDecoded: (text) => {
-      void handleCheckIn(text);
-    },
-    onError: (message) => {
-      toast.error(message);
-    },
+    onDecoded: onScanDecoded,
+    onError: onScanError,
   });
 
   const torch = useTorch(videoTrack);
