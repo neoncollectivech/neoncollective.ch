@@ -35,6 +35,7 @@
     "csv-stringify": "^6.5.2",
     "drizzle-orm": "^0.38.4",
     "hono": "^4.7.0",
+    "jose": "^6.2.3",
     "libphonenumber-js": "^1.13.2",
     "stripe": "^17.0.0",
     "ws": "^8.18.0"

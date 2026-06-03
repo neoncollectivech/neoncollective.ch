@@ -4,7 +4,7 @@ export type OutboxStatus = "pending" | "syncing" | "synced" | "failed";
 
 export type CheckInOutboxRow = {
   id: string;
-  token: string;
+  credential: string;
   createdAt: number;
   status: OutboxStatus;
   attempts: number;
@@ -20,7 +20,7 @@ interface DoorDbSchema extends DBSchema {
 }
 
 const DB_NAME = "neon-door";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "check_ins";
 
 let dbPromise: Promise<IDBPDatabase<DoorDbSchema>> | null = null;
@@ -28,7 +28,11 @@ let dbPromise: Promise<IDBPDatabase<DoorDbSchema>> | null = null;
 function getDb(): Promise<IDBPDatabase<DoorDbSchema>> {
   if (!dbPromise) {
     dbPromise = openDB<DoorDbSchema>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 2 && db.objectStoreNames.contains(STORE)) {
+          db.deleteObjectStore(STORE);
+        }
+
         const store = db.createObjectStore(STORE, { keyPath: "id" });
 
         store.createIndex("by_status", "status");
@@ -40,11 +44,13 @@ function getDb(): Promise<IDBPDatabase<DoorDbSchema>> {
   return dbPromise;
 }
 
-export async function enqueueCheckIn(token: string): Promise<CheckInOutboxRow> {
+export async function enqueueCheckIn(
+  credential: string,
+): Promise<CheckInOutboxRow> {
   const db = await getDb();
   const row: CheckInOutboxRow = {
     id: crypto.randomUUID(),
-    token,
+    credential,
     createdAt: Date.now(),
     status: "pending",
     attempts: 0,
@@ -87,10 +93,10 @@ export async function updateOutboxRow(
   await db.put(STORE, { ...existing, ...patch });
 }
 
-export async function findOutboxByToken(
-  token: string,
+export async function findOutboxByCredential(
+  credential: string,
 ): Promise<CheckInOutboxRow | undefined> {
   const rows = await listOutboxRows();
 
-  return rows.find((r) => r.token === token);
+  return rows.find((r) => r.credential === credential);
 }

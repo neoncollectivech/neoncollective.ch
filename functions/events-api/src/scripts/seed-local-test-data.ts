@@ -15,6 +15,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { phoneToStoredDigits } from "../helpers/contact";
 import { closeDb, getDb } from "../db/index";
 import { eventTiers, events, people } from "../db/schema";
+import { admissionSigningKeysService } from "../services/admission-signing-keys.service";
 import {
   regenerateInviteeHostLink,
   upsertInviteesForEvent,
@@ -57,8 +58,10 @@ async function main(): Promise<void> {
 
   const startsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-  await ensurePublishedPublicEvent(db, startsAt);
+  const publicEventId = await ensurePublishedPublicEvent(db, startsAt);
+  await admissionSigningKeysService.provisionForEvent(publicEventId);
   const inviteEventId = await ensurePublishedInviteOnlyEvent(db, startsAt);
+  await admissionSigningKeysService.provisionForEvent(inviteEventId);
 
   const upserted = await upsertInviteesForEvent(inviteEventId, [
     {
@@ -131,6 +134,7 @@ async function truncateAllApplicationData(db: Db): Promise<void> {
       "registration_exchange_codes",
       "participant_sessions",
       "invite_redemptions",
+      "admission_signing_keys",
       "admissions",
       "orders",
       "invite_links",

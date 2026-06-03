@@ -1,6 +1,7 @@
 import { authFactory } from "../auth/factory";
 import { loadAdminSession, loadEventApiKey, loadParticipantSession } from "../auth/middleware/loaders";
 import { createAdminRouter } from "./admin/router";
+import { createAdmissionJwksRouter } from "./admission-jwks";
 import { createCheckInRouter } from "./check-in";
 import { createCheckoutRouter } from "./checkout";
 import { createEventsRouter } from "./events";
@@ -33,6 +34,7 @@ export function createAppRouter() {
 
   app.route("/", createWebhooksRouter());
   app.route("/", createCheckInRouter());
+  app.route("/", createAdmissionJwksRouter());
 
   const adminShell = authFactory.createApp();
   adminShell.use("*", loadAdminSession);

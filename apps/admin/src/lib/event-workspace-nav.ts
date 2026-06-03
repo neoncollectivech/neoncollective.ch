@@ -23,6 +23,7 @@ export const eventWorkspaceNavItems: EventWorkspaceNavItem[] = [
     visible: (event) => event.accessMode === "invite_only",
   },
   { section: "orders", label: "Orders" },
+  { section: "admissions", label: "Admissions" },
   { section: "api-keys", label: "API keys" },
 ];
 

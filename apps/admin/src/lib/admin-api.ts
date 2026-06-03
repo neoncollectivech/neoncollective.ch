@@ -168,13 +168,28 @@ export type OrderTierRow = {
   unitPriceCents: number;
 };
 
+/** Mirrors admissionsResourceMeta.project.list. */
 export type AdmissionRow = {
   id: string;
   orderId: string;
   eventId: string;
+  signedCredential: string;
   checkedInAt: string | null;
   revokedAt: string | null;
   createdAt: string;
+};
+
+export type EventAdmissionsSummary = {
+  signingKey: { kid: string; createdAt: string } | null;
+  paidExclusiveOrders: number;
+  withAdmission: number;
+  eligibleWithoutAdmission: number;
+};
+
+export type GenerateEventAdmissionsResult = {
+  created: number;
+  skipped: number;
+  failed: number;
 };
 
 export type InviteRedemptionRow = {
@@ -522,6 +537,31 @@ function sortEventPromotionCodeRows(
 export async function getEventSalesAnalytics(eventId: string) {
   const res = await api.get<EventSalesAnalytics>(
     `/admin/events/${eventId}/sales-analytics`,
+  );
+
+  return res.data;
+}
+
+export async function getEventAdmissionsSummary(eventId: string) {
+  const res = await api.get<EventAdmissionsSummary>(
+    `/admin/events/${eventId}/admissions/summary`,
+  );
+
+  return res.data;
+}
+
+export async function provisionEventAdmissionSigningKey(eventId: string) {
+  const res = await api.post<{
+    alreadyExists: boolean;
+    signingKey: { kid: string; createdAt: string };
+  }>(`/admin/events/${eventId}/admissions/provision-signing-key`);
+
+  return res.data;
+}
+
+export async function generateEventAdmissions(eventId: string) {
+  const res = await api.post<GenerateEventAdmissionsResult>(
+    `/admin/events/${eventId}/admissions/generate`,
   );
 
   return res.data;

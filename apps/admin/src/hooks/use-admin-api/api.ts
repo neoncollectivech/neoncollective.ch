@@ -16,6 +16,9 @@ import {
   ensureInviteeLink,
   getEvent,
   getEventSalesAnalytics,
+  getEventAdmissionsSummary,
+  provisionEventAdmissionSigningKey,
+  generateEventAdmissions,
   getPromotionCode,
   getOrder,
   getPerson,
@@ -155,6 +158,33 @@ export const adminApi = {
         queryKey: adminKeys.events.salesAnalytics(eventId),
         queryFn: () => getEventSalesAnalytics(eventId),
         enabled: Boolean(eventId),
+      }),
+    admissionsSummary: (eventId: string) =>
+      queryOptions({
+        queryKey: adminKeys.events.admissionsSummary(eventId),
+        queryFn: () => getEventAdmissionsSummary(eventId),
+        enabled: Boolean(eventId),
+      }),
+    provisionAdmissionSigningKey: (eventId: string) =>
+      mutationOptions({
+        mutationFn: () => provisionEventAdmissionSigningKey(eventId),
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: adminKeys.events.admissionsSummary(eventId),
+          });
+        },
+      }),
+    generateAdmissions: (eventId: string) =>
+      mutationOptions({
+        mutationFn: () => generateEventAdmissions(eventId),
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({
+            queryKey: adminKeys.events.admissionsSummary(eventId),
+          });
+          await queryClient.invalidateQueries({
+            queryKey: adminKeys.admissions.all,
+          });
+        },
       }),
     inviteeTreeAll: (eventId: string) =>
       queryOptions({

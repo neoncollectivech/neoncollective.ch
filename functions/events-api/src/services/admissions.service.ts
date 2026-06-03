@@ -1,10 +1,15 @@
-import { randomHex } from "@neon/server-kit";
-
 import { introspectTable } from "@neon/resource-api";
+import { decodeJwt } from "jose";
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index";
-import { admissions, eventTiers, orders, people } from "../db/schema";
+import { admissions, orders, people } from "../db/schema";
+import { signAdmissionCredential, verifyAdmissionCredential } from "../helpers/admission-jwt";
+import { formatOrderTierNamesFromLines } from "../helpers/order-tier-labels";
+import { admissionSigningKeysService } from "./admission-signing-keys.service";
+import { eventTiersService } from "./event-tiers.service";
+import { orderTiersService } from "./order-tiers.service";
+import { ordersService } from "./orders.service";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base/table-service";
 
@@ -16,6 +21,7 @@ export const admissionsResourceMeta = introspectTable(admissions, {
       "id",
       "orderId",
       "eventId",
+      "signedCredential",
       "checkedInAt",
       "revokedAt",
       "createdAt",
@@ -31,9 +37,12 @@ export type PublicAdmissionsListScope = {
   checkedIn?: boolean;
 };
 
-function randomAdmissionToken(): string {
-  return randomHex(16);
-}
+export type IssueAdmissionResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "order_not_found" | "no_tiers" | "signing_key_missing" | "canonical_missing";
+    };
 
 export class AdmissionsService extends TableService<typeof admissions> {
   constructor() {
@@ -43,39 +52,262 @@ export class AdmissionsService extends TableService<typeof admissions> {
     });
   }
 
-  async checkInByToken(params: {
-    token: string;
+  async listPaidOrderIdsForPersonOnEventInTx(
+    tx: AdmissionTx,
+    personId: string,
+    eventId: string,
+  ): Promise<string[]> {
+    return ordersService.listIdsForPersonOnEventAndStatusesInTx(tx, {
+      eventId,
+      personId,
+      statuses: ["paid"],
+    });
+  }
+
+  async aggregatedTierIdsForPersonOnEventInTx(
+    tx: AdmissionTx,
+    personId: string,
+    eventId: string,
+  ): Promise<string[]> {
+    const paidOrderIds = await this.listPaidOrderIdsForPersonOnEventInTx(tx, personId, eventId);
+
+    return orderTiersService.listEventTierIdsForPaidPersonOnEventInTx(tx, {
+      personId,
+      eventId,
+    }, paidOrderIds);
+  }
+
+  async findCanonicalAdmissionForPersonOnEventInTx(
+    tx: AdmissionTx,
+    personId: string,
+    eventId: string,
+  ): Promise<typeof admissions.$inferSelect | null> {
+    const personOrders = await ordersService.listPendingOrPaidForPersonOnEventInTx(
+      tx,
+      eventId,
+      personId,
+    );
+
+    for (const order of personOrders) {
+      if (order.status !== "paid") {
+        continue;
+      }
+      const tierIds = await orderTiersService.getEventTierIdsForOrder(order.id, tx);
+      const exclusiveTierId = await eventTiersService.findExclusiveTierIdAmong(tierIds, tx);
+      if (!exclusiveTierId) {
+        continue;
+      }
+      const admission = await this.findByOrderId(order.id, tx);
+      if (admission) {
+        return admission;
+      }
+    }
+
+    return null;
+  }
+
+  async orderHasExclusiveTierInTx(tx: AdmissionTx, orderId: string): Promise<boolean> {
+    const tierIds = await orderTiersService.getEventTierIdsForOrder(orderId, tx);
+
+    return Boolean(await eventTiersService.findExclusiveTierIdAmong(tierIds, tx));
+  }
+
+  async refreshSignedCredentialInTx(
+    tx: AdmissionTx,
+    admission: typeof admissions.$inferSelect,
+    personId: string,
+  ): Promise<boolean> {
+    const signingKey = await admissionSigningKeysService.getForEvent(admission.eventId, tx);
+    if (!signingKey) {
+      return false;
+    }
+
+    const tierIds = await this.aggregatedTierIdsForPersonOnEventInTx(
+      tx,
+      personId,
+      admission.eventId,
+    );
+    if (tierIds.length === 0) {
+      return false;
+    }
+
+    const credential = await signAdmissionCredential({
+      admissionId: admission.id,
+      eventId: admission.eventId,
+      orderId: admission.orderId,
+      tierIds,
+      kid: signingKey.kid,
+      privateJwk: signingKey.privateJwk,
+    });
+
+    await tx
+      .update(admissions)
+      .set({ signedCredential: credential })
+      .where(eq(admissions.id, admission.id));
+
+    return true;
+  }
+
+  async issueAdmissionForPaidOrderInTx(
+    tx: AdmissionTx,
+    orderId: string,
+  ): Promise<IssueAdmissionResult> {
+    const order = await ordersService.getInTx(tx, orderId);
+    if (!order) {
+      return { ok: false, reason: "order_not_found" };
+    }
+
+    const tierIds = await this.aggregatedTierIdsForPersonOnEventInTx(
+      tx,
+      order.personId,
+      order.eventId,
+    );
+    if (tierIds.length === 0) {
+      return { ok: false, reason: "no_tiers" };
+    }
+
+    const signingKey = await admissionSigningKeysService.getForEvent(order.eventId, tx);
+    if (!signingKey) {
+      return { ok: false, reason: "signing_key_missing" };
+    }
+
+    const hasExclusive = await this.orderHasExclusiveTierInTx(tx, orderId);
+
+    if (hasExclusive) {
+      let admission = await this.findByOrderId(orderId, tx);
+      if (!admission) {
+        const admissionId = crypto.randomUUID();
+        const credential = await signAdmissionCredential({
+          admissionId,
+          eventId: order.eventId,
+          orderId,
+          tierIds,
+          kid: signingKey.kid,
+          privateJwk: signingKey.privateJwk,
+        });
+        const [inserted] = await tx
+          .insert(admissions)
+          .values({
+            id: admissionId,
+            eventId: order.eventId,
+            orderId,
+            signedCredential: credential,
+          })
+          .onConflictDoNothing({ target: admissions.orderId })
+          .returning();
+
+        if (!inserted) {
+          admission = await this.findByOrderId(orderId, tx);
+          if (!admission) {
+            return { ok: false, reason: "no_tiers" };
+          }
+          const refreshed = await this.refreshSignedCredentialInTx(tx, admission, order.personId);
+          if (!refreshed) {
+            return { ok: false, reason: "signing_key_missing" };
+          }
+        }
+
+        return { ok: true };
+      }
+
+      const refreshed = await this.refreshSignedCredentialInTx(tx, admission, order.personId);
+      if (!refreshed) {
+        return { ok: false, reason: "signing_key_missing" };
+      }
+
+      return { ok: true };
+    }
+
+    const canonical = await this.findCanonicalAdmissionForPersonOnEventInTx(
+      tx,
+      order.personId,
+      order.eventId,
+    );
+    if (!canonical) {
+      return { ok: false, reason: "canonical_missing" };
+    }
+
+    const refreshed = await this.refreshSignedCredentialInTx(tx, canonical, order.personId);
+    if (!refreshed) {
+      return { ok: false, reason: "signing_key_missing" };
+    }
+
+    return { ok: true };
+  }
+
+  async checkInByCredential(params: {
+    credential: string;
     checkedInBy: string;
     restrictToEventId: string | null;
   }): Promise<{ ok: true } | { ok: false; reason: "admission_not_found" }> {
+    const trimmed = params.credential.trim();
+    if (!trimmed) {
+      return { ok: false, reason: "admission_not_found" };
+    }
+
+    let admissionId: string;
+    let eventIdFromJwt: string;
+    try {
+      const payload = decodeJwt(trimmed);
+      admissionId = typeof payload.sub === "string" ? payload.sub : "";
+      eventIdFromJwt = typeof payload.evt === "string" ? payload.evt : "";
+    } catch {
+      return { ok: false, reason: "admission_not_found" };
+    }
+
+    if (!admissionId || !eventIdFromJwt) {
+      return { ok: false, reason: "admission_not_found" };
+    }
+
+    if (
+      params.restrictToEventId !== null &&
+      eventIdFromJwt !== params.restrictToEventId
+    ) {
+      return { ok: false, reason: "admission_not_found" };
+    }
+
     const db = getDb();
-    const [row] = await db
+    const [admission] = await db
       .select()
       .from(admissions)
       .where(
         and(
-          eq(admissions.publicToken, params.token),
+          eq(admissions.id, admissionId),
+          eq(admissions.eventId, eventIdFromJwt),
           isNull(admissions.revokedAt),
           isNull(admissions.checkedInAt),
         ),
       )
       .limit(1);
-    if (!row) {
+
+    if (!admission) {
       return { ok: false, reason: "admission_not_found" };
     }
-    if (
-      params.restrictToEventId !== null &&
-      row.eventId !== params.restrictToEventId
-    ) {
+
+    const signingKey = await admissionSigningKeysService.getForEvent(admission.eventId);
+    if (!signingKey) {
       return { ok: false, reason: "admission_not_found" };
     }
+
+    const verified = await verifyAdmissionCredential({
+      credential: trimmed,
+      kid: signingKey.kid,
+      publicJwk: signingKey.publicJwk,
+      expectedEventId: admission.eventId,
+    });
+
+    if (!verified || verified.admissionId !== admission.id) {
+      return { ok: false, reason: "admission_not_found" };
+    }
+
     await db
       .update(admissions)
       .set({
         checkedInAt: new Date(),
         checkedInBy: params.checkedInBy,
       })
-      .where(eq(admissions.id, row.id));
+      .where(eq(admissions.id, admission.id));
+
     return { ok: true };
   }
 
@@ -85,7 +317,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
   ): Promise<{
     admissions: {
       id: string;
-      publicToken: string;
+      credential: string;
       givenName: string;
       familyName: string;
       tierName: string;
@@ -116,53 +348,70 @@ export class AdmissionsService extends TableService<typeof admissions> {
     const rows = await db
       .select({
         id: admissions.id,
-        publicToken: admissions.publicToken,
+        credential: admissions.signedCredential,
         givenName: people.givenName,
         familyName: people.familyName,
-        tierName: eventTiers.name,
+        personId: orders.personId,
+        orderId: admissions.orderId,
         checkedInAt: admissions.checkedInAt,
         revokedAt: admissions.revokedAt,
       })
       .from(admissions)
       .innerJoin(orders, eq(admissions.orderId, orders.id))
       .innerJoin(people, eq(orders.personId, people.id))
-      .innerJoin(eventTiers, eq(admissions.eventTierId, eventTiers.id))
       .where(whereClause)
       .orderBy(desc(admissions.createdAt))
       .limit(scope.limit)
       .offset(scope.skip);
 
-    return {
-      admissions: rows.map((row) => ({
+    const admissionsOut: {
+      id: string;
+      credential: string;
+      givenName: string;
+      familyName: string;
+      tierName: string;
+      checkedInAt: string | null;
+      revokedAt: string | null;
+    }[] = [];
+
+    for (const row of rows) {
+      const paidOrderIds = await ordersService.listIdsForPersonOnEventAndStatuses({
+        eventId,
+        personId: row.personId,
+        statuses: ["paid"],
+      });
+      const tierIds = await orderTiersService.listTierIdsAmongOrderIds(paidOrderIds);
+      const tiers = await eventTiersService.getByIds(tierIds);
+      const lines = tierIds.map((eventTierId) => {
+        const tier = tiers.find((t) => t.id === eventTierId);
+        return {
+          id: eventTierId,
+          name: tier?.name ?? eventTierId,
+          selectionMode: tier?.selectionMode ?? ("addon" as const),
+          unitPriceCents: 0,
+        };
+      });
+      const tierName = formatOrderTierNamesFromLines(lines) ?? "";
+
+      admissionsOut.push({
         id: row.id,
-        publicToken: row.publicToken,
+        credential: row.credential,
         givenName: row.givenName,
         familyName: row.familyName,
-        tierName: row.tierName,
+        tierName,
         checkedInAt: row.checkedInAt?.toISOString() ?? null,
         revokedAt: row.revokedAt?.toISOString() ?? null,
-      })),
+      });
+    }
+
+    return {
+      admissions: admissionsOut,
       meta: {
         total: Number(countRow?.total ?? 0),
         limit: scope.limit,
         skip: scope.skip,
       },
     };
-  }
-
-  async createForPaidOrderInTx(
-    tx: AdmissionTx,
-    params: { orderId: string; eventId: string; eventTierId: string },
-  ): Promise<void> {
-    await tx
-      .insert(admissions)
-      .values({
-        publicToken: randomAdmissionToken(),
-        eventId: params.eventId,
-        eventTierId: params.eventTierId,
-        orderId: params.orderId,
-      })
-      .onConflictDoNothing({ target: admissions.orderId });
   }
 
   async revokeForOrderInTx(tx: AdmissionTx, orderId: string): Promise<void> {
@@ -184,13 +433,38 @@ export class AdmissionsService extends TableService<typeof admissions> {
     return row?.id ?? null;
   }
 
-  async countByEventTierId(tierId: string, tx?: AdmissionTx): Promise<number> {
-    const executor = tx ?? getDb();
-    const [row] = await executor
-      .select({ qty: sql<number>`count(*)::int` })
-      .from(admissions)
-      .where(eq(admissions.eventTierId, tierId));
-    return Number(row?.qty ?? 0);
+  async countPaidExclusiveOrdersWithoutAdmissionInTx(
+    tx: AdmissionTx,
+    eventId: string,
+  ): Promise<{ paidExclusiveOrders: number; withAdmission: number; eligibleWithoutAdmission: number }> {
+    const paidOrders = await tx
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.eventId, eventId), eq(orders.status, "paid")));
+
+    let paidExclusiveOrders = 0;
+    let withAdmission = 0;
+
+    for (const { id: orderId } of paidOrders) {
+      const tierIds = await orderTiersService.getEventTierIdsForOrder(orderId, tx);
+      const hasExclusive = Boolean(
+        await eventTiersService.findExclusiveTierIdAmong(tierIds, tx),
+      );
+      if (!hasExclusive) {
+        continue;
+      }
+      paidExclusiveOrders += 1;
+      const admissionId = await this.findIdByOrderInTx(tx, orderId);
+      if (admissionId) {
+        withAdmission += 1;
+      }
+    }
+
+    return {
+      paidExclusiveOrders,
+      withAdmission,
+      eligibleWithoutAdmission: paidExclusiveOrders - withAdmission,
+    };
   }
 
   async findByOrderId(

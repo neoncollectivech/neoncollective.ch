@@ -11,6 +11,7 @@ export type EventWorkspaceSection =
   | "promotions"
   | "invitees"
   | "orders"
+  | "admissions"
   | "api-keys";
 
 const WORKSPACE_SECTIONS = new Set<string>([
@@ -20,6 +21,7 @@ const WORKSPACE_SECTIONS = new Set<string>([
   "promotions",
   "invitees",
   "orders",
+  "admissions",
   "api-keys",
 ]);
 

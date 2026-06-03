@@ -7,6 +7,7 @@ import {
 import { and, eq, ilike, inArray } from "drizzle-orm";
 
 import { events } from "../db/schema";
+import { admissionSigningKeysService } from "./admission-signing-keys.service";
 import type { PublicEventImage } from "./event-images.service";
 
 export { events as eventsTable };
@@ -239,6 +240,15 @@ export class EventsService extends TableService<
     }
     const rows = await this.getByIds(eventIds);
     return rows.some((e) => e.status === "published");
+  }
+
+  override async create(
+    data: Record<string, unknown>,
+    ctx?: ServiceContext,
+  ): Promise<typeof events.$inferSelect> {
+    const row = await super.create(data, ctx);
+    await admissionSigningKeysService.provisionForEvent(row.id);
+    return row;
   }
 
   protected override async beforeCreate(

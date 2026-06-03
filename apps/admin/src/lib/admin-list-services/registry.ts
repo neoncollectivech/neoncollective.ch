@@ -1,4 +1,5 @@
 import type {
+  AdmissionRow,
   EventInviteeListRow,
   EventPromotionCodeRow,
   EventRow,
@@ -9,6 +10,7 @@ import type {
 import { adminKeys } from "@/hooks/use-admin-api/keys";
 import {
   listEventInvitees,
+  listAdmissions,
   listEventPromotionCodesPaginated,
   listEvents,
   listOrders,
@@ -89,6 +91,24 @@ export const eventInviteesListService = createAdminListService<
 export type EventPromotionCodesListScope = {
   eventId: string;
 };
+
+export type AdmissionsListScope = {
+  eventId: string;
+};
+
+export const admissionsListService = createAdminListService<
+  AdmissionRow,
+  AdmissionsListScope
+>({
+  defaultSort: { field: "createdAt", direction: "desc" },
+  keys: adminKeys.admissions,
+  listFn: listAdmissions,
+  buildQueryParams: ({ scope }) => ({
+    eventId: scope?.eventId,
+  }),
+  queryKeyExtra: ({ scope }) => [scope?.eventId ?? ""],
+  enabled: (scope) => Boolean(scope?.eventId),
+});
 
 export const eventPromotionCodesListService = createAdminListService<
   EventPromotionCodeRow,

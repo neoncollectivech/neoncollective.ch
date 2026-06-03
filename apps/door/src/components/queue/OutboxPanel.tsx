@@ -56,7 +56,9 @@ export function OutboxPanel() {
                 key={row.id}
                 className="flex flex-wrap items-center justify-between gap-2 border border-border p-3 text-sm"
               >
-                <span className="font-mono text-xs">{row.token}</span>
+                <span className="font-mono text-xs truncate max-w-[12rem]">
+                  {row.credential.slice(0, 24)}…
+                </span>
                 <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
                 {row.lastError ? (
                   <span className="w-full text-xs text-muted-foreground">

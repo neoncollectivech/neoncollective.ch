@@ -21,6 +21,8 @@ export {
   peopleListService,
   eventInviteesListService,
   eventPromotionCodesListService,
+  admissionsListService,
+  type AdmissionsListScope,
   type PeopleListFilters,
   type EventInviteesListScope,
   type EventInviteesListFilters,

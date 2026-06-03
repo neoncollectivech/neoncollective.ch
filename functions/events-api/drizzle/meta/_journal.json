@@ -57,6 +57,13 @@
       "when": 1780436284241,
       "tag": "0007_tidy_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780500000000,
+      "tag": "0008_admission_jwt",
+      "breakpoints": true
     }
   ]
 }

@@ -145,6 +145,13 @@ export function useScanFeedback() {
     [startCooldown],
   );
 
+  const onDuplicate = useCallback(() => {
+    setState("duplicate");
+    setMessage(null);
+    pulseDuplicate();
+    startCooldown(RESULT_COOLDOWN_MS, "idle");
+  }, [startCooldown]);
+
   const reset = useCallback(() => {
     clearCooldownTimer();
     setState("idle");
@@ -163,6 +170,7 @@ export function useScanFeedback() {
     onSubmitting,
     onAccepted,
     onRejected,
+    onDuplicate,
     reset,
   };
 }

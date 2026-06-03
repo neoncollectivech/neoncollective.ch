@@ -292,17 +292,25 @@ export const orderTiers = pgTable(
   ],
 );
 
+export const admissionSigningKeys = pgTable("admission_signing_keys", {
+  eventId: uuid("event_id")
+    .primaryKey()
+    .references(() => events.id, { onDelete: "cascade" }),
+  kid: text("kid").notNull().unique(),
+  algorithm: text("algorithm").notNull().default("EdDSA"),
+  publicJwk: jsonb("public_jwk").notNull(),
+  privateJwk: jsonb("private_jwk").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const admissions = pgTable(
   "admissions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    publicToken: text("public_token").notNull().unique(),
+    signedCredential: text("signed_credential").notNull(),
     eventId: uuid("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
-    eventTierId: uuid("event_tier_id")
-      .notNull()
-      .references(() => eventTiers.id, { onDelete: "restrict" }),
     orderId: uuid("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),

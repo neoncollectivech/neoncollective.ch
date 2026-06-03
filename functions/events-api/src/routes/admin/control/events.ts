@@ -13,7 +13,6 @@ import {
   deleteObject,
   isR2Configured,
 } from "../../../helpers/r2-storage";
-import { admissionsService } from "../../../services/admissions.service";
 import { eventImagesService } from "../../../services/event-images.service";
 import { eventTiersService } from "../../../services/event-tiers.service";
 import { eventsService } from "../../../services/events.service";
@@ -35,6 +34,11 @@ import {
   listEventApiKeysHandler,
 } from "./api-keys";
 import { getEventSalesAnalyticsHandler } from "./event-sales-analytics";
+import {
+  generateEventAdmissionsHandler,
+  getEventAdmissionsSummaryHandler,
+  provisionEventAdmissionSigningKeyHandler,
+} from "./event-admissions";
 import { jsonReasonFailure } from "../../shared/respond";
 
 const REPLACE_TIERS_ERRORS = {
@@ -100,8 +104,7 @@ export function createEventsControlRouter(): Hono {
             const res = await eventTiersService.replaceTiers(eventId, body.tiers, {
               canRemoveTier: async (tierId, tx) => {
                 const orderRefs = await orderTiersService.countByEventTierId(tierId, tx);
-                const admissionRefs = await admissionsService.countByEventTierId(tierId, tx);
-                return orderRefs + admissionRefs === 0;
+                return orderRefs === 0;
               },
             });
             if (!res.ok) {
@@ -133,6 +136,21 @@ export function createEventsControlRouter(): Hono {
           method: "get",
           path: "/:id/sales-analytics",
           handler: getEventSalesAnalyticsHandler,
+        },
+        {
+          method: "get",
+          path: "/:id/admissions/summary",
+          handler: getEventAdmissionsSummaryHandler,
+        },
+        {
+          method: "post",
+          path: "/:id/admissions/provision-signing-key",
+          handler: provisionEventAdmissionSigningKeyHandler,
+        },
+        {
+          method: "post",
+          path: "/:id/admissions/generate",
+          handler: generateEventAdmissionsHandler,
         },
         {
           method: "post",

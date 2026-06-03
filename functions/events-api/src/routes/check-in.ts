@@ -27,8 +27,8 @@ export function createCheckInRouter(): Hono<AppEnv> {
       async (c) => {
         const body = c.req.valid("json");
         const apiKey = c.var.eventApiKey!;
-        const res = await admissionsService.checkInByToken({
-          token: body.token,
+        const res = await admissionsService.checkInByCredential({
+          credential: body.credential,
           checkedInBy: `api-key:${apiKey.label}`,
           restrictToEventId: apiKey.eventId,
         });

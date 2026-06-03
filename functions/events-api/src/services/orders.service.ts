@@ -570,6 +570,14 @@ export class OrdersService extends TableService<
     return rows.map((r) => r.id);
   }
 
+  async listPaidOrderIdsForEventInTx(tx: OrderTx, eventId: string): Promise<string[]> {
+    const rows = await tx
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.eventId, eventId), eq(orders.status, "paid")));
+    return rows.map((r) => r.id);
+  }
+
   async listPaidOrderIdsForPersonOnEvent(
     eventId: string,
     personId: string,

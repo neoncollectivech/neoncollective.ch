@@ -25,7 +25,7 @@ async function syncRow(row: CheckInOutboxRow): Promise<void> {
   await updateOutboxRow(row.id, { status: "syncing" });
 
   try {
-    await postCheckIn(row.token);
+    await postCheckIn(row.credential);
     await updateOutboxRow(row.id, { status: "synced", lastError: null });
   } catch (error) {
     if (isOutboxReplayNotFound(error)) {

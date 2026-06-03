@@ -125,6 +125,17 @@ export class OrderTiersService extends TableService<typeof orderTiers> {
     return rows.map((r) => r.eventTierId);
   }
 
+  /** Unique sorted `eventTierId` values across all paid orders for a person on an event. */
+  async listEventTierIdsForPaidPersonOnEventInTx(
+    tx: EntityTx,
+    params: { personId: string; eventId: string },
+    paidOrderIds: string[],
+  ): Promise<string[]> {
+    const tierIds = await this.listTierIdsAmongOrderIds(paidOrderIds, tx);
+
+    return [...new Set(tierIds)].sort();
+  }
+
   async hasAnyTierAmongOrderIds(
     orderIds: string[],
     tierIds: string[],

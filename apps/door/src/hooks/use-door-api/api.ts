@@ -11,7 +11,7 @@ export const doorApi = {
     submit: () =>
       mutationOptions({
         mutationKey: doorKeys.checkIn.all(),
-        mutationFn: (token: string) => postCheckIn(token),
+        mutationFn: (credential: string) => postCheckIn(credential),
       }),
   },
   outbox: {

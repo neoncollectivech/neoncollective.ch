@@ -4,7 +4,6 @@ import type Stripe from "stripe";
 import type { EntityTx } from "../../services/transaction";
 import { admissionsService } from "../../services/admissions.service";
 import { eventInviteesService } from "../../services/event-invitees.service";
-import { eventTiersService } from "../../services/event-tiers.service";
 import { eventsService } from "../../services/events.service";
 import {
   ensureHostInviteLinkForPersonInTx,
@@ -37,40 +36,22 @@ export type FulfillPaidOrderResult =
 
 type OrderRow = NonNullable<Awaited<ReturnType<typeof ordersService.getInTx>>>;
 
-async function resolveExclusiveTierIdForOrder(
+async function issueAdmissionForPaidOrderInTx(
   tx: EntityTx,
   orderId: string,
-): Promise<string | null> {
+): Promise<boolean> {
   const tierIds = await orderTiersService.getEventTierIdsForOrder(orderId, tx);
-  return eventTiersService.findExclusiveTierIdAmong(tierIds, tx);
-}
-
-async function orderHasExclusiveTierInTx(
-  tx: EntityTx,
-  orderId: string,
-): Promise<boolean> {
-  return Boolean(await resolveExclusiveTierIdForOrder(tx, orderId));
-}
-
-async function createAdmissionForOrderInTx(
-  tx: EntityTx,
-  orderId: string,
-  eventId: string,
-): Promise<boolean> {
-  const existing = await admissionsService.findIdByOrderInTx(tx, orderId);
-  if (existing) {
+  if (tierIds.length === 0) {
     return true;
   }
-  const eventTierId = await resolveExclusiveTierIdForOrder(tx, orderId);
-  if (!eventTierId) {
+
+  const result = await admissionsService.issueAdmissionForPaidOrderInTx(tx, orderId);
+  if (!result.ok) {
+    log.error({ orderId, reason: result.reason }, "Admission issuance failed");
     return false;
   }
-  await admissionsService.createForPaidOrderInTx(tx, {
-    orderId,
-    eventId,
-    eventTierId,
-  });
-  return Boolean(await admissionsService.findIdByOrderInTx(tx, orderId));
+
+  return true;
 }
 
 async function ensureEventInviteeFromGuestCheckoutInTx(
@@ -149,15 +130,13 @@ async function repairPaidOrderFulfillmentInTx(
   tx: EntityTx,
   order: OrderRow,
 ): Promise<boolean> {
-  const existingAdmission = await admissionsService.findIdByOrderInTx(tx, order.id);
-  const shouldHaveAdmission = await orderHasExclusiveTierInTx(tx, order.id);
-  if (shouldHaveAdmission && !existingAdmission) {
-    const created = await createAdmissionForOrderInTx(tx, order.id, order.eventId);
-    if (!created) {
-      log.error({ orderId: order.id }, "Paid order missing exclusive tier for admission");
+  const tierIds = await orderTiersService.getEventTierIdsForOrder(order.id, tx);
+  if (tierIds.length > 0) {
+    const issued = await issueAdmissionForPaidOrderInTx(tx, order.id);
+    if (!issued) {
       return false;
     }
-    log.warn({ orderId: order.id }, "Repaired missing admission for paid order");
+    log.warn({ orderId: order.id }, "Repaired admission credential for paid order");
   }
 
   const person = await peopleService.getInTx(tx, order.personId);
@@ -215,11 +194,9 @@ async function applyCheckoutFulfillmentSideEffectsInTx(
 
   await ordersService.markPaidInTx(tx, order.id);
 
-  if (await orderHasExclusiveTierInTx(tx, order.id)) {
-    const admissionOk = await createAdmissionForOrderInTx(tx, order.id, order.eventId);
-    if (!admissionOk) {
-      return false;
-    }
+  const admissionOk = await issueAdmissionForPaidOrderInTx(tx, order.id);
+  if (!admissionOk) {
+    return false;
   }
 
   if (order.inviteLinkId) {
@@ -351,7 +328,7 @@ export async function fulfillPaidOrderInTx(
 
   const sideEffectsOk = await applyCheckoutFulfillmentSideEffectsInTx(tx, order);
   if (!sideEffectsOk) {
-    return { kind: "failed", reason: "Order missing exclusive tier for admission." };
+    return { kind: "failed", reason: "Admission signing key missing or issuance failed." };
   }
 
   const markedFulfilled = await ordersService.trySetCheckoutFulfilledAtInTx(tx, order.id);

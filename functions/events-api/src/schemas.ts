@@ -62,7 +62,7 @@ export const profileVerificationConfirmSchema = type({
 });
 
 export const checkInSchema = type({
-  token: "string",
+  credential: "string",
 });
 
 export const adminInviteesUpsertSchema = type({

@@ -6,17 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchAdmissionJwks } from "@/lib/admission-jwks";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   isApiKeyTokenFormat,
   setDoorSessionConfig,
 } from "@/lib/storage/session-config";
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export function SetupPage() {
   const navigate = useNavigate();
   const [apiKey, setApiKey] = useState("");
   const [keyLabel, setKeyLabel] = useState("");
+  const [eventId, setEventId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const trimmed = apiKey.trim();
 
@@ -28,11 +35,38 @@ export function SetupPage() {
       return;
     }
 
-    setDoorSessionConfig({
-      apiKey: trimmed,
-      keyLabel: keyLabel.trim() || null,
-    });
-    navigate("/", { replace: true });
+    const eventIdTrimmed = eventId.trim();
+
+    if (eventIdTrimmed && !UUID_RE.test(eventIdTrimmed)) {
+      toast.error("Event ID must be a valid UUID (for global API keys).");
+
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const jwks = await fetchAdmissionJwks({
+        apiKey: trimmed,
+        eventId: eventIdTrimmed || null,
+      });
+
+      setDoorSessionConfig({
+        apiKey: trimmed,
+        keyLabel: keyLabel.trim() || null,
+        eventId: jwks.eventId,
+      });
+      navigate("/", { replace: true });
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(
+          error,
+          "Could not load admission signing keys. Check the API key and event ID.",
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -42,7 +76,7 @@ export function SetupPage() {
           <CardTitle>NEON Door setup</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
             <div className="space-y-2">
               <Label htmlFor="apiKey">Event API key</Label>
               <Input
@@ -60,6 +94,20 @@ export function SetupPage() {
               </p>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="eventId">Event ID (global keys only)</Label>
+              <Input
+                autoComplete="off"
+                id="eventId"
+                placeholder="uuid"
+                value={eventId}
+                onChange={(e) => setEventId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Event-scoped keys resolve the event automatically. Global keys
+                require the event UUID here.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="keyLabel">Label (optional)</Label>
               <Input
                 id="keyLabel"
@@ -68,8 +116,8 @@ export function SetupPage() {
                 onChange={(e) => setKeyLabel(e.target.value)}
               />
             </div>
-            <Button className="w-full" type="submit">
-              Save and open scanner
+            <Button className="w-full" disabled={submitting} type="submit">
+              {submitting ? "Loading keys…" : "Save and open scanner"}
             </Button>
           </form>
         </CardContent>

@@ -20,9 +20,15 @@ import {
   useScanFeedback,
 } from "@/hooks/use-scan-feedback";
 import { useTorch } from "@/hooks/use-torch";
-import { normalizeAdmissionToken } from "@/lib/admission-token";
+import { normalizeAdmissionCredential } from "@/lib/admission-credential";
+import { verifyAdmissionCredentialOffline } from "@/lib/admission-jwks";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { enqueueCheckIn } from "@/lib/storage/check-in-outbox";
+import { getDoorSessionConfig } from "@/lib/storage/session-config";
+import {
+  isAdmissionSpentLocally,
+  markAdmissionSpentLocally,
+} from "@/lib/storage/spent-admissions";
 import { startOutboxSyncScheduler } from "@/lib/storage/sync-outbox";
 import { clearDoorSessionConfig } from "@/lib/storage/session-config";
 import { unlockScanFeedback } from "@/lib/scan-feedback";
@@ -57,51 +63,81 @@ export function ScanPage() {
 
       fb.onScanned();
 
-      const token = normalizeAdmissionToken(rawText);
+      const credential = normalizeAdmissionCredential(rawText);
 
-      if (!token) {
+      if (!credential) {
         fb.onInvalidAdmission(rawText);
 
         return;
       }
 
-      if (!fb.onDecoded(token)) {
+      if (!fb.onDecoded(credential)) {
+        return;
+      }
+
+      const session = getDoorSessionConfig();
+
+      if (!session) {
+        fb.onRejected("Door is not configured.");
+
+        return;
+      }
+
+      const offlineVerify = await verifyAdmissionCredentialOffline({
+        credential,
+        eventId: session.eventId,
+      });
+
+      if (!offlineVerify.ok) {
+        const message =
+          offlineVerify.reason === "jwks_missing"
+            ? "Missing JWKS — re-run setup."
+            : offlineVerify.reason === "wrong_event"
+              ? "Credential is for another event."
+              : "Invalid admission credential.";
+
+        fb.onRejected(message);
+
+        return;
+      }
+
+      if (isAdmissionSpentLocally(session.eventId, offlineVerify.admissionId)) {
+        fb.onDuplicate();
+
         return;
       }
 
       processingRef.current = true;
       fb.onSubmitting();
 
+      const queueOffline = async () => {
+        markAdmissionSpentLocally(session.eventId, offlineVerify.admissionId);
+        await enqueueCheckIn(credential);
+        fb.onAccepted("Queued — will sync when online");
+        void queryClient.invalidateQueries({
+          queryKey: doorKeys.outbox.stats(),
+        });
+      };
+
       try {
         if (!navigator.onLine) {
-          await enqueueCheckIn(token);
-          fb.onAccepted("Queued — will sync when online");
-          void queryClient.invalidateQueries({
-            queryKey: doorKeys.outbox.stats(),
-          });
+          await queueOffline();
 
           return;
         }
 
-        await checkInMutation.mutateAsync(token);
+        await checkInMutation.mutateAsync(credential);
+        markAdmissionSpentLocally(session.eventId, offlineVerify.admissionId);
         fb.onAccepted();
       } catch (error) {
         if (!navigator.onLine) {
-          await enqueueCheckIn(token);
-          fb.onAccepted("Queued — will sync when online");
-          void queryClient.invalidateQueries({
-            queryKey: doorKeys.outbox.stats(),
-          });
+          await queueOffline();
 
           return;
         }
 
         if (axios.isAxiosError(error) && !error.response) {
-          await enqueueCheckIn(token);
-          fb.onAccepted("Queued — will sync when online");
-          void queryClient.invalidateQueries({
-            queryKey: doorKeys.outbox.stats(),
-          });
+          await queueOffline();
 
           return;
         }

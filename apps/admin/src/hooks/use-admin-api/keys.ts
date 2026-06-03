@@ -6,6 +6,8 @@ export const adminKeys = {
     detail: (id: string) => ["admin", "events", id] as const,
     salesAnalytics: (eventId: string) =>
       ["admin", "events", eventId, "sales-analytics"] as const,
+    admissionsSummary: (eventId: string) =>
+      ["admin", "events", eventId, "admissions-summary"] as const,
   },
   orders: {
     all: ["admin", "orders"] as const,

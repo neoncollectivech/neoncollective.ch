@@ -17,6 +17,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { phoneToStoredDigits } from "../helpers/contact";
 import { closeDb, getDb } from "../db/index";
 import { eventTiers, events, people, promotionCodes } from "../db/schema";
+import { admissionSigningKeysService } from "../services/admission-signing-keys.service";
 import { upsertInviteesForEvent } from "../routes/admin/providers/invitees-admin";
 
 const SLUG = "e2e-invite-only";
@@ -68,6 +69,7 @@ async function truncateAllApplicationData(db: Db): Promise<void> {
       "registration_exchange_codes",
       "participant_sessions",
       "invite_redemptions",
+      "admission_signing_keys",
       "admissions",
       "orders",
       "invite_links",
@@ -286,6 +288,7 @@ async function main(): Promise<void> {
 
   const startsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const { eventId, tierIds } = await ensureInviteOnlyEvent(db, startsAt);
+  const signingKey = await admissionSigningKeysService.provisionForEvent(eventId);
 
   const upserted = await upsertInviteesForEvent(eventId, [
     {
@@ -334,6 +337,8 @@ async function main(): Promise<void> {
 
   const payload = {
     slug: SLUG,
+    eventId,
+    admissionSigningKeyKid: signingKey.kid,
     locale: LOCALE,
     hostInvited: HOST_INVITED,
     guestInvited: GUEST_INVITED,

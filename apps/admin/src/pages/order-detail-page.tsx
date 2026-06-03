@@ -23,6 +23,7 @@ function isAdminDeletableOrder(order: {
   if (order.status === "pending") {
     return true;
   }
+
   return (
     order.status === "paid" &&
     order.amountCents === 0 &&

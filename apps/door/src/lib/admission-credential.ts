@@ -1,7 +1,5 @@
-const ADMISSION_TOKEN_RE = /^[0-9a-f]{32}$/i;
-
-/** Normalize QR payload to a 32-char hex admission token, or null if invalid. */
-export function normalizeAdmissionToken(raw: string): string | null {
+/** Trim QR payload; admission credentials are JWT compact strings. */
+export function normalizeAdmissionCredential(raw: string): string | null {
   const trimmed = raw.trim();
 
   if (!trimmed) {
@@ -13,10 +11,10 @@ export function normalizeAdmissionToken(raw: string): string | null {
   try {
     if (/^https?:\/\//i.test(trimmed)) {
       const url = new URL(trimmed);
-      const tokenParam = url.searchParams.get("token");
+      const credentialParam = url.searchParams.get("credential");
 
-      if (tokenParam) {
-        candidate = tokenParam;
+      if (credentialParam) {
+        candidate = credentialParam;
       } else {
         const segments = url.pathname.split("/").filter(Boolean);
 
@@ -27,9 +25,9 @@ export function normalizeAdmissionToken(raw: string): string | null {
     candidate = trimmed;
   }
 
-  const normalized = candidate.trim().toLowerCase();
+  const normalized = candidate.trim();
 
-  if (!ADMISSION_TOKEN_RE.test(normalized)) {
+  if (!normalized.startsWith("eyJ")) {
     return null;
   }
 
