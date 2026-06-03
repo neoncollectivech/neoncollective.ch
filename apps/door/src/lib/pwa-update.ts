@@ -6,23 +6,36 @@ export type PwaUpdateState = {
   checking: boolean;
 };
 
-type PwaUpdateListener = (state: PwaUpdateState) => void;
-
 let needRefresh = false;
 let offlineReady = false;
 let checking = false;
 
-const listeners = new Set<PwaUpdateListener>();
+/** Stable reference between store updates — required for useSyncExternalStore. */
+let snapshot: PwaUpdateState = {
+  needRefresh: false,
+  offlineReady: false,
+  checking: false,
+};
 
-function getState(): PwaUpdateState {
-  return { needRefresh, offlineReady, checking };
+const listeners = new Set<() => void>();
+
+function syncSnapshot(): void {
+  if (
+    snapshot.needRefresh === needRefresh &&
+    snapshot.offlineReady === offlineReady &&
+    snapshot.checking === checking
+  ) {
+    return;
+  }
+
+  snapshot = { needRefresh, offlineReady, checking };
 }
 
 function emit(): void {
-  const state = getState();
+  syncSnapshot();
 
   for (const listener of listeners) {
-    listener(state);
+    listener();
   }
 }
 
@@ -31,52 +44,60 @@ function setChecking(next: boolean): void {
   emit();
 }
 
-const applyUpdate = registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    needRefresh = true;
-    emit();
-  },
-  onOfflineReady() {
-    offlineReady = true;
-    emit();
-  },
-  onRegisteredSW(_swUrl, registration) {
-    if (!registration) {
-      return;
-    }
+type ApplyUpdateFn = (reloadPage?: boolean) => Promise<void>;
 
-    const check = () => {
-      void registration.update().catch(() => {});
-    };
+const noopApplyUpdate: ApplyUpdateFn = async () => {};
 
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") {
-        check();
+let applyUpdate: ApplyUpdateFn = noopApplyUpdate;
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  applyUpdate = registerSW({
+    immediate: true,
+    onNeedRefresh() {
+      needRefresh = true;
+      emit();
+    },
+    onOfflineReady() {
+      offlineReady = true;
+      emit();
+    },
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) {
+        return;
       }
-    });
 
-    window.setInterval(check, 60 * 60 * 1000);
-  },
-});
+      const check = () => {
+        void registration.update().catch(() => {});
+      };
 
-export function subscribePwaUpdate(listener: PwaUpdateListener): () => void {
-  listeners.add(listener);
-  listener(getState());
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          check();
+        }
+      });
+
+      window.setInterval(check, 60 * 60 * 1000);
+    },
+  });
+}
+
+/** useSyncExternalStore subscribe — notify with no args; read via getPwaUpdateState. */
+export function subscribePwaUpdate(onStoreChange: () => void): () => void {
+  listeners.add(onStoreChange);
 
   return () => {
-    listeners.delete(listener);
+    listeners.delete(onStoreChange);
   };
 }
 
 export function getPwaUpdateState(): PwaUpdateState {
-  return getState();
+  return snapshot;
 }
 
 export async function checkForPwaUpdate(): Promise<
   "available" | "current" | "unsupported"
 > {
-  if (!("serviceWorker" in navigator)) {
+  if (!import.meta.env.PROD || !("serviceWorker" in navigator)) {
     return "unsupported";
   }
 
