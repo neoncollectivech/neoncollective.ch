@@ -19,12 +19,15 @@ type PendingPulse = "scan" | "success" | "error" | "duplicate" | null;
 
 let pending: PendingPulse = null;
 
+/** Longer pulses — many Android devices barely feel sub-100ms vibrations. */
 const PATTERNS = {
-  scan: 80,
-  duplicate: 50,
-  success: [40, 80, 40] as const,
-  error: [60, 80, 60] as const,
+  scan: [100, 60, 140] as const,
+  duplicate: [80, 40, 80] as const,
+  success: [80, 50, 120, 50, 120] as const,
+  error: [100, 70, 100, 70, 140] as const,
 };
+
+const TEST_PATTERN = [80, 50, 120, 50, 120] as const;
 
 export function isVibrationApiPresent(): boolean {
   return typeof navigator.vibrate === "function";
@@ -69,8 +72,8 @@ function playTick(kind: "scan" | "success" | "error"): void {
   const gain = ctx.createGain();
 
   const freq = kind === "success" ? 880 : kind === "error" ? 220 : 1200;
-  const duration = kind === "success" ? 0.07 : kind === "error" ? 0.1 : 0.045;
-  const peak = kind === "success" ? 0.15 : kind === "error" ? 0.12 : 0.1;
+  const duration = kind === "success" ? 0.09 : kind === "error" ? 0.12 : 0.06;
+  const peak = kind === "success" ? 0.18 : kind === "error" ? 0.14 : 0.12;
 
   osc.type = "sine";
   osc.frequency.value = freq;
@@ -96,10 +99,10 @@ function patternFor(kind: Exclude<PendingPulse, null>): number | number[] {
   }
 
   if (kind === "duplicate") {
-    return PATTERNS.duplicate;
+    return [...PATTERNS.duplicate];
   }
 
-  return PATTERNS.scan;
+  return [...PATTERNS.scan];
 }
 
 function fire(
@@ -167,7 +170,7 @@ export function unlockAndTestScanHaptics(): boolean {
 
   pending = null;
 
-  return tryVibrate([30, 80, 30]);
+  return tryVibrate([...TEST_PATTERN]);
 }
 
 export function pulseScan(): void {

@@ -15,7 +15,7 @@ export type ScanFeedbackState =
   | "rejected"
   | "duplicate";
 
-const ACCEPT_COOLDOWN_MS = 1500;
+const ACCEPT_COOLDOWN_MS = 3000;
 const REJECT_COOLDOWN_MS = 800;
 const INVALID_COOLDOWN_MS = 700;
 
