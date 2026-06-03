@@ -5,7 +5,7 @@ import { List, LogOut } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 
-import { HapticsEnableBanner } from "@/components/scanner/HapticsEnableBanner";
+import { FeedbackSettingsMenu } from "@/components/scanner/FeedbackSettingsMenu";
 import { BrightScreenFallback } from "@/components/scanner/BrightScreenFallback";
 import { ScanFeedbackOverlay } from "@/components/scanner/ScanFeedbackOverlay";
 import { ScannerViewport } from "@/components/scanner/ScannerViewport";
@@ -166,6 +166,7 @@ export function ScanPage() {
         </div>
         <div className="flex items-center gap-2">
           <OutboxBadge />
+          <FeedbackSettingsMenu />
           <Button asChild size="icon" variant="ghost">
             <Link aria-label="View queue" to="/queue">
               <List className="h-5 w-5" />
@@ -186,7 +187,6 @@ export function ScanPage() {
         className="relative min-h-0 flex-1"
         onPointerDown={flushScanHapticsFromUserGesture}
       >
-        <HapticsEnableBanner />
         <ScannerViewport videoRef={videoRef} />
         {torch.brightScreen ? (
           <div
