@@ -5,6 +5,7 @@ import { List, LogOut } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 
+import { HapticsEnableBanner } from "@/components/scanner/HapticsEnableBanner";
 import { BrightScreenFallback } from "@/components/scanner/BrightScreenFallback";
 import { ScanFeedbackOverlay } from "@/components/scanner/ScanFeedbackOverlay";
 import { ScannerViewport } from "@/components/scanner/ScannerViewport";
@@ -21,7 +22,7 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import { enqueueCheckIn } from "@/lib/storage/check-in-outbox";
 import { startOutboxSyncScheduler } from "@/lib/storage/sync-outbox";
 import { clearDoorSessionConfig } from "@/lib/storage/session-config";
-import { unlockScanHaptics } from "@/lib/scan-haptic";
+import { flushScanHapticsFromUserGesture } from "@/lib/scan-haptic";
 import { cn } from "@/lib/utils";
 
 export function ScanPage() {
@@ -138,17 +139,14 @@ export function ScanPage() {
   }, [queryClient]);
 
   useEffect(() => {
-    const unlock = () => unlockScanHaptics();
+    const onGesture = () => flushScanHapticsFromUserGesture();
 
-    document.addEventListener("touchstart", unlock, {
-      once: true,
-      passive: true,
-    });
-    document.addEventListener("click", unlock, { once: true, passive: true });
+    document.addEventListener("touchstart", onGesture, { passive: true });
+    document.addEventListener("pointerdown", onGesture, { passive: true });
 
     return () => {
-      document.removeEventListener("touchstart", unlock);
-      document.removeEventListener("click", unlock);
+      document.removeEventListener("touchstart", onGesture);
+      document.removeEventListener("pointerdown", onGesture);
     };
   }, []);
 
@@ -184,7 +182,11 @@ export function ScanPage() {
         </div>
       </header>
 
-      <div className="relative min-h-0 flex-1" onTouchStart={unlockScanHaptics}>
+      <div
+        className="relative min-h-0 flex-1"
+        onPointerDown={flushScanHapticsFromUserGesture}
+      >
+        <HapticsEnableBanner />
         <ScannerViewport videoRef={videoRef} />
         {torch.brightScreen ? (
           <div

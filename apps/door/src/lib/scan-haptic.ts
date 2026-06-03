@@ -1,14 +1,37 @@
 /**
- * Scan haptics: navigator.vibrate often fails on Android Chrome when called from
- * async worker/decode paths (no user activation). Unlock AudioContext on first
- * touch, then use vibrate + short audio ticks as fallback.
+ * Scan haptics for mobile browsers.
+ *
+ * Chrome Android requires **sticky user activation**: `navigator.vibrate()` from
+ * the QR worker/async path usually returns true but does nothing. We queue
+ * feedback and flush it on the next touch/pointer event, and play audio after
+ * an explicit unlock gesture.
+ *
+ * There is no permission prompt for vibration on the web — only system settings
+ * (DND / silent) and Permissions-Policy can block it.
  */
+
+const STORAGE_KEY = "neon:door:hapticsEnabled";
 
 let audioContext: AudioContext | null = null;
 let unlocked = false;
 
-function isAndroid(): boolean {
-  return /Android/i.test(navigator.userAgent);
+type PendingPulse = "scan" | "success" | "error" | "duplicate" | null;
+
+let pending: PendingPulse = null;
+
+const PATTERNS = {
+  scan: 80,
+  duplicate: 50,
+  success: [40, 80, 40] as const,
+  error: [60, 80, 60] as const,
+};
+
+export function isVibrationApiPresent(): boolean {
+  return typeof navigator.vibrate === "function";
+}
+
+export function areScanHapticsUnlocked(): boolean {
+  return unlocked || sessionStorage.getItem(STORAGE_KEY) === "1";
 }
 
 function getAudioContext(): AudioContext | null {
@@ -23,26 +46,8 @@ function getAudioContext(): AudioContext | null {
   return audioContext;
 }
 
-/** Call from a user gesture (touch/click) once so later scan feedback can play audio. */
-export function unlockScanHaptics(): void {
-  const ctx = getAudioContext();
-
-  if (!ctx) {
-    return;
-  }
-
-  unlocked = true;
-
-  if (ctx.state === "suspended") {
-    void ctx.resume();
-  }
-
-  // Prime vibration in the same user activation (helps some Android builds).
-  tryVibrate(1);
-}
-
 function tryVibrate(pattern: number | number[]): boolean {
-  if (typeof navigator.vibrate !== "function") {
+  if (!isVibrationApiPresent()) {
     return false;
   }
 
@@ -64,13 +69,11 @@ function playTick(kind: "scan" | "success" | "error"): void {
   const gain = ctx.createGain();
 
   const freq = kind === "success" ? 880 : kind === "error" ? 220 : 1200;
-  const duration = kind === "success" ? 0.06 : kind === "error" ? 0.08 : 0.035;
-  const peak = kind === "success" ? 0.12 : kind === "error" ? 0.1 : 0.07;
+  const duration = kind === "success" ? 0.07 : kind === "error" ? 0.1 : 0.045;
+  const peak = kind === "success" ? 0.15 : kind === "error" ? 0.12 : 0.1;
 
   osc.type = "sine";
   osc.frequency.value = freq;
-  gain.gain.value = peak;
-
   osc.connect(gain);
   gain.connect(ctx.destination);
 
@@ -83,34 +86,102 @@ function playTick(kind: "scan" | "success" | "error"): void {
   osc.stop(start + duration + 0.01);
 }
 
-function pulse(
-  pattern: number | number[],
-  tick: "scan" | "success" | "error",
-): void {
-  const vibrated = tryVibrate(pattern);
-  const useAudioFallback = !vibrated || isAndroid();
+function patternFor(kind: Exclude<PendingPulse, null>): number | number[] {
+  if (kind === "success") {
+    return [...PATTERNS.success];
+  }
 
-  if (useAudioFallback && unlocked) {
-    playTick(tick);
+  if (kind === "error") {
+    return [...PATTERNS.error];
+  }
+
+  if (kind === "duplicate") {
+    return PATTERNS.duplicate;
+  }
+
+  return PATTERNS.scan;
+}
+
+function fire(
+  kind: Exclude<PendingPulse, null>,
+  fromUserGesture: boolean,
+): void {
+  const pattern = patternFor(kind);
+
+  if (fromUserGesture) {
+    tryVibrate(pattern);
+    if (unlocked) {
+      playTick(kind === "duplicate" ? "scan" : kind);
+    }
+
+    return;
+  }
+
+  tryVibrate(pattern);
+
+  if (unlocked) {
+    playTick(kind === "duplicate" ? "scan" : kind);
   }
 }
 
-/** Any QR decoded. */
+function queue(kind: Exclude<PendingPulse, null>): void {
+  pending = kind;
+  fire(kind, false);
+}
+
+/**
+ * Call from touch/click handlers (user gesture). Flushes queued scan feedback
+ * and resumes audio — required for reliable vibration on Android Chrome.
+ */
+export function flushScanHapticsFromUserGesture(): void {
+  unlockScanHaptics();
+
+  if (!pending) {
+    return;
+  }
+
+  const kind = pending;
+
+  pending = null;
+  fire(kind, true);
+}
+
+/** Resume audio; call from any user gesture once per session. */
+export function unlockScanHaptics(): void {
+  const ctx = getAudioContext();
+
+  unlocked = true;
+  sessionStorage.setItem(STORAGE_KEY, "1");
+
+  if (ctx?.state === "suspended") {
+    void ctx.resume();
+  }
+}
+
+/**
+ * User taps "Enable haptics" — runs test vibration inside the gesture.
+ * Returns whether the API accepted the request (not whether the motor ran).
+ */
+export function unlockAndTestScanHaptics(): boolean {
+  unlockScanHaptics();
+
+  pending = null;
+
+  return tryVibrate([30, 80, 30]);
+}
+
 export function pulseScan(): void {
-  pulse(25, "scan");
+  queue("scan");
 }
 
-/** Valid admission accepted. */
 export function pulseAccepted(): void {
-  pulse([20, 40, 20], "success");
+  queue("success");
 }
 
-/** Invalid code or API rejection. */
 export function pulseRejected(): void {
-  pulse([30, 40, 30], "error");
+  queue("error");
 }
 
-/** Duplicate scan hint. */
 export function pulseDuplicate(): void {
-  pulse(15, "scan");
+  queue("duplicate");
 }
