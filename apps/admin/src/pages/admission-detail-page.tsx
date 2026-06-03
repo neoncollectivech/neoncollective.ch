@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -155,7 +156,20 @@ function AdmissionDetailContent({
         <CardHeader>
           <CardTitle className="text-base">Credential</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col items-start gap-4">
+          <div className="rounded-lg bg-background p-4">
+            <QRCodeSVG
+              aria-label="Admission credential QR code"
+              bgColor="var(--color-background)"
+              fgColor="var(--color-primary)"
+              level="M"
+              size={220}
+              value={admission.signedCredential}
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Door apps scan this JWT at check-in.
+          </p>
           <Button
             variant="outline"
             onClick={() => {
