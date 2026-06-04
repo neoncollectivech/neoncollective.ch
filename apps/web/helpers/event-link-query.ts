@@ -10,6 +10,19 @@ export type ResolvedEventLinkQuery = {
   promo?: string;
 };
 
+/** One-time sign-in params — must not be copied across client navigations. */
+export const ONE_TIME_AUTH_URL_PARAMS = ["code", "login"] as const;
+
+export function stripOneTimeAuthSearchParams(
+  search: URLSearchParams,
+): URLSearchParams {
+  const next = new URLSearchParams(search.toString());
+  for (const key of ONE_TIME_AUTH_URL_PARAMS) {
+    next.delete(key);
+  }
+  return next;
+}
+
 function storageKey(scope: string, urlKey: string): string {
   return `neon:eventLink:${scope}:${urlKey}`;
 }
@@ -118,7 +131,7 @@ export function buildEventHref(
   );
 
   if (existingSearch) {
-    existingSearch.forEach((value, key) => {
+    stripOneTimeAuthSearchParams(existingSearch).forEach((value, key) => {
       params.set(key, value);
     });
   }

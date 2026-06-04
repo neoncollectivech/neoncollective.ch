@@ -125,6 +125,10 @@ export function useExchangeRegistrationCode(params: {
   const exchangeMutation = useMutation(
     eventsApi.registration.exchangeSession(),
   );
+  const sessionQuery = useQuery({
+    ...eventsApi.participant.session(),
+    enabled: Boolean(params.code),
+  });
   const [codeHandled, setCodeHandled] = useState(!params.code);
   const [codeError, setCodeError] = useState<string | null>(null);
   const onInvalidatedRef = useRef(params.onInvalidated);
@@ -135,7 +139,17 @@ export function useExchangeRegistrationCode(params: {
     if (!params.code || codeHandled) {
       return;
     }
+    if (sessionQuery.isLoading) {
+      return;
+    }
     let cancelled = false;
+
+    const stripCodeFromUrl = () => {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete("code");
+      const qs = nextParams.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    };
 
     void (async () => {
       const rawCode = params.code;
@@ -143,18 +157,24 @@ export function useExchangeRegistrationCode(params: {
       if (!rawCode) {
         return;
       }
+
+      if (sessionQuery.data?.session) {
+        if (cancelled) {
+          return;
+        }
+        setCodeHandled(true);
+        stripCodeFromUrl();
+        await onInvalidatedRef.current?.();
+        return;
+      }
+
       try {
         await exchangeMutation.mutateAsync(rawCode);
         if (cancelled) {
           return;
         }
         setCodeHandled(true);
-        const nextParams = new URLSearchParams(searchParams.toString());
-
-        nextParams.delete("code");
-        const qs = nextParams.toString();
-
-        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+        stripCodeFromUrl();
         await onInvalidatedRef.current?.();
       } catch {
         if (!cancelled) {
@@ -167,7 +187,7 @@ export function useExchangeRegistrationCode(params: {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per code
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- exchange once per code after session is known
   }, [
     params.code,
     params.sessionErrorLabel,
@@ -175,6 +195,8 @@ export function useExchangeRegistrationCode(params: {
     pathname,
     router,
     searchParams,
+    sessionQuery.isLoading,
+    sessionQuery.data?.session,
   ]);
 
   return { codeHandled, codeError };
