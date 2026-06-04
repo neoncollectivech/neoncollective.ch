@@ -13,6 +13,16 @@ import { ordersService } from "./orders.service";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base/table-service";
 
+export type CheckInGuestDisplay = {
+  guestName: string;
+  tiers: string;
+};
+
+export type CheckInByCredentialResult =
+  | ({ ok: true } & CheckInGuestDisplay)
+  | ({ ok: false; reason: "already_checked_in" } & CheckInGuestDisplay)
+  | { ok: false; reason: "admission_not_found" };
+
 const admissionsTableMeta = introspectTable(admissions, {
   fields: { list: [], read: [], create: [], update: [] },
 });
@@ -217,11 +227,58 @@ export class AdmissionsService extends TableService<typeof admissions> {
     return { ok: true };
   }
 
+  async resolveGuestDisplayForAdmission(
+    admission: Pick<typeof admissions.$inferSelect, "orderId" | "eventId">,
+  ): Promise<CheckInGuestDisplay> {
+    const db = getDb();
+    const [personRow] = await db
+      .select({
+        givenName: people.givenName,
+        familyName: people.familyName,
+        personId: orders.personId,
+      })
+      .from(orders)
+      .innerJoin(people, eq(orders.personId, people.id))
+      .where(eq(orders.id, admission.orderId))
+      .limit(1);
+
+    const guestName = personRow
+      ? `${personRow.givenName} ${personRow.familyName}`.trim() || "Guest"
+      : "Guest";
+
+    if (!personRow) {
+      return { guestName, tiers: "" };
+    }
+
+    const paidOrderIds = await ordersService.listIdsForPersonOnEventAndStatuses({
+      eventId: admission.eventId,
+      personId: personRow.personId,
+      statuses: ["paid"],
+    });
+    const tierIds = await orderTiersService.listTierIdsAmongOrderIds(paidOrderIds);
+    const tiers = await eventTiersService.getByIds(tierIds);
+    const lines = tierIds.map((eventTierId) => {
+      const tier = tiers.find((t) => t.id === eventTierId);
+
+      return {
+        id: eventTierId,
+        name: tier?.name ?? eventTierId,
+        selectionMode: tier?.selectionMode ?? ("addon" as const),
+        unitPriceCents: 0,
+      };
+    });
+
+    return {
+      guestName,
+      tiers: formatOrderTierNamesFromLines(lines) ?? "",
+    };
+  }
+
   async checkInByCredential(params: {
     credential: string;
     checkedInBy: string;
     restrictToEventId: string | null;
-  }): Promise<{ ok: true } | { ok: false; reason: "admission_not_found" }> {
+  }): Promise<CheckInByCredentialResult> {
     const trimmed = params.credential.trim();
     if (!trimmed) {
       return { ok: false, reason: "admission_not_found" };
@@ -243,13 +300,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
     const [admission] = await db
       .select()
       .from(admissions)
-      .where(
-        and(
-          eq(admissions.id, admissionId),
-          isNull(admissions.revokedAt),
-          isNull(admissions.checkedInAt),
-        ),
-      )
+      .where(and(eq(admissions.id, admissionId), isNull(admissions.revokedAt)))
       .limit(1);
 
     if (!admission) {
@@ -278,6 +329,12 @@ export class AdmissionsService extends TableService<typeof admissions> {
       return { ok: false, reason: "admission_not_found" };
     }
 
+    const guest = await this.resolveGuestDisplayForAdmission(admission);
+
+    if (admission.checkedInAt) {
+      return { ok: false, reason: "already_checked_in", ...guest };
+    }
+
     await db
       .update(admissions)
       .set({
@@ -286,7 +343,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
       })
       .where(eq(admissions.id, admission.id));
 
-    return { ok: true };
+    return { ok: true, ...guest };
   }
 
   async cancelCheckIn(

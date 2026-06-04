@@ -21,6 +21,7 @@ import {
 } from "@/hooks/use-scan-feedback";
 import { useTorch } from "@/hooks/use-torch";
 import { normalizeAdmissionCredential } from "@/lib/admission-credential";
+import { parseCheckInGuestFromError } from "@/lib/check-in-display";
 import { verifyAdmissionCredentialOffline } from "@/lib/admission-jwks";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { enqueueCheckIn } from "@/lib/storage/check-in-outbox";
@@ -103,7 +104,7 @@ export function ScanPage() {
 
       const queueOffline = async () => {
         await enqueueCheckIn(credential);
-        fb.onAccepted("Queued — will sync when online");
+        fb.onAccepted({ subtitle: "Queued — will sync when online" });
         void queryClient.invalidateQueries({
           queryKey: doorKeys.outbox.stats(),
         });
@@ -116,8 +117,9 @@ export function ScanPage() {
           return;
         }
 
-        await checkInMutation.mutateAsync(credential);
-        fb.onAccepted();
+        const result = await checkInMutation.mutateAsync(credential);
+
+        fb.onAccepted({ guest: result });
       } catch (error) {
         if (!navigator.onLine) {
           await queueOffline();
@@ -127,6 +129,14 @@ export function ScanPage() {
 
         if (axios.isAxiosError(error) && !error.response) {
           await queueOffline();
+
+          return;
+        }
+
+        if (axios.isAxiosError(error) && error.response?.status === 409) {
+          const guest = parseCheckInGuestFromError(error.response.data);
+
+          fb.onDuplicate(guest ?? undefined);
 
           return;
         }
@@ -242,6 +252,7 @@ export function ScanPage() {
           />
         ) : null}
         <ScanFeedbackOverlay
+          guest={feedback.guest}
           message={feedback.message}
           state={feedback.state}
         />

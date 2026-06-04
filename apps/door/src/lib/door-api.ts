@@ -1,3 +1,5 @@
+import type { CheckInResponse } from "@/lib/check-in-display";
+
 import { api } from "@/lib/api-client";
 
 export type DoorEventCatalogRow = {
@@ -10,8 +12,10 @@ export type DoorEventCatalogRow = {
   inviteOnly: boolean;
 };
 
-export async function postCheckIn(credential: string): Promise<{ ok: true }> {
-  const { data } = await api.post<{ ok: true }>("/check-in", { credential });
+export async function postCheckIn(
+  credential: string,
+): Promise<CheckInResponse> {
+  const { data } = await api.post<CheckInResponse>("/check-in", { credential });
 
   return data;
 }

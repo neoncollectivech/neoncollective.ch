@@ -1,4 +1,5 @@
 import type { ScanFeedbackState } from "@/hooks/use-scan-feedback";
+import type { CheckInGuestDisplay } from "@/lib/check-in-display";
 
 import { cn } from "@/lib/utils";
 
@@ -17,11 +18,13 @@ const STATE_STYLES: Record<
 type ScanFeedbackOverlayProps = {
   state: ScanFeedbackState;
   message: string | null;
+  guest: CheckInGuestDisplay | null;
 };
 
 export function ScanFeedbackOverlay({
   state,
   message,
+  guest,
 }: ScanFeedbackOverlayProps) {
   const style = STATE_STYLES[state];
 
@@ -36,11 +39,13 @@ export function ScanFeedbackOverlay({
     );
   }
 
+  const showGuest = guest && (state === "accepted" || state === "duplicate");
+
   return (
     <div
       aria-live="polite"
       className={cn(
-        "pointer-events-none absolute inset-0 flex flex-col items-center justify-center transition-colors duration-150",
+        "pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center transition-colors duration-150",
         style.bg,
       )}
       role="status"
@@ -48,6 +53,18 @@ export function ScanFeedbackOverlay({
       <p className="text-lg font-semibold text-foreground drop-shadow-md">
         {message ?? style.label}
       </p>
+      {showGuest ? (
+        <div className="max-w-full space-y-1">
+          <p className="truncate text-2xl font-bold tracking-tight text-foreground drop-shadow-md">
+            {guest.guestName}
+          </p>
+          {guest.tiers ? (
+            <p className="text-base font-medium text-foreground/90 drop-shadow-md">
+              {guest.tiers}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

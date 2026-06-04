@@ -12,7 +12,11 @@ import { jsonReasonFailure } from "./shared/respond";
 const CHECK_IN_ERRORS = {
   admission_not_found: {
     status: 404 as ContentfulStatusCode,
-    error: "Place not found or already checked in.",
+    error: "Admission not found or invalid.",
+  },
+  already_checked_in: {
+    status: 409 as ContentfulStatusCode,
+    error: "Already checked in.",
   },
 } as const;
 
@@ -33,9 +37,25 @@ export function createCheckInRouter(): Hono<AppEnv> {
           restrictToEventId: apiKey.eventId,
         });
         if (!res.ok) {
+          if (res.reason === "already_checked_in") {
+            return c.json(
+              {
+                error: CHECK_IN_ERRORS.already_checked_in.error,
+                guestName: res.guestName,
+                tiers: res.tiers,
+              },
+              CHECK_IN_ERRORS.already_checked_in.status,
+            );
+          }
+
           return jsonReasonFailure(c, res, CHECK_IN_ERRORS);
         }
-        return c.json({ ok: true });
+
+        return c.json({
+          ok: true,
+          guestName: res.guestName,
+          tiers: res.tiers,
+        });
       },
     ),
   );

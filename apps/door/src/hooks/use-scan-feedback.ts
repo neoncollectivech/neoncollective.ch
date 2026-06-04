@@ -1,3 +1,5 @@
+import type { CheckInGuestDisplay } from "@/lib/check-in-display";
+
 import { useCallback, useRef, useState } from "react";
 
 import {
@@ -34,6 +36,7 @@ export function isScannerLockedState(state: ScanFeedbackState): boolean {
 export function useScanFeedback() {
   const [state, setState] = useState<ScanFeedbackState>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [guest, setGuest] = useState<CheckInGuestDisplay | null>(null);
   const [coolingDown, setCoolingDown] = useState(false);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -52,6 +55,7 @@ export function useScanFeedback() {
       cooldownTimerRef.current = setTimeout(() => {
         setState(next);
         setMessage(null);
+        setGuest(null);
         setCoolingDown(false);
         cooldownTimerRef.current = null;
       }, ms);
@@ -99,9 +103,10 @@ export function useScanFeedback() {
   }, []);
 
   const onAccepted = useCallback(
-    (subtitle?: string) => {
+    (options?: { subtitle?: string; guest?: CheckInGuestDisplay }) => {
       setState("accepted");
-      setMessage(subtitle ?? null);
+      setGuest(options?.guest ?? null);
+      setMessage(options?.subtitle ?? null);
       pulseAccepted();
       startCooldown(ACCEPT_COOLDOWN_MS, "idle");
 
@@ -122,23 +127,29 @@ export function useScanFeedback() {
     [startCooldown],
   );
 
-  const onDuplicate = useCallback(() => {
-    setState("duplicate");
-    setMessage(null);
-    pulseDuplicate();
-    startCooldown(RESULT_COOLDOWN_MS, "idle");
-  }, [startCooldown]);
+  const onDuplicate = useCallback(
+    (guestInfo?: CheckInGuestDisplay) => {
+      setState("duplicate");
+      setGuest(guestInfo ?? null);
+      setMessage(null);
+      pulseDuplicate();
+      startCooldown(RESULT_COOLDOWN_MS, "idle");
+    },
+    [startCooldown],
+  );
 
   const reset = useCallback(() => {
     clearCooldownTimer();
     setState("idle");
     setMessage(null);
+    setGuest(null);
     setCoolingDown(false);
   }, [clearCooldownTimer]);
 
   return {
     state,
     message,
+    guest,
     coolingDown,
     onScanned,
     onDecoded,

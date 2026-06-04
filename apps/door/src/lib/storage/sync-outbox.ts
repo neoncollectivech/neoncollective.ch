@@ -12,9 +12,15 @@ import {
 const MAX_ATTEMPTS = 8;
 let syncing = false;
 
-/** Queued tokens that 404 on replay are treated as already checked in. */
-function isOutboxReplayNotFound(error: unknown): boolean {
-  return axios.isAxiosError(error) && error.response?.status === 404;
+/** Queued tokens that are already checked in on replay are treated as synced. */
+function isOutboxReplayAlreadyCheckedIn(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  const status = error.response?.status;
+
+  return status === 404 || status === 409;
 }
 
 async function syncRow(row: CheckInOutboxRow): Promise<void> {
@@ -28,7 +34,7 @@ async function syncRow(row: CheckInOutboxRow): Promise<void> {
     await postCheckIn(row.credential);
     await updateOutboxRow(row.id, { status: "synced", lastError: null });
   } catch (error) {
-    if (isOutboxReplayNotFound(error)) {
+    if (isOutboxReplayAlreadyCheckedIn(error)) {
       await updateOutboxRow(row.id, { status: "synced", lastError: null });
 
       return;
