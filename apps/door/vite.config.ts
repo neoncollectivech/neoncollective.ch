@@ -43,13 +43,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "");
   const doorBase = resolveDoorBase(env);
   const pwaScope = pwaScopePath(doorBase);
-  const publicSiteUrl = (
-    process.env.VITE_PUBLIC_SITE_URL ?? env.VITE_PUBLIC_SITE_URL
-  )?.replace(/\/$/, "");
-  const manifestStartUrl =
-    publicSiteUrl && doorBase !== "/"
-      ? `${publicSiteUrl}${pwaScope}`
-      : pwaScope;
+  /** Path-only manifest fields — iOS rejects cross-origin or absolute id/start_url mismatches. */
+  const manifestStartUrl = pwaScope;
+  const manifestId = pwaScope;
 
   return {
     base: doorBase,
@@ -77,7 +73,7 @@ export default defineConfig(({ mode }) => {
         scope: doorBase,
         includeAssets: pwaIncludeAssets,
         manifest: {
-          id: manifestStartUrl,
+          id: manifestId,
           name: "NEON Door",
           short_name: "NEON Door",
           description: "NEON Collective event check-in scanner",
@@ -88,6 +84,12 @@ export default defineConfig(({ mode }) => {
           start_url: manifestStartUrl,
           scope: pwaScope,
           icons: [
+            {
+              src: pwaPublicAssetPath(doorBase, "apple-touch-icon.png"),
+              sizes: "180x180",
+              type: "image/png",
+              purpose: "any",
+            },
             {
               src: pwaPublicAssetPath(doorBase, "android-chrome-192x192.png"),
               sizes: "192x192",

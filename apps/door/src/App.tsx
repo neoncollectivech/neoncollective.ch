@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { AuthGuard } from "@/components/AuthGuard";
+import { PwaInstallBanner } from "@/components/PwaInstallBanner";
 import { PwaUpdateNotifier } from "@/components/PwaUpdateNotifier";
 import { doorBasename } from "@/lib/door-base";
 import { queryClient } from "@/lib/query-client";
@@ -49,6 +50,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={doorBasename || undefined}>
+        <PwaInstallBanner />
         <Routes>
           <Route element={<SetupRedirect />} path="/setup" />
           <Route element={<EventSelectRedirect />} path="/setup/event" />

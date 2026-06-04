@@ -30,6 +30,10 @@ Installable PWA output is in `apps/door/dist/` (service worker + self-hosted `zx
 
 After a deploy, open the app and use **Settings → Check for updates** (or accept the **Update now** toast when a new version is ready). Uninstall is not required.
 
+### Install on iPhone (iOS)
+
+iOS does **not** show a Chrome-style install prompt. In **Safari**, open `https://neoncollective.ch/door/`, tap **Share** (□↑), then **Add to Home Screen**. Use the home-screen icon (not a Safari tab) at the door. The in-app banner on setup repeats these steps.
+
 ## GitHub Pages (`/door/`)
 
 Production deploy merges `apps/door/dist` into `apps/web/out/door/` in [`.github/workflows/nextjs.yml`](../../.github/workflows/nextjs.yml) (same pattern as admin at `/admin/`). After merging to `main`, Pages serves https://neoncollective.ch/door/.
