@@ -48,6 +48,7 @@ export function NeonOtpInput({
       <InputOTP
         data-testid={dataTestId}
         disabled={disabled}
+        inputMode="text"
         maxLength={OTP_LENGTH}
         value={value}
         onChange={(next) => onChange(normalizeOtpValue(next))}
