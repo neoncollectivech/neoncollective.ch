@@ -185,14 +185,6 @@ export function ScanPage() {
   }, [queryClient]);
 
   useEffect(() => {
-    document.documentElement.classList.add("door-scan-locked");
-
-    return () => {
-      document.documentElement.classList.remove("door-scan-locked");
-    };
-  }, []);
-
-  useEffect(() => {
     const onGesture = () => unlockScanFeedback();
 
     document.addEventListener("pointerdown", onGesture, {
@@ -211,7 +203,7 @@ export function ScanPage() {
   };
 
   return (
-    <div className="fixed inset-0 z-0 flex h-[100svh] max-h-[100svh] flex-col overflow-hidden bg-black">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-black">
       <header className="relative z-10 flex shrink-0 items-center justify-between gap-2 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
           <span className="text-sm font-semibold tracking-wide">NEON Door</span>

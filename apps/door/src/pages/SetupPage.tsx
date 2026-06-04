@@ -77,7 +77,7 @@ export function SetupPage() {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
+    <div className="door-scroll-page door-scroll-page--centered max-w-md">
       <Card>
         <CardHeader>
           <CardTitle>NEON Door setup</CardTitle>

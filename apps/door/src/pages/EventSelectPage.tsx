@@ -73,7 +73,7 @@ export function EventSelectPage() {
   const existingSession = getDoorSessionConfig();
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
+    <div className="door-scroll-page max-w-md">
       <Card>
         <CardHeader>
           <CardTitle>Choose event</CardTitle>

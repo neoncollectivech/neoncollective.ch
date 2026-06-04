@@ -17,7 +17,7 @@ export function PwaInstallBanner() {
   return (
     <div
       aria-label="Install NEON Door"
-      className="border-b border-amber-500/40 bg-amber-950/90 px-3 py-3 text-amber-50"
+      className="shrink-0 border-b border-amber-500/40 bg-amber-950/90 px-3 py-3 text-amber-50"
       role="region"
     >
       <div className="mx-auto flex max-w-lg items-start gap-3">

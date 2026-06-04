@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { AuthGuard } from "@/components/AuthGuard";
-import { PwaInstallBanner } from "@/components/PwaInstallBanner";
+import { DoorAppShell } from "@/components/DoorAppShell";
 import { PwaUpdateNotifier } from "@/components/PwaUpdateNotifier";
 import { doorBasename } from "@/lib/door-base";
 import { queryClient } from "@/lib/query-client";
@@ -50,16 +50,17 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={doorBasename || undefined}>
-        <PwaInstallBanner />
-        <Routes>
-          <Route element={<SetupRedirect />} path="/setup" />
-          <Route element={<EventSelectRedirect />} path="/setup/event" />
-          <Route element={<AuthGuard />}>
-            <Route index element={<ScanPage />} />
-            <Route element={<QueuePage />} path="queue" />
-          </Route>
-          <Route element={<Navigate replace to="/" />} path="*" />
-        </Routes>
+        <DoorAppShell>
+          <Routes>
+            <Route element={<SetupRedirect />} path="/setup" />
+            <Route element={<EventSelectRedirect />} path="/setup/event" />
+            <Route element={<AuthGuard />}>
+              <Route index element={<ScanPage />} />
+              <Route element={<QueuePage />} path="queue" />
+            </Route>
+            <Route element={<Navigate replace to="/" />} path="*" />
+          </Routes>
+        </DoorAppShell>
         <PwaUpdateNotifier />
         <Toaster richColors theme="dark" />
       </BrowserRouter>

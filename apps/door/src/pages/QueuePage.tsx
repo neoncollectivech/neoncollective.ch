@@ -6,7 +6,7 @@ import { OutboxPanel } from "@/components/queue/OutboxPanel";
 
 export function QueuePage() {
   return (
-    <div className="mx-auto min-h-screen max-w-lg p-4">
+    <div className="door-scroll-page">
       <div className="mb-4 flex items-center gap-2">
         <Button asChild size="icon" variant="ghost">
           <Link aria-label="Back to scanner" to="/">
