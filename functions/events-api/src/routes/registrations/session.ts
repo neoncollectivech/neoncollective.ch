@@ -1,6 +1,7 @@
 import { randomHex } from "@neon/server-kit";
 
 import {
+  buildClearSessionCookieHeader,
   buildSessionCookieHeader,
 } from "../../auth/cookies/participant";
 import { peopleService } from "../../services/people.service";
@@ -575,5 +576,16 @@ export async function createAnonymousParticipantSession(params: {
     setCookie,
     session: { sessionId, personId: null, eventInviteeId: null, inviteLinkId },
     created: true,
+  };
+}
+
+export async function endParticipantSession(params: {
+  sessionId: string;
+  crossSiteCookie: boolean;
+}): Promise<{ ok: true; clearCookie: string }> {
+  await participantSessionsService.deleteById(params.sessionId);
+  return {
+    ok: true,
+    clearCookie: buildClearSessionCookieHeader(params.crossSiteCookie),
   };
 }

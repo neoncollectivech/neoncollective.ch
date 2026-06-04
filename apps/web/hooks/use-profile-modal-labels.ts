@@ -28,3 +28,15 @@ export function useProfileModalLabels(): ProfileModalLabels {
     errorGeneric: t.profileErrorGeneric,
   };
 }
+
+export function useProfileManageModalLabels(): ProfileModalLabels {
+  const base = useProfileModalLabels();
+  const { dictionary } = useDictionary();
+  const t = dictionary.events;
+
+  return {
+    ...base,
+    title: t.profileManageTitle,
+    subtitle: t.profileManageSubtitle,
+  };
+}

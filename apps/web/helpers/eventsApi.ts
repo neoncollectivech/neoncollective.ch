@@ -302,6 +302,10 @@ export async function exchangeRegistrationSessionCode(
   await eventsClient.post("/registrations/session/exchange", { code });
 }
 
+export async function endParticipantSession(): Promise<void> {
+  await eventsClient.post("/registrations/session/logout");
+}
+
 /** `GET /registrations/session/me` — session flag and display names for the events UI. */
 export async function fetchParticipantSessionStatus(): Promise<{
   session: boolean;

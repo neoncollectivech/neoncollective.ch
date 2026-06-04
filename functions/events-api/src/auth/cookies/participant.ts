@@ -32,3 +32,11 @@ function cookieOptions(crossSite: boolean): Parameters<typeof generateCookie>[2]
 export function buildSessionCookieHeader(token: string, crossSite: boolean): string {
   return generateCookie(PARTICIPANT_SESSION_COOKIE, token, cookieOptions(crossSite));
 }
+
+/** Clears the participant session cookie in the browser. */
+export function buildClearSessionCookieHeader(crossSite: boolean): string {
+  return generateCookie(PARTICIPANT_SESSION_COOKIE, "", {
+    ...cookieOptions(crossSite),
+    maxAge: 0,
+  });
+}

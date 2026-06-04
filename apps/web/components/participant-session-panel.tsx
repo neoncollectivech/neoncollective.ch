@@ -2,6 +2,7 @@
 
 import type { QueryKey } from "@tanstack/react-query";
 
+import { useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -15,7 +16,7 @@ import { apiErrorMessage } from "@/helpers/apiErrorMessage";
 import { absoluteSiteUrl } from "@/helpers/site-url";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useLocale } from "@/hooks/use-locale";
-import { useParticipantSession } from "@/hooks/use-events-api";
+import { eventsApi, useParticipantSession } from "@/hooks/use-events-api";
 
 type ParticipantSessionPanelProps = {
   returnPath: string;
@@ -69,6 +70,17 @@ export function ParticipantSessionPanel({
     returnPath,
     enabled: !codeExchangePending,
     sessionEstablishedQueryKeys,
+  });
+
+  const signOutMutation = useMutation({
+    ...eventsApi.registration.endSession(),
+    onSuccess: async () => {
+      setAwaitingCode(false);
+      setAccessCode("");
+      setAccessChannel(null);
+      sessionMutation.reset();
+      await invalidateAfterExchange();
+    },
   });
 
   useEffect(() => {
@@ -139,18 +151,32 @@ export function ParticipantSessionPanel({
     return (
       <section className="max-w-xl space-y-3">
         <p className="neon-title-card">{welcomeLine}</p>
-        {onManageProfile ? (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {onManageProfile ? (
+            <NeonLink
+              as="button"
+              className="font-semibold normal-case tracking-tight"
+              data-testid="participant-session-manage-profile"
+              neonStyle="inline"
+              type="button"
+              onPress={onManageProfile}
+            >
+              {t.sessionManageProfile}
+              <span aria-hidden="true">&rarr;</span>
+            </NeonLink>
+          ) : null}
           <NeonLink
             as="button"
-            className="font-semibold normal-case tracking-tight"
+            className="font-semibold normal-case tracking-tight text-foreground/50"
+            data-testid="participant-session-sign-out"
+            isDisabled={signOutMutation.isPending}
             neonStyle="inline"
             type="button"
-            onPress={onManageProfile}
+            onPress={() => signOutMutation.mutate()}
           >
-            {t.sessionManageProfile}
-            <span aria-hidden="true">&rarr;</span>
+            {signOutMutation.isPending ? "…" : t.sessionSignOut}
           </NeonLink>
-        ) : null}
+        </div>
       </section>
     );
   }

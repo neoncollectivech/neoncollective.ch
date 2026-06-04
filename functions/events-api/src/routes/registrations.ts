@@ -27,6 +27,7 @@ import {
 import {
   createAnonymousParticipantSession,
   type CreateAnonymousSessionFailureReason,
+  endParticipantSession,
   exchangeRegistrationCode,
   type ExchangeRegistrationCodeFailureReason,
   requestRegistrationSession,
@@ -177,6 +178,32 @@ export function createRegistrationsRouter(): Hono<AppEnv> {
       c.header("Set-Cookie", res.setCookie);
       return c.json({ ok: true });
     },
+  );
+
+  router.post(
+    "/registrations/session/logout",
+    ...authFactory.createHandlers(
+      requireAuth("participantSession", { error: "Session required." }),
+      async (c) => {
+        if (!requireDatabase(c)) {
+          return databaseUnavailableResponse(c);
+        }
+        const session = c.var.participantSession;
+        if (!session) {
+          return c.json({ error: "Session required." }, 401);
+        }
+        const crossSite = resolveParticipantSessionCookieCrossSite({
+          originHeader: c.req.header("Origin"),
+          requestUrl: c.req.url,
+        });
+        const res = await endParticipantSession({
+          sessionId: session.sessionId,
+          crossSiteCookie: crossSite,
+        });
+        c.header("Set-Cookie", res.clearCookie);
+        return c.json({ ok: true });
+      },
+    ),
   );
 
   router.post(

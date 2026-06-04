@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import NextLink from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Suspense } from "react";
 
 import { NeonButton } from "@/components/neon-button";
@@ -11,11 +11,13 @@ import { FormError } from "@/components/form-error";
 import { PageHeader } from "@/components/page-header";
 import { PageSpinner } from "@/components/page-spinner";
 import { ResponsiveEventImage } from "@/components/responsive-event-image";
+import { ParticipantProfileModal } from "@/components/participant-profile-modal";
 import {
   ParticipantProfileGateModal,
   useParticipantProfileGate,
 } from "@/hooks/use-participant-profile-gate";
 import { ParticipantSessionPanel } from "@/components/participant-session-panel";
+import { useProfileManageModalLabels } from "@/hooks/use-profile-modal-labels";
 import { useDictionary } from "@/i18n/DictionaryContext";
 import { useEventLinkState } from "@/hooks/use-event-link-state";
 import { useLocale } from "@/hooks/use-locale";
@@ -60,11 +62,23 @@ function EventsIndexInner() {
   const { dictionary } = useDictionary();
   const t = dictionary.events;
   const profileGate = useParticipantProfileGate(inviteToken);
+  const [profileManageOpen, setProfileManageOpen] = useState(false);
+  const manageProfileLabels = useProfileManageModalLabels();
 
   const { codeHandled, codeError } = useExchangeRegistrationCode({
     code,
     sessionErrorLabel: t.sessionError,
   });
+
+  const profileQuery = useQuery(
+    eventsApi.participant.profile({
+      inviteToken,
+      enabled:
+        codeHandled &&
+        !profileGate.profileLoading &&
+        !profileGate.needsProfile,
+    }),
+  );
 
   const listQuery = useQuery(
     eventsApi.catalog({
@@ -98,17 +112,26 @@ function EventsIndexInner() {
     codeHandled &&
     sessionQuery.isLoading;
 
-  const welcomeLine = (() => {
-    const givenName = sessionQuery.data?.givenName?.trim();
-
-    return givenName
-      ? t.sessionWelcomeBack.replaceAll("{name}", givenName)
-      : t.sessionWelcomeBackNoName;
-  })();
+  const showProfileManageModal =
+    profileManageOpen && !profileGate.profileLoading && !profileGate.needsProfile;
 
   return (
     <>
       <ParticipantProfileGateModal gate={profileGate} />
+
+      {showProfileManageModal ? (
+        <ParticipantProfileModal
+          open
+          dismissable
+          initialProfile={profileGate.profile ?? profileQuery.data ?? undefined}
+          labels={manageProfileLabels}
+          onComplete={async (saved) => {
+            await profileGate.onProfileComplete(saved);
+            setProfileManageOpen(false);
+          }}
+          onDismiss={() => setProfileManageOpen(false)}
+        />
+      ) : null}
 
       <div className={profileGate.dimmedContentClassName}>
         <PageHeader
@@ -121,27 +144,17 @@ function EventsIndexInner() {
           <PageSpinner className="py-4 mb-10 md:mb-12" size="md" />
         ) : null}
 
-        {!profileGate.needsProfile &&
-        !sessionBlockLoading &&
-        sessionEstablished ? (
-          <p
-            className="mb-10 md:mb-12 text-base md:text-lg font-semibold text-foreground/90 tracking-tight"
-            data-testid="events-index-welcome"
-          >
-            {welcomeLine}
-          </p>
-        ) : null}
-
-        {!profileGate.needsProfile &&
-        !sessionBlockLoading &&
-        !sessionEstablished ? (
+        {!profileGate.needsProfile && !sessionBlockLoading ? (
           <NeonCard className="mb-10 md:mb-12" surface="default">
             <NeonCardBody padding="session">
-              <h2 className="neon-label mb-4 normal-case tracking-tight text-foreground/80">
-                {t.sessionHeading}
-              </h2>
+              {!sessionEstablished ? (
+                <h2 className="neon-label mb-4 normal-case tracking-tight text-foreground/80">
+                  {t.sessionHeading}
+                </h2>
+              ) : null}
               <ParticipantSessionPanel
                 embedded
+                hideIntro={sessionEstablished}
                 codeExchangePending={!codeHandled}
                 returnPath={eventReturnPath(`/${locale}/events`)}
                 sessionEstablishedQueryKeys={[
@@ -149,6 +162,14 @@ function EventsIndexInner() {
                   eventsKeys.participant.profile(),
                   eventsKeys.participant.session(),
                 ]}
+                onManageProfile={
+                  sessionEstablished
+                    ? async () => {
+                        await profileQuery.refetch();
+                        setProfileManageOpen(true);
+                      }
+                    : undefined
+                }
               />
             </NeonCardBody>
           </NeonCard>

@@ -15,6 +15,7 @@ import {
   createEventCheckoutIntent,
   previewEventCheckoutPricing,
   establishAnonymousSession,
+  endParticipantSession,
   exchangeRegistrationSessionCode,
   fetchEvent,
   fetchEventsCatalog,
@@ -220,6 +221,13 @@ export const eventsApi = {
     exchangeSession: () =>
       mutationOptions({
         mutationFn: (code: string) => exchangeRegistrationSessionCode(code),
+        onSuccess: async () => {
+          await invalidateParticipant();
+        },
+      }),
+    endSession: () =>
+      mutationOptions({
+        mutationFn: () => endParticipantSession(),
         onSuccess: async () => {
           await invalidateParticipant();
         },

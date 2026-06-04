@@ -129,6 +129,7 @@
     "sessionWelcomeBack": "Bentornato, {name}",
     "sessionWelcomeBackNoName": "Bentornato.",
     "sessionManageProfile": "Gestisci profilo",
+    "sessionSignOut": "Esci",
     "sessionNotFound": "Nessun risultato.",
     "sessionError": "Codice non valido o scaduto.",
     "privateMissingSlug":

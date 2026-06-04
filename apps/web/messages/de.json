@@ -129,6 +129,7 @@
     "sessionWelcomeBack": "Willkommen zurück, {name}",
     "sessionWelcomeBackNoName": "Willkommen zurück.",
     "sessionManageProfile": "Profil verwalten",
+    "sessionSignOut": "Abmelden",
     "sessionNotFound": "Kein Treffer.",
     "sessionError": "Ungültiger oder abgelaufener Code.",
     "privateMissingSlug":
