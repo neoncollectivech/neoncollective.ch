@@ -12,7 +12,7 @@ export const GSM7_SINGLE_SEGMENT_MAX = 160;
  * default alphabet, so Twilio keeps GSM-7 encoding (160 chars/segment). Rejects emoji,
  * umlauts, smart punctuation, and ASCII like `{|}~\`^[]` that are not GSM-default.
  */
-export const REGISTRATION_SMS_BODY_SAFE = /^[\n A-Za-z0-9:/?#=&.%+_()-]*$/;
+export const REGISTRATION_SMS_BODY_SAFE = /^[\n @A-Za-z0-9:/?#=&.%+_()-]*$/;
 
 export const SMS_MISSING_CREDENTIALS_MESSAGE =
   "SMS is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM, and either TWILIO_AUTH_TOKEN or (TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET for a restricted API key).";

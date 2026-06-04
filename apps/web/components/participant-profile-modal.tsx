@@ -307,6 +307,7 @@ export function ParticipantProfileModal({
               }}
             >
               <NeonOtpInput
+                key={verifyChannel ?? "verify"}
                 required
                 data-testid="participant-profile-verify-code"
                 label={labels.verifyCodeLabel}

@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { useWebOtpAutofill } from "@/hooks/use-web-otp-autofill";
 
 const OTP_LENGTH = 6;
 
@@ -33,6 +36,22 @@ export function NeonOtpInput({
   required = false,
   "data-testid": dataTestId,
 }: NeonOtpInputProps) {
+  const inputRef = useRef<React.ComponentRef<typeof InputOTP>>(null);
+  const { requestFromSms } = useWebOtpAutofill({
+    enabled: !disabled,
+    onCode: (raw) => onChange(normalizeOtpValue(raw)),
+  });
+
+  useEffect(() => {
+    if (disabled) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [disabled]);
+
   return (
     <div className="flex flex-col gap-2">
       {label ? (
@@ -46,12 +65,16 @@ export function NeonOtpInput({
         </label>
       ) : null}
       <InputOTP
+        ref={inputRef}
+        autoComplete="one-time-code"
+        autoFocus
         data-testid={dataTestId}
         disabled={disabled}
         inputMode="text"
         maxLength={OTP_LENGTH}
         value={value}
         onChange={(next) => onChange(normalizeOtpValue(next))}
+        onFocus={requestFromSms}
       >
         <InputOTPGroup>
           <InputOTPSlot index={0} />

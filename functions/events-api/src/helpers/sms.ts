@@ -1,18 +1,20 @@
 import { createLogger } from "@neon/server-kit";
 
-import { getEventsApiEnv } from "../config/runtime-env";
 import {
-  GSM7_SINGLE_SEGMENT_MAX,
   REGISTRATION_SMS_BODY_SAFE,
   SMS_MISSING_CREDENTIALS_MESSAGE,
 } from "../config/sms";
+import { getEventsApiEnv } from "../config/runtime-env";
+import {
+  buildRegistrationSmsBody,
+  webOtpBindingFromPublicSiteUrl,
+} from "./registration-sms-body";
 import {
   isTwilioOutboundConfigured,
   resolveTwilioCredentials,
   resolveTwilioOutboundParams,
   sendTwilioSms,
 } from "./twilio-rest";
-import { formatOtpDisplayCode } from "./otp";
 
 const log = createLogger("sms");
 
@@ -21,10 +23,7 @@ export function isSmsEnabled(): boolean {
   return Boolean(resolveTwilioCredentials(env)) && isTwilioOutboundConfigured(env);
 }
 
-function isSingleGsmSegmentRegistrationSms(body: string): boolean {
-  if (body.length > GSM7_SINGLE_SEGMENT_MAX) {
-    return false;
-  }
+function isValidRegistrationSmsBody(body: string): boolean {
   return REGISTRATION_SMS_BODY_SAFE.test(body);
 }
 
@@ -52,16 +51,25 @@ export async function sendRegistrationSmsCode(params: {
     return { ok: false, error: outbound.error };
   }
 
-  const body = `NEON ${formatOtpDisplayCode(params.code)}\n${params.accessUrl}`;
-  if (!isSingleGsmSegmentRegistrationSms(body)) {
+  const built = buildRegistrationSmsBody({
+    rawCode: params.code,
+    accessUrl: params.accessUrl,
+    webOtpBinding: webOtpBindingFromPublicSiteUrl(env.publicSiteUrl),
+  });
+  if (typeof built !== "string") {
+    log.error({ to: params.toE164 }, built.error);
+    return { ok: false, error: built.error };
+  }
+  const body = built;
+  if (!isValidRegistrationSmsBody(body)) {
     log.error(
       { len: body.length, to: params.toE164 },
-      "Registration SMS exceeds one GSM-7 segment or contains disallowed characters",
+      "Registration SMS contains disallowed characters",
     );
     return {
       ok: false,
       error:
-        "SMS template too long or non-ASCII for one segment. Use a shorter PUBLIC_SITE_URL / path, ASCII-only slugs, and no special characters.",
+        "SMS template has non-ASCII or disallowed characters. Use ASCII-only PUBLIC_SITE_URL / slugs.",
     };
   }
 
