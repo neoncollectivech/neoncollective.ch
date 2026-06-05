@@ -8,12 +8,16 @@ const API_KEY_KEY = "neon:door:apiKey";
 const KEY_LABEL_KEY = "neon:door:keyLabel";
 const EVENT_ID_KEY = "neon:door:eventId";
 const EVENT_TITLE_KEY = "neon:door:eventTitle";
+const READER_ID_KEY = "neon:door:readerId";
+const READER_NAME_KEY = "neon:door:readerName";
 
 export type DoorSessionConfig = {
   apiKey: string;
   keyLabel: string | null;
   eventId: string;
   eventTitle: string | null;
+  readerId: string | null;
+  readerName: string | null;
 };
 
 export type DoorApiKeyConfig = {
@@ -52,7 +56,26 @@ export function getDoorSessionConfig(): DoorSessionConfig | null {
     ...keyConfig,
     eventId,
     eventTitle: readPersistedItem(EVENT_TITLE_KEY),
+    readerId: readPersistedItem(READER_ID_KEY),
+    readerName: readPersistedItem(READER_NAME_KEY),
   };
+}
+
+export function setDoorReaderConfig(config: {
+  readerId: string;
+  readerName?: string | null;
+}): void {
+  writePersistedItem(READER_ID_KEY, config.readerId.trim());
+  if (config.readerName?.trim()) {
+    writePersistedItem(READER_NAME_KEY, config.readerName.trim());
+  } else {
+    removePersistedItem(READER_NAME_KEY);
+  }
+}
+
+export function clearDoorReaderConfig(): void {
+  removePersistedItem(READER_ID_KEY);
+  removePersistedItem(READER_NAME_KEY);
 }
 
 /** Saves API key (and optional label) before an event is chosen. */
@@ -104,4 +127,5 @@ export function clearDoorSessionConfig(): void {
   removePersistedItem(KEY_LABEL_KEY);
   removePersistedItem(EVENT_ID_KEY);
   removePersistedItem(EVENT_TITLE_KEY);
+  clearDoorReaderConfig();
 }

@@ -17,9 +17,11 @@ export function stripOneTimeAuthSearchParams(
   search: URLSearchParams,
 ): URLSearchParams {
   const next = new URLSearchParams(search.toString());
+
   for (const key of ONE_TIME_AUTH_URL_PARAMS) {
     next.delete(key);
   }
+
   return next;
 }
 

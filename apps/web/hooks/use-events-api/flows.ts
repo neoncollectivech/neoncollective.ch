@@ -146,8 +146,10 @@ export function useExchangeRegistrationCode(params: {
 
     const stripCodeFromUrl = () => {
       const nextParams = new URLSearchParams(searchParams.toString());
+
       nextParams.delete("code");
       const qs = nextParams.toString();
+
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     };
 
@@ -165,6 +167,7 @@ export function useExchangeRegistrationCode(params: {
         setCodeHandled(true);
         stripCodeFromUrl();
         await onInvalidatedRef.current?.();
+
         return;
       }
 

@@ -30,6 +30,7 @@
     "@neon/resource-api": "workspace:*",
     "@neon/server-kit": "workspace:*",
     "@neondatabase/serverless": "^0.10.4",
+    "@sumup/sdk": "^0.1.6",
     "arktype": "^2.1.0",
     "better-auth": "^1.2.0",
     "csv-stringify": "^6.5.2",

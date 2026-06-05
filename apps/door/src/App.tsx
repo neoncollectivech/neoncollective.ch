@@ -13,6 +13,7 @@ import {
 } from "@/lib/storage/session-config";
 import { EventSelectPage } from "@/pages/EventSelectPage";
 import { QueuePage } from "@/pages/QueuePage";
+import { PosPage } from "@/pages/PosPage";
 import { ScanPage } from "@/pages/ScanPage";
 import { SetupPage } from "@/pages/SetupPage";
 
@@ -56,6 +57,7 @@ export function App() {
             <Route element={<EventSelectRedirect />} path="/setup/event" />
             <Route element={<AuthGuard />}>
               <Route index element={<ScanPage />} />
+              <Route element={<PosPage />} path="pos" />
               <Route element={<QueuePage />} path="queue" />
             </Route>
             <Route element={<Navigate replace to="/" />} path="*" />

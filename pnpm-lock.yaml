@@ -182,6 +182,9 @@ importers:
       lucide-react:
         specifier: ^0.511.0
         version: 0.511.0(react@19.2.6)
+      qrcode.react:
+        specifier: ^4.2.0
+        version: 4.2.0(react@19.2.6)
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -433,6 +436,9 @@ importers:
       '@neondatabase/serverless':
         specifier: ^0.10.4
         version: 0.10.4
+      '@sumup/sdk':
+        specifier: ^0.1.6
+        version: 0.1.6
       arktype:
         specifier: ^2.1.0
         version: 2.1.29
@@ -4739,6 +4745,10 @@ packages:
   '@stripe/stripe-js@9.5.0':
     resolution: {integrity: sha512-dTQWkJRw5lhcQipPuw6qZRBK2zY5eWWZ1Srw9mSjhIXSLdsNYO3uaIV+YRMkI0/tB/D7yQdHYStrcZrbeHI5Jg==}
     engines: {node: '>=12.16'}
+
+  '@sumup/sdk@0.1.6':
+    resolution: {integrity: sha512-7uCcP2vTz9FOcmGl8mTXe6V83AdwbGNQiVUuK7c2Ezh7JLpuNK2vZcch/9YD7cuM7Ge6Spbb8OBMCo6LzKUtzA==}
+    engines: {node: '>=18'}
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
@@ -13836,6 +13846,8 @@ snapshots:
       react-dom: 19.2.6(react@19.2.6)
 
   '@stripe/stripe-js@9.5.0': {}
+
+  '@sumup/sdk@0.1.6': {}
 
   '@swc/helpers@0.5.15':
     dependencies:

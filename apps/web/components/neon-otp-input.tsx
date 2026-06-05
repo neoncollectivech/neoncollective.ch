@@ -49,6 +49,7 @@ export function NeonOtpInput({
     const frame = requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
+
     return () => cancelAnimationFrame(frame);
   }, [disabled]);
 
@@ -66,8 +67,8 @@ export function NeonOtpInput({
       ) : null}
       <InputOTP
         ref={inputRef}
-        autoComplete="one-time-code"
         autoFocus
+        autoComplete="one-time-code"
         data-testid={dataTestId}
         disabled={disabled}
         inputMode="text"

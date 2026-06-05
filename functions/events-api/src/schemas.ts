@@ -65,6 +65,31 @@ export const checkInSchema = type({
   credential: "string",
 });
 
+export const posGuestResolveSchema = type({
+  credential: "string | null",
+  email: "string.email | null",
+  phoneE164: "string | null",
+  givenName: "string | null",
+  familyName: "string | null",
+});
+
+export const posPricingPreviewSchema = type({
+  exclusiveTierId: "string",
+  addonTierIds: "string[]",
+});
+
+export const posSaleCreateSchema = type({
+  readerId: "string",
+  locale: "'de' | 'en' | 'it'",
+  exclusiveTierId: "string",
+  addonTierIds: "string[]",
+  credential: "string | null",
+  email: "string.email | null",
+  phoneE164: "string | null",
+  givenName: "string | null",
+  familyName: "string | null",
+});
+
 export const adminInviteesUpsertSchema = type({
   invitees: type({
     givenName: "string",

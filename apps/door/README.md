@@ -1,8 +1,19 @@
 # NEON Door (`@neon/door`)
 
-Field PWA for fast QR admission check-in against `events-api` `POST /check-in`.
+Field PWA for QR admission check-in (`POST /check-in`) and on-site POS sales (`/pos/*`) via SumUp Cloud API + Solo readers.
 
-API key, optional key label, and scan feedback settings persist in **localStorage** (survive PWA restarts). Offline check-ins use IndexedDB (`neon-door`).
+**Scan** and **POS** are separate views (bottom tab bar). API key, event, Solo reader, and scan feedback settings persist in **localStorage**. Offline check-ins use IndexedDB (`neon-door`); POS requires network.
+
+## POS (SumUp Solo)
+
+1. Configure `events-api` with `SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_AFFILIATE_KEY`, `SUMUP_APP_ID` (see `functions/events-api/env.yaml.example`).
+2. Pair a Solo reader once via SumUp Cloud API (on the device: Connections → API → Connect; then `Create Reader` with the pairing code). Use [Virtual Solo + sandbox](https://developer.sumup.com/terminal-payments/cloud-api/) for dev without hardware.
+3. In Door **POS**, pick the paired reader, then sell:
+   - **New admission** — guest name + email/phone, exclusive tier + optional add-ons.
+   - **Add-ons** — scan existing admission QR or look up by contact; charge unpurchased add-ons only.
+4. Tap **Charge on Solo** — guest pays on the WiFi/cellular terminal; Door polls until paid and shows the admission QR.
+
+Webhook: set SumUp checkout `return_url` to `{EVENTS_API_PUBLIC_URL}/pos/webhooks/sumup` (configured automatically when `EVENTS_API_PUBLIC_URL` is set). Optional `SUMUP_WEBHOOK_SECRET` verifies `x-payload-signature`.
 
 ## Local development
 

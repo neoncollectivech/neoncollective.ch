@@ -15,6 +15,7 @@ import { orderTiersService } from "../../services/order-tiers.service";
 import { ordersService } from "../../services/orders.service";
 import { peopleService } from "../../services/people.service";
 import { stripeEventsProcessedService } from "../../services/stripe-events-processed.service";
+import { sumupEventsProcessedService } from "../../services/sumup-events-processed.service";
 import { runTransaction } from "../../services/transaction";
 
 const log = createLogger("fulfill-paid-order");
@@ -27,7 +28,7 @@ export type PostCheckoutEmailJob = {
   accessMode: "public" | "invite_only";
 };
 
-export type FulfillPaidOrderSource = "client" | "webhook";
+export type FulfillPaidOrderSource = "client" | "webhook" | "sumup_webhook" | "sumup_poll";
 
 export type FulfillPaidOrderResult =
   | { kind: "send_email"; job: PostCheckoutEmailJob }
@@ -230,11 +231,15 @@ async function finalizeFulfillmentInTx(
   params: {
     source: FulfillPaidOrderSource;
     stripeEventId?: string;
+    sumupEventId?: string;
     fulfillmentCompleted: boolean;
   },
 ): Promise<FulfillPaidOrderResult> {
   if (params.source === "webhook" && params.stripeEventId && params.fulfillmentCompleted) {
     await stripeEventsProcessedService.claimInTx(tx, params.stripeEventId);
+  }
+  if (params.source === "sumup_webhook" && params.sumupEventId && params.fulfillmentCompleted) {
+    await sumupEventsProcessedService.claimInTx(tx, params.sumupEventId);
   }
 
   const ev = await eventsService.getInTx(tx, order.eventId);
@@ -294,12 +299,19 @@ export async function fulfillPaidOrderInTx(
     orderId: string;
     source: FulfillPaidOrderSource;
     stripeEventId?: string;
+    sumupEventId?: string;
     paymentIntentStatus?: Stripe.PaymentIntent.Status;
   },
 ): Promise<FulfillPaidOrderResult> {
   if (params.source === "webhook" && params.stripeEventId) {
     if (await stripeEventsProcessedService.isProcessedInTx(tx, params.stripeEventId)) {
       log.info({ eventId: params.stripeEventId }, "Duplicate webhook — skipping fulfillment");
+      return { kind: "noop" };
+    }
+  }
+  if (params.source === "sumup_webhook" && params.sumupEventId) {
+    if (await sumupEventsProcessedService.isProcessedInTx(tx, params.sumupEventId)) {
+      log.info({ eventId: params.sumupEventId }, "Duplicate SumUp webhook — skipping fulfillment");
       return { kind: "noop" };
     }
   }
@@ -343,6 +355,7 @@ export async function fulfillPaidOrderInTx(
   return finalizeFulfillmentInTx(tx, order, {
     source: params.source,
     stripeEventId: params.stripeEventId,
+    sumupEventId: params.sumupEventId,
     fulfillmentCompleted: true,
   });
 }
@@ -351,7 +364,20 @@ export async function fulfillPaidOrder(params: {
   orderId: string;
   source: FulfillPaidOrderSource;
   stripeEventId?: string;
+  sumupEventId?: string;
   paymentIntentStatus?: Stripe.PaymentIntent.Status;
 }): Promise<FulfillPaidOrderResult> {
   return runTransaction((tx) => fulfillPaidOrderInTx(tx, params));
+}
+
+export async function fulfillPaidOrderFromSumup(params: {
+  orderId: string;
+  source: "sumup_webhook" | "sumup_poll";
+  sumupEventId?: string;
+}): Promise<FulfillPaidOrderResult> {
+  return fulfillPaidOrder({
+    orderId: params.orderId,
+    source: params.source,
+    sumupEventId: params.sumupEventId,
+  });
 }

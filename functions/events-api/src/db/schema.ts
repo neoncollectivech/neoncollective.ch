@@ -22,6 +22,7 @@ export const orderStatusEnum = pgEnum("order_status", [
   "failed",
   "refunded",
 ]);
+export const paymentProviderEnum = pgEnum("payment_provider", ["stripe", "sumup"]);
 export const tierSelectionModeEnum = pgEnum("tier_selection_mode", [
   "exclusive",
   "addon",
@@ -231,7 +232,11 @@ export const orders = pgTable(
       .notNull()
       .references(() => people.id, { onDelete: "restrict" }),
     locale: text("locale").notNull().default("en"),
+    paymentProvider: paymentProviderEnum("payment_provider").notNull().default("stripe"),
     stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
+    sumupClientTransactionId: text("sumup_client_transaction_id").unique(),
+    sumupReaderId: text("sumup_reader_id"),
+    posSoldBy: text("pos_sold_by"),
     status: orderStatusEnum("status").notNull().default("pending"),
     amountCents: integer("amount_cents").notNull(),
     inviteLinkId: uuid("invite_link_id").references(() => inviteLinks.id, {
@@ -346,6 +351,11 @@ export const inviteRedemptions = pgTable(
 
 export const stripeEventsProcessed = pgTable("stripe_events_processed", {
   stripeEventId: text("stripe_event_id").primaryKey(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const sumupEventsProcessed = pgTable("sumup_events_processed", {
+  sumupEventId: text("sumup_event_id").primaryKey(),
   processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

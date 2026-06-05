@@ -16,11 +16,18 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const apiKey =
-    getDoorSessionConfig()?.apiKey ?? getDoorApiKeyConfig()?.apiKey;
+  const session = getDoorSessionConfig();
+  const apiKey = session?.apiKey ?? getDoorApiKeyConfig()?.apiKey;
 
   if (apiKey) {
     config.headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  if (session?.eventId && config.url?.startsWith("/pos")) {
+    config.params = {
+      ...(config.params as Record<string, unknown> | undefined),
+      eventId: session.eventId,
+    };
   }
 
   return config;

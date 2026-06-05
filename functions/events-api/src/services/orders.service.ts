@@ -156,6 +156,9 @@ export class OrdersService extends TableService<
       amountCents: number;
       inviteLinkId: string | null;
       promotionCodeId?: string | null;
+      paymentProvider?: "stripe" | "sumup";
+      posSoldBy?: string | null;
+      sumupReaderId?: string | null;
     },
   ): Promise<string> {
     const [row] = await tx
@@ -168,9 +171,39 @@ export class OrdersService extends TableService<
         status: "pending",
         inviteLinkId: params.inviteLinkId,
         promotionCodeId: params.promotionCodeId ?? null,
+        paymentProvider: params.paymentProvider ?? "stripe",
+        posSoldBy: params.posSoldBy ?? null,
+        sumupReaderId: params.sumupReaderId ?? null,
       })
       .returning({ id: orders.id });
     return row!.id;
+  }
+
+  async attachSumupCheckoutInTx(
+    tx: OrderTx,
+    orderId: string,
+    sumupClientTransactionId: string,
+  ): Promise<void> {
+    await tx
+      .update(orders)
+      .set({
+        sumupClientTransactionId,
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId));
+  }
+
+  async getBySumupClientTransactionId(
+    sumupClientTransactionId: string,
+    tx?: OrderTx,
+  ): Promise<typeof orders.$inferSelect | null> {
+    const executor = tx ?? getDb();
+    const [row] = await executor
+      .select()
+      .from(orders)
+      .where(eq(orders.sumupClientTransactionId, sumupClientTransactionId))
+      .limit(1);
+    return row ?? null;
   }
 
   async countPendingOrPaidForPromotionCode(

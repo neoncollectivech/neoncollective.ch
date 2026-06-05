@@ -8,6 +8,8 @@ import { createEventsRouter } from "./events";
 import { createHealthRouter } from "./health";
 import { createInvitesRouter } from "./invites";
 import { createRegistrationsRouter } from "./registrations";
+import { createPosRouter } from "./pos";
+import { createSumUpWebhookRouter } from "./webhooks/sumup";
 import { createWebhooksRouter } from "./webhooks";
 
 export function createAppRouter() {
@@ -33,6 +35,8 @@ export function createAppRouter() {
   app.route("/", registrationsShell);
 
   app.route("/", createWebhooksRouter());
+  app.route("/", createSumUpWebhookRouter());
+  app.route("/", createPosRouter());
   app.route("/", createCheckInRouter());
   app.route("/", createAdmissionJwksRouter());
 

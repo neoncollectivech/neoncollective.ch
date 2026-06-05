@@ -17,6 +17,7 @@ export function useWebOtpAutofill(params: {
   onCode: (raw: string) => void;
 }): { requestFromSms: () => void } {
   const onCodeRef = useRef(params.onCode);
+
   onCodeRef.current = params.onCode;
   const abortRef = useRef<AbortController | null>(null);
 
@@ -26,6 +27,7 @@ export function useWebOtpAutofill(params: {
     }
     abortRef.current?.abort();
     const ac = new AbortController();
+
     abortRef.current = ac;
 
     void navigator.credentials
@@ -38,6 +40,7 @@ export function useWebOtpAutofill(params: {
           return;
         }
         const code = (cred as OtpCredential).code?.trim();
+
         if (code) {
           onCodeRef.current(code);
         }
@@ -52,6 +55,7 @@ export function useWebOtpAutofill(params: {
       return;
     }
     requestFromSms();
+
     return () => {
       abortRef.current?.abort();
     };

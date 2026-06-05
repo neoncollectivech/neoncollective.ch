@@ -74,9 +74,7 @@ function EventsIndexInner() {
     eventsApi.participant.profile({
       inviteToken,
       enabled:
-        codeHandled &&
-        !profileGate.profileLoading &&
-        !profileGate.needsProfile,
+        codeHandled && !profileGate.profileLoading && !profileGate.needsProfile,
     }),
   );
 
@@ -113,7 +111,9 @@ function EventsIndexInner() {
     sessionQuery.isLoading;
 
   const showProfileManageModal =
-    profileManageOpen && !profileGate.profileLoading && !profileGate.needsProfile;
+    profileManageOpen &&
+    !profileGate.profileLoading &&
+    !profileGate.needsProfile;
 
   return (
     <>
@@ -121,8 +121,8 @@ function EventsIndexInner() {
 
       {showProfileManageModal ? (
         <ParticipantProfileModal
-          open
           dismissable
+          open
           initialProfile={profileGate.profile ?? profileQuery.data ?? undefined}
           labels={manageProfileLabels}
           onComplete={async (saved) => {
@@ -154,8 +154,8 @@ function EventsIndexInner() {
               ) : null}
               <ParticipantSessionPanel
                 embedded
-                hideIntro={sessionEstablished}
                 codeExchangePending={!codeHandled}
+                hideIntro={sessionEstablished}
                 returnPath={eventReturnPath(`/${locale}/events`)}
                 sessionEstablishedQueryKeys={[
                   eventsKeys.catalog(),
