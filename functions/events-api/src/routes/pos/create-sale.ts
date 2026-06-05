@@ -12,7 +12,7 @@ import {
 import { resolveCheckoutPricingInTx } from "../checkout/promotion-pricing";
 import { assertPosSaleEligibilityInTx } from "../checkout/shared-pos-eligibility";
 import { resolvePosGuest } from "./resolve-pos-guest";
-import { createSumUpReaderCheckout } from "../../helpers/sumup";
+import { createSumUpReaderCheckout, SumUpCheckoutError } from "../../helpers/sumup";
 import { fulfillPaidOrderInTx } from "../checkout/fulfill-paid-order";
 import { isSumUpConfigured } from "../../config/sumup";
 
@@ -48,6 +48,7 @@ export type CreatePosSaleFailureReason =
   | "tier_sold_out"
   | "mixed_currency"
   | "reader_checkout_failed"
+  | "reader_offline"
   | "checkout_failed";
 
 export type CreatePosSaleSuccess = {
@@ -63,6 +64,14 @@ export type CreatePosSaleResult = CreatePosSaleSuccess | {
   ok: false;
   reason: CreatePosSaleFailureReason;
   tierName?: string;
+};
+
+type PreparedPosCharge = {
+  orderId: string;
+  amountCents: number;
+  currency: string;
+  eventTitle: string;
+  readerId: string;
 };
 
 export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePosSaleResult> {
@@ -101,10 +110,10 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
   const personId = guestResult.guest.personId;
 
   try {
-    return await runTransaction(async (tx) => {
+    const prepared = await runTransaction(async (tx) => {
       const ev = await eventsService.getInTx(tx, input.eventId);
       if (!ev || ev.status !== "published") {
-        return { ok: false, reason: "event_not_found" };
+        return { ok: false as const, reason: "event_not_found" as const };
       }
 
       const tierResult = await resolveSelectedCheckoutTiersInTx(tx, {
@@ -113,7 +122,7 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
         addonTierIds,
       });
       if (!tierResult.ok) {
-        return { ok: false, reason: tierResult.reason };
+        return { ok: false as const, reason: tierResult.reason };
       }
       const selectedTiers = tierResult.selectedTiers;
 
@@ -132,8 +141,12 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
       });
       if (!eligibility.ok) {
         return eligibility.tierName
-          ? { ok: false, reason: eligibility.reason, tierName: eligibility.tierName }
-          : { ok: false, reason: eligibility.reason };
+          ? {
+              ok: false as const,
+              reason: eligibility.reason,
+              tierName: eligibility.tierName,
+            }
+          : { ok: false as const, reason: eligibility.reason };
       }
 
       const pricingResult = await resolveCheckoutPricingInTx(tx, {
@@ -142,7 +155,7 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
         promotionCodeRaw: null,
       });
       if (!pricingResult.ok) {
-        return { ok: false, reason: "checkout_failed" };
+        return { ok: false as const, reason: "checkout_failed" as const };
       }
       const pricing = pricingResult.pricing;
 
@@ -151,7 +164,7 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
         (t) => t.currency.toLowerCase() !== currency,
       );
       if (mixedCurrency) {
-        return { ok: false, reason: "mixed_currency" };
+        return { ok: false as const, reason: "mixed_currency" as const };
       }
 
       const checkoutPerson = await peopleService.getInTx(tx, personId);
@@ -189,43 +202,81 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
           source: "client",
         });
         if (fulfill.kind === "failed") {
-          return { ok: false, reason: "checkout_failed" };
+          return { ok: false as const, reason: "checkout_failed" as const };
         }
         return {
-          ok: true,
+          ok: true as const,
+          kind: "free" as const,
           orderId,
-          amountCents: 0,
           readerId: input.readerId,
-          paymentStatus: "paid",
-          requiresPayment: false,
         };
       }
 
-      let clientTransactionId: string;
-      try {
-        clientTransactionId = await createSumUpReaderCheckout({
-          readerId: input.readerId,
-          orderId,
-          amountCents: pricing.amountCents,
-          currency,
-          description: `${ev.title} — door POS`,
-        });
-      } catch {
-        await ordersService.failOrderInTx(tx, orderId);
-        return { ok: false, reason: "reader_checkout_failed" };
-      }
-
-      await ordersService.attachSumupCheckoutInTx(tx, orderId, clientTransactionId);
-
       return {
-        ok: true,
+        ok: true as const,
+        kind: "charge" as const,
         orderId,
         amountCents: pricing.amountCents,
+        currency,
+        eventTitle: ev.title,
         readerId: input.readerId,
-        paymentStatus: "pending",
-        requiresPayment: true,
       };
     });
+
+    if (!prepared.ok) {
+      return prepared.tierName
+        ? { ok: false, reason: prepared.reason, tierName: prepared.tierName }
+        : { ok: false, reason: prepared.reason };
+    }
+
+    if (prepared.kind === "free") {
+      return {
+        ok: true,
+        orderId: prepared.orderId,
+        amountCents: 0,
+        readerId: prepared.readerId,
+        paymentStatus: "paid",
+        requiresPayment: false,
+      };
+    }
+
+    const charge: PreparedPosCharge = {
+      orderId: prepared.orderId,
+      amountCents: prepared.amountCents,
+      currency: prepared.currency,
+      eventTitle: prepared.eventTitle,
+      readerId: prepared.readerId,
+    };
+
+    let clientTransactionId: string;
+    try {
+      clientTransactionId = await createSumUpReaderCheckout({
+        readerId: charge.readerId,
+        orderId: charge.orderId,
+        amountCents: charge.amountCents,
+        currency: charge.currency,
+        description: `${charge.eventTitle} — door POS`,
+      });
+    } catch (error) {
+      await runTransaction((tx) => ordersService.failOrderInTx(tx, charge.orderId));
+      if (error instanceof SumUpCheckoutError && error.code === "reader_offline") {
+        return { ok: false, reason: "reader_offline" };
+      }
+      return { ok: false, reason: "reader_checkout_failed" };
+    }
+
+    await runTransaction((tx) =>
+      ordersService.attachSumupCheckoutInTx(tx, charge.orderId, clientTransactionId),
+    );
+
+    return {
+      ok: true,
+      orderId: charge.orderId,
+      amountCents: charge.amountCents,
+      readerId: charge.readerId,
+      paymentStatus: "pending",
+      requiresPayment: true,
+    };
   } catch {
     return { ok: false, reason: "checkout_failed" };
   }

@@ -11,14 +11,32 @@ import { handleFulfillmentResult } from "../checkout/handle-fulfillment-result";
 
 const log = createLogger("sumup-webhook");
 
-type SumUpWebhookBody = {
+type SumUpReaderCheckoutWebhookBody = {
   event_type?: string;
   id?: string;
   payload?: {
     client_transaction_id?: string;
-    status?: "successful" | "failed";
+    status?: string;
   };
 };
+
+/** Reader checkout `return_url` callbacks (OpenAPI ReaderCheckoutStatusChange). */
+function parseReaderCheckoutWebhook(body: SumUpReaderCheckoutWebhookBody): {
+  clientTransactionId: string;
+  status: "successful" | "failed";
+  sumupEventId: string | null;
+} | null {
+  const clientTransactionId = body.payload?.client_transaction_id?.trim();
+  const status = body.payload?.status?.trim().toLowerCase();
+  if (!clientTransactionId || (status !== "successful" && status !== "failed")) {
+    return null;
+  }
+  return {
+    clientTransactionId,
+    status,
+    sumupEventId: body.id?.trim() ?? null,
+  };
+}
 
 export function createSumUpWebhookRouter(): Hono<AppEnv> {
   const router = new Hono<AppEnv>();
@@ -30,25 +48,19 @@ export function createSumUpWebhookRouter(): Hono<AppEnv> {
       return c.json({ error: "Invalid signature." }, 401);
     }
 
-    let body: SumUpWebhookBody;
+    let body: SumUpReaderCheckoutWebhookBody;
     try {
-      body = JSON.parse(rawBody) as SumUpWebhookBody;
+      body = JSON.parse(rawBody) as SumUpReaderCheckoutWebhookBody;
     } catch {
       return c.json({ ok: true });
     }
 
-    const eventType = body.event_type?.trim();
-    if (eventType && eventType !== "CHECKOUT_STATUS_CHANGED") {
+    const parsed = parseReaderCheckoutWebhook(body);
+    if (!parsed) {
       return c.json({ ok: true });
     }
 
-    const clientTransactionId = body.payload?.client_transaction_id?.trim();
-    const status = body.payload?.status;
-    const sumupEventId = body.id?.trim();
-
-    if (!clientTransactionId) {
-      return c.json({ ok: true });
-    }
+    const { clientTransactionId, status, sumupEventId } = parsed;
 
     const order = await ordersService.getBySumupClientTransactionId(clientTransactionId);
     if (!order) {
@@ -63,16 +75,12 @@ export function createSumUpWebhookRouter(): Hono<AppEnv> {
       return c.json({ ok: true });
     }
 
-    if (status !== "successful") {
-      return c.json({ ok: true });
-    }
-
     let result;
     try {
       result = await fulfillPaidOrderFromSumup({
         orderId: order.id,
         source: "sumup_webhook",
-        sumupEventId,
+        sumupEventId: sumupEventId ?? undefined,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "SumUp webhook processing failed";

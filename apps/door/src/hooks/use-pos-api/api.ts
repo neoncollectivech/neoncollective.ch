@@ -6,6 +6,7 @@ import {
   fetchPosCatalog,
   fetchPosSaleStatus,
   listPosReaders,
+  pairPosReader,
   previewPosPricing,
   resolvePosGuest,
 } from "@/lib/pos-api";
@@ -15,11 +16,27 @@ import { posKeys } from "./keys";
 export const posApi = {
   keys: posKeys,
   readers: {
-    list: () =>
+    list: (opts?: { pollWhileOffline?: boolean }) =>
       queryOptions({
         queryKey: posKeys.readers(),
         queryFn: listPosReaders,
-        staleTime: 60_000,
+        staleTime: 5_000,
+        select: (data) => data,
+        refetchInterval: (query) => {
+          if (!opts?.pollWhileOffline) {
+            return false;
+          }
+          const readers = query.state.data?.readers;
+          if (!readers?.some((reader) => !reader.online)) {
+            return false;
+          }
+          return 3_000;
+        },
+      }),
+    pair: () =>
+      mutationOptions({
+        mutationKey: [...posKeys.all, "readers-pair"],
+        mutationFn: pairPosReader,
       }),
   },
   catalog: {

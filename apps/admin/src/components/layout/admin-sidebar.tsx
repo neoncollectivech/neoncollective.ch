@@ -17,12 +17,15 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useAdminSidebarModel } from "@/hooks/use-admin-sidebar-model";
+import { devAdminDisplayEmail, isAdminAuthDisabled } from "@/lib/admin-auth-dev";
 import { signOut, useSession } from "@/lib/auth-client";
 
 export function AdminSidebar() {
   const { pathname } = useLocation();
   const { data: session } = useSession();
   const model = useAdminSidebarModel();
+  const devBypass = isAdminAuthDisabled();
+  const displayEmail = devBypass ? devAdminDisplayEmail() : session?.user.email;
 
   return (
     <Sidebar collapsible="offcanvas">
@@ -83,16 +86,19 @@ export function AdminSidebar() {
 
       <SidebarFooter>
         <p className="truncate px-2 text-xs text-muted-foreground">
-          {session?.user.email}
+          {displayEmail}
+          {devBypass ? " (dev bypass)" : null}
         </p>
-        <Button
-          className="w-full"
-          size="sm"
-          variant="outline"
-          onClick={() => signOut()}
-        >
-          Sign out
-        </Button>
+        {devBypass ? null : (
+          <Button
+            className="w-full"
+            size="sm"
+            variant="outline"
+            onClick={() => signOut()}
+          >
+            Sign out
+          </Button>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

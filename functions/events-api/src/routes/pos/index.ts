@@ -9,10 +9,16 @@ import { apiKeyGrantsEvent } from "../../auth/resolvers/event-api-key";
 import {
   posGuestResolveSchema,
   posPricingPreviewSchema,
+  posReaderPairSchema,
   posSaleCreateSchema,
 } from "../../schemas";
 import { isSumUpConfigured } from "../../config/sumup";
-import { listSumUpReaders } from "../../helpers/sumup";
+import {
+  deleteSumUpReader,
+  listSumUpReaders,
+  pairSumUpReader,
+  resolveSumUpCredentialsDiagnostic,
+} from "../../helpers/sumup";
 import { getPosCatalog } from "./catalog";
 import { eventsService } from "../../services/events.service";
 import { cancelPosSale } from "./cancel-sale";
@@ -60,6 +66,11 @@ const POS_ERRORS = {
     status: 502,
     error: "Could not start payment on the Solo reader.",
   },
+  reader_offline: {
+    status: 503,
+    error:
+      "The Solo reader is offline. For Virtual Solo: open https://virtual-solo.sumup.com/, pair a fresh code in the same tab, and keep it open until Cloud API status is ONLINE (dashboard “Paired” is not enough).",
+  },
   checkout_failed: { status: 500, error: "Checkout failed." },
   sale_not_found: { status: 404, error: "Sale not found." },
   sale_not_cancellable: { status: 409, error: "Sale cannot be cancelled." },
@@ -98,10 +109,66 @@ export function createPosRouter(): Hono<AppEnv> {
         return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
       }
       try {
-        const readers = await listSumUpReaders();
-        return c.json({ readers });
+        const [readers, sumup] = await Promise.all([
+          listSumUpReaders(),
+          resolveSumUpCredentialsDiagnostic(),
+        ]);
+        return c.json({ readers, sumup });
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Failed to list readers.";
+        return c.json({ error: msg }, 502);
+      }
+    }),
+  );
+
+  router.post(
+    "/pos/readers/pair",
+    ...authFactory.createHandlers(
+      eventApiKeyBearerAuth,
+      arktypeValidator("json", posReaderPairSchema),
+      async (c) => {
+        if (!isSumUpConfigured()) {
+          return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
+        }
+        const body = c.req.valid("json");
+        try {
+          const paired = await pairSumUpReader({
+            pairingCode: body.pairingCode,
+            name: body.name,
+          });
+          const readers = await listSumUpReaders();
+          const reader = readers.find((item) => item.id === paired.id) ?? {
+            id: paired.id,
+            name: paired.name,
+            status: paired.status,
+            deviceIdentifier: paired.deviceIdentifier,
+            connectionStatus: null,
+            online: false,
+          };
+          return c.json({ reader });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Failed to pair reader.";
+          return c.json({ error: msg }, 502);
+        }
+      },
+    ),
+  );
+
+  router.delete(
+    "/pos/readers/:readerId",
+    ...authFactory.createHandlers(eventApiKeyBearerAuth, async (c) => {
+      if (!isSumUpConfigured()) {
+        return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
+      }
+      const readerId = c.req.param("readerId")?.trim();
+      if (!readerId) {
+        return c.json({ error: "Reader id is required." }, 400);
+      }
+      try {
+        await deleteSumUpReader(readerId);
+        return c.json({ ok: true });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Failed to delete reader.";
         return c.json({ error: msg }, 502);
       }
     }),

@@ -4,9 +4,10 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import { some } from "hono/combine";
 
+import { resetEventsApiEnvForTests } from "../../config/runtime-env";
 import { authFactory } from "../factory";
 import { requireAuth, requireAdminSession, requireParticipantPerson } from "./assert";
-import { loadEventApiKey, loadParticipantSession } from "./loaders";
+import { loadAdminSession, loadEventApiKey, loadParticipantSession } from "./loaders";
 
 function testApp() {
   const app = authFactory.createApp();
@@ -80,6 +81,25 @@ describe("auth assert middleware", () => {
 
     const res = await app.request("/test");
     assert.equal(res.status, 401);
+  });
+
+  it("requireAdminSession passes when dev bypass loader ran", async () => {
+    resetEventsApiEnvForTests({
+      NODE_ENV: "development",
+      ADMIN_AUTH_DISABLED: "1",
+    });
+
+    const app = testApp();
+    app.use("*", loadAdminSession);
+    app.use("*", requireAdminSession);
+    app.get("/test", (c) => c.json({ email: c.var.adminSession?.user.email }));
+
+    const res = await app.request("/test");
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { email: string };
+    assert.match(body.email, /@neonclub\.ch$/);
+
+    resetEventsApiEnvForTests();
   });
 });
 

@@ -36,5 +36,9 @@ export function sumUpWebhookReturnUrl(): string | undefined {
   if (!base) {
     return undefined;
   }
-  return `${base.replace(/\/$/, "")}/pos/webhooks/sumup`;
+  const url = `${base.replace(/\/$/, "")}/pos/webhooks/sumup`;
+  if (!url.startsWith("https://")) {
+    return undefined;
+  }
+  return url;
 }

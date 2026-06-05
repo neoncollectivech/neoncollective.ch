@@ -3,10 +3,16 @@ import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { adminAbsoluteUrl } from "@/lib/admin-base";
+import { isAdminAuthDisabled } from "@/lib/admin-auth-dev";
 import { signIn, useSession } from "@/lib/auth-client";
 
 export function LoginPage() {
+  const devBypass = isAdminAuthDisabled();
   const { data: session, isPending } = useSession();
+
+  if (devBypass) {
+    return <Navigate replace to="/events" />;
+  }
 
   if (!isPending && session) {
     return <Navigate replace to="/events" />;

@@ -163,6 +163,10 @@ export default defineConfig(({ mode }) => {
           target: "http://localhost:8082",
           changeOrigin: true,
         },
+        "/pos": {
+          target: "http://localhost:8082",
+          changeOrigin: true,
+        },
       },
     },
   };

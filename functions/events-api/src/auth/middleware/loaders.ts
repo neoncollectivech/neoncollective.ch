@@ -1,3 +1,4 @@
+import { devAdminSession, isAdminAuthDisabled } from "../../helpers/admin-auth-dev";
 import { authFactory } from "../factory";
 import { resolveAdminSession } from "../resolvers/admin-session";
 import { resolveEventApiKey } from "../resolvers/event-api-key";
@@ -26,6 +27,11 @@ export const loadEventApiKey = authFactory.createMiddleware(async (c, next) => {
 });
 
 export const loadAdminSession = authFactory.createMiddleware(async (c, next) => {
+  if (isAdminAuthDisabled()) {
+    c.set("adminSession", devAdminSession());
+    await next();
+    return;
+  }
   const session = await resolveAdminSession(c);
   if (session) {
     c.set("adminSession", session);

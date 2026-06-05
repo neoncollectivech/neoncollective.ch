@@ -34,6 +34,9 @@ export type EventsApiEnv = {
   nodeEnv: string | undefined;
   e2eTestMode: boolean;
   e2eTestOtp: string | undefined;
+  /** Local dev only — skipped when NODE_ENV=production regardless of env var. */
+  adminAuthDisabled: boolean;
+  adminAuthDevEmail: string | undefined;
   r2AccountId: string | undefined;
   r2AccessKeyId: string | undefined;
   r2SecretAccessKey: string | undefined;
@@ -75,6 +78,9 @@ export function readEventsApiEnv(source: EnvSource = process.env): EventsApiEnv 
     e2eTestMode:
       trim(source, "NODE_ENV") !== "production" && trim(source, "E2E_TEST_MODE") === "1",
     e2eTestOtp: trim(source, "E2E_TEST_OTP"),
+    adminAuthDisabled:
+      trim(source, "NODE_ENV") !== "production" && trim(source, "ADMIN_AUTH_DISABLED") === "1",
+    adminAuthDevEmail: trim(source, "ADMIN_AUTH_DEV_EMAIL"),
     r2AccountId: trim(source, "R2_ACCOUNT_ID"),
     r2AccessKeyId: trim(source, "R2_ACCESS_KEY_ID"),
     r2SecretAccessKey: trim(source, "R2_SECRET_ACCESS_KEY"),
@@ -91,4 +97,9 @@ export function getEventsApiEnv(): EventsApiEnv {
     cachedEnv = readEventsApiEnv();
   }
   return cachedEnv;
+}
+
+/** Test-only: reset cached env (optionally from explicit source). */
+export function resetEventsApiEnvForTests(source?: EnvSource): void {
+  cachedEnv = source ? readEventsApiEnv(source) : null;
 }

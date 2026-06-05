@@ -90,6 +90,11 @@ export const posSaleCreateSchema = type({
   familyName: "string | null",
 });
 
+export const posReaderPairSchema = type({
+  pairingCode: "string>=8",
+  name: "string>=1",
+});
+
 export const adminInviteesUpsertSchema = type({
   invitees: type({
     givenName: "string",

@@ -4,6 +4,9 @@ export type PosReader = {
   id: string;
   name: string;
   status: string | null;
+  deviceIdentifier: string | null;
+  connectionStatus: string | null;
+  online: boolean;
 };
 
 export type PosTier = {
@@ -67,10 +70,41 @@ export type PosSaleStatus = {
   signedCredential: string | null;
 };
 
-export async function listPosReaders(): Promise<PosReader[]> {
-  const { data } = await api.get<{ readers: PosReader[] }>("/pos/readers");
+export type SumUpCredentialsDiagnostic = {
+  configuredMerchantCode: string;
+  apiKeyMerchantCode: string | null;
+  credentialsAligned: boolean;
+  note: string | null;
+};
 
-  return data.readers;
+export type PosReadersResponse = {
+  readers: PosReader[];
+  sumup: SumUpCredentialsDiagnostic;
+};
+
+export async function listPosReaders(): Promise<PosReadersResponse> {
+  const { data } = await api.get<PosReadersResponse>("/pos/readers");
+
+  return data;
+}
+
+export async function pairPosReader(params: {
+  pairingCode: string;
+  name: string;
+}): Promise<PosReader> {
+  const { data } = await api.post<{ reader: PosReader }>(
+    "/pos/readers/pair",
+    params,
+  );
+
+  return {
+    id: data.reader.id,
+    name: data.reader.name,
+    status: data.reader.status,
+    deviceIdentifier: data.reader.deviceIdentifier ?? null,
+    connectionStatus: null,
+    online: false,
+  };
 }
 
 export async function fetchPosCatalog(): Promise<PosCatalog> {

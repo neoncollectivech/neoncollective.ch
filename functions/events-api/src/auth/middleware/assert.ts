@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 
 import { isNeonclubAdminEmail } from "../auth";
+import { isAdminAuthDisabled } from "../../helpers/admin-auth-dev";
 import type { AppEnv } from "../env";
 import { authFactory } from "../factory";
 
@@ -39,6 +40,10 @@ export const requireParticipantPerson = requireAuth("participantSession", {
 });
 
 export const requireAdminSession = authFactory.createMiddleware(async (c, next) => {
+  if (isAdminAuthDisabled()) {
+    await next();
+    return;
+  }
   const session = c.var.adminSession;
   if (!session?.user || !isNeonclubAdminEmail(session.user.email)) {
     unauthorized("Unauthorized.");
