@@ -3,6 +3,7 @@ import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import {
   cancelPosSale,
   createPosSale,
+  deletePosReader,
   fetchPosCatalog,
   fetchPosSaleStatus,
   listPosReaders,
@@ -39,6 +40,11 @@ export const posApi = {
       mutationOptions({
         mutationKey: [...posKeys.all, "readers-pair"],
         mutationFn: pairPosReader,
+      }),
+    delete: () =>
+      mutationOptions({
+        mutationKey: [...posKeys.all, "readers-delete"],
+        mutationFn: deletePosReader,
       }),
   },
   catalog: {

@@ -104,6 +104,10 @@ export async function pairPosReader(params: {
   };
 }
 
+export async function deletePosReader(readerId: string): Promise<void> {
+  await api.delete(`/pos/readers/${encodeURIComponent(readerId)}`);
+}
+
 export async function fetchPosCatalog(): Promise<PosCatalog> {
   const { data } = await api.get<PosCatalog>("/pos/catalog");
 

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { posApi } from "@/hooks/use-pos-api/api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
+  clearDoorReaderConfig,
   getDoorSessionConfig,
   setDoorReaderConfig,
 } from "@/lib/storage/session-config";
@@ -18,13 +20,15 @@ const VIRTUAL_SOLO_URL = "https://virtual-solo.sumup.com/";
 
 type ReaderSelectProps = {
   onSelected: () => void;
+  onReaderRemoved?: () => void;
 };
 
-export function ReaderSelect({ onSelected }: ReaderSelectProps) {
+export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps) {
   const session = getDoorSessionConfig();
   const queryClient = useQueryClient();
   const [pairingCode, setPairingCode] = useState("");
   const [readerName, setReaderName] = useState("Virtual");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const readersQuery = useQuery(
     posApi.readers.list({ pollWhileOffline: true }),
   );
@@ -39,6 +43,21 @@ export function ReaderSelect({ onSelected }: ReaderSelectProps) {
     },
     onError: (error) => {
       toast.error(getApiErrorMessage(error, "Could not pair reader."));
+    },
+  });
+  const deleteMutation = useMutation({
+    ...posApi.readers.delete(),
+    onSuccess: async (_data, readerId) => {
+      setConfirmDeleteId(null);
+      if (session?.readerId === readerId) {
+        clearDoorReaderConfig();
+        onReaderRemoved?.();
+      }
+      await queryClient.invalidateQueries({ queryKey: posApi.keys.readers() });
+      toast.success("Reader removed.");
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Could not delete reader."));
     },
   });
 
@@ -93,8 +112,7 @@ export function ReaderSelect({ onSelected }: ReaderSelectProps) {
               Solo “Ready” alone is not enough — SumUp Cloud API must agree).
             </li>
             <li>
-              Delete extra stale readers in SumUp Dashboard if you paired more
-              than once.
+              Remove stale readers below if you paired more than once.
             </li>
           </ol>
           <form
@@ -162,38 +180,76 @@ export function ReaderSelect({ onSelected }: ReaderSelectProps) {
             {readers.map((reader) => {
               const selected = session?.readerId === reader.id;
               const offline = !reader.online;
+              const confirmingDelete = confirmDeleteId === reader.id;
 
               return (
-                <Button
-                  key={reader.id}
-                  className={cn(
-                    "h-auto w-full justify-start py-3",
-                    selected && "ring-2 ring-primary",
-                  )}
-                  disabled={offline}
-                  type="button"
-                  variant={selected ? "default" : "outline"}
-                  onClick={() => {
-                    setDoorReaderConfig({
-                      readerId: reader.id,
-                      readerName: reader.name,
-                    });
-                    onSelected();
-                  }}
-                >
-                  <span className="flex flex-col items-start gap-0.5 text-left">
-                    <span>{reader.name}</span>
-                    <span className="text-xs opacity-80">
-                      {reader.connectionStatus ?? reader.status ?? "unknown"}
-                      {reader.deviceIdentifier && offline
-                        ? ` · ${reader.deviceIdentifier}`
-                        : null}
-                      {offline
-                        ? " — keep Virtual Solo tab open until ONLINE"
-                        : " — ready"}
+                <div key={reader.id} className="flex gap-2">
+                  <Button
+                    className={cn(
+                      "h-auto min-w-0 flex-1 justify-start py-3",
+                      selected && "ring-2 ring-primary",
+                    )}
+                    disabled={offline || deleteMutation.isPending}
+                    type="button"
+                    variant={selected ? "default" : "outline"}
+                    onClick={() => {
+                      setConfirmDeleteId(null);
+                      setDoorReaderConfig({
+                        readerId: reader.id,
+                        readerName: reader.name,
+                      });
+                      onSelected();
+                    }}
+                  >
+                    <span className="flex flex-col items-start gap-0.5 text-left">
+                      <span>{reader.name}</span>
+                      <span className="text-xs opacity-80">
+                        {reader.connectionStatus ?? reader.status ?? "unknown"}
+                        {reader.deviceIdentifier && offline
+                          ? ` · ${reader.deviceIdentifier}`
+                          : null}
+                        {offline
+                          ? " — keep Virtual Solo tab open until ONLINE"
+                          : " — ready"}
+                      </span>
                     </span>
-                  </span>
-                </Button>
+                  </Button>
+                  {confirmingDelete ? (
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <Button
+                        disabled={deleteMutation.isPending}
+                        size="sm"
+                        type="button"
+                        variant="destructive"
+                        onClick={() => {
+                          void deleteMutation.mutateAsync(reader.id);
+                        }}
+                      >
+                        {deleteMutation.isPending ? "…" : "Delete"}
+                      </Button>
+                      <Button
+                        disabled={deleteMutation.isPending}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                        onClick={() => setConfirmDeleteId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      aria-label={`Remove ${reader.name}`}
+                      disabled={deleteMutation.isPending}
+                      size="icon"
+                      type="button"
+                      variant="outline"
+                      onClick={() => setConfirmDeleteId(reader.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               );
             })}
           </CardContent>
