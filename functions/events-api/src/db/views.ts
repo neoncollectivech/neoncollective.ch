@@ -1,16 +1,31 @@
-import { pgView, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { eq } from "drizzle-orm";
+import { pgView } from "drizzle-orm/pg-core";
 
-/** Admin list read model: admission + registration person (see migration 0016). */
-export const admissionsAdminListView = pgView("admissions_admin_list", {
-  id: uuid("id").primaryKey(),
-  registrationId: uuid("registration_id").notNull(),
-  eventId: uuid("event_id").notNull(),
-  signedCredential: text("signed_credential").notNull(),
-  personId: uuid("person_id").notNull(),
-  givenName: text("given_name").notNull(),
-  familyName: text("family_name").notNull(),
-  checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
-  checkedInBy: text("checked_in_by"),
-  revokedAt: timestamp("revoked_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-}).existing();
+import { admissions, eventRegistrations, people } from "./schema";
+
+/**
+ * Admin list read model: admission row + registration person identity.
+ * Change the query here, then run `pnpm db:events-api:generate` (never hand-edit view SQL).
+ */
+export const admissionsAdminListView = pgView("admissions_admin_list").as((qb) =>
+  qb
+    .select({
+      id: admissions.id,
+      registrationId: admissions.registrationId,
+      eventId: admissions.eventId,
+      signedCredential: admissions.signedCredential,
+      checkedInAt: admissions.checkedInAt,
+      checkedInBy: admissions.checkedInBy,
+      revokedAt: admissions.revokedAt,
+      createdAt: admissions.createdAt,
+      personId: eventRegistrations.personId,
+      givenName: people.givenName,
+      familyName: people.familyName,
+    })
+    .from(admissions)
+    .innerJoin(
+      eventRegistrations,
+      eq(admissions.registrationId, eventRegistrations.id),
+    )
+    .innerJoin(people, eq(eventRegistrations.personId, people.id)),
+);

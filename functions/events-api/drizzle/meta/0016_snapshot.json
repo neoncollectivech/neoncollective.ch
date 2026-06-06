@@ -1,9 +1,82 @@
 {
-  "id": "7d110ff3-dace-45a2-8949-76194328bbf0",
-  "prevId": "f86353bf-d350-4248-ad4a-e6f382424ec9",
+  "id": "8aafef5a-588a-4c30-84fb-371ff20f9873",
+  "prevId": "7d110ff3-dace-45a2-8949-76194328bbf0",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.admission_signing_keys": {
+      "name": "admission_signing_keys",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kid": {
+          "name": "kid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "algorithm": {
+          "name": "algorithm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'EdDSA'"
+        },
+        "public_jwk": {
+          "name": "public_jwk",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "private_jwk": {
+          "name": "private_jwk",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "admission_signing_keys_event_id_events_id_fk": {
+          "name": "admission_signing_keys_event_id_events_id_fk",
+          "tableFrom": "admission_signing_keys",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "admission_signing_keys_kid_unique": {
+          "name": "admission_signing_keys_kid_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "kid"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.admissions": {
       "name": "admissions",
       "schema": "",
@@ -14,6 +87,12 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
+        },
+        "signed_credential": {
+          "name": "signed_credential",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
         "event_id": {
           "name": "event_id",
@@ -26,6 +105,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "registration_id": {
+          "name": "registration_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "revoked_at": {
           "name": "revoked_at",
@@ -51,12 +136,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "signed_credential": {
-          "name": "signed_credential",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
         }
       },
       "indexes": {
@@ -90,11 +169,11 @@
           "method": "btree",
           "with": {}
         },
-        "admissions_order_id_unique": {
-          "name": "admissions_order_id_unique",
+        "admissions_registration_id_unique": {
+          "name": "admissions_registration_id_unique",
           "columns": [
             {
-              "expression": "order_id",
+              "expression": "registration_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -132,18 +211,23 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "admissions_registration_id_fk": {
+          "name": "admissions_registration_id_fk",
+          "tableFrom": "admissions",
+          "tableTo": "event_registrations",
+          "columnsFrom": [
+            "registration_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "admissions_public_token_unique": {
-          "name": "admissions_public_token_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "public_token"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -606,6 +690,198 @@
           "value": "\"event_invitees\".\"person_id\" IS NOT NULL OR \"event_invitees\".\"email\" IS NOT NULL OR \"event_invitees\".\"phone\" IS NOT NULL"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.event_registrations": {
+      "name": "event_registrations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "registration_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'confirmed'"
+        },
+        "exclusive_tier_id": {
+          "name": "exclusive_tier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "primary_order_id": {
+          "name": "primary_order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "confirmed_at": {
+          "name": "confirmed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "event_registrations_event_person_unique": {
+          "name": "event_registrations_event_person_unique",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_registrations_event_id_idx": {
+          "name": "event_registrations_event_id_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_registrations_person_id_idx": {
+          "name": "event_registrations_person_id_idx",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_registrations_primary_order_id_idx": {
+          "name": "event_registrations_primary_order_id_idx",
+          "columns": [
+            {
+              "expression": "primary_order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_registrations_event_id_events_id_fk": {
+          "name": "event_registrations_event_id_events_id_fk",
+          "tableFrom": "event_registrations",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "event_registrations_person_id_people_id_fk": {
+          "name": "event_registrations_person_id_people_id_fk",
+          "tableFrom": "event_registrations",
+          "tableTo": "people",
+          "columnsFrom": [
+            "person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "event_registrations_exclusive_tier_id_event_tiers_id_fk": {
+          "name": "event_registrations_exclusive_tier_id_event_tiers_id_fk",
+          "tableFrom": "event_registrations",
+          "tableTo": "event_tiers",
+          "columnsFrom": [
+            "exclusive_tier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "event_registrations_primary_order_id_orders_id_fk": {
+          "name": "event_registrations_primary_order_id_orders_id_fk",
+          "tableFrom": "event_registrations",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "primary_order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.event_tiers": {
@@ -1214,8 +1490,34 @@
           "notNull": true,
           "default": "'en'"
         },
+        "payment_provider": {
+          "name": "payment_provider",
+          "type": "payment_provider",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'stripe'"
+        },
         "stripe_payment_intent_id": {
           "name": "stripe_payment_intent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sumup_client_transaction_id": {
+          "name": "sumup_client_transaction_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sumup_reader_id": {
+          "name": "sumup_reader_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pos_sold_by": {
+          "name": "pos_sold_by",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1257,6 +1559,20 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "registration_id": {
+          "name": "registration_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order_kind": {
+          "name": "order_kind",
+          "type": "order_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'registration'"
         },
         "created_at": {
           "name": "created_at",
@@ -1333,6 +1649,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "orders_registration_id_idx": {
+          "name": "orders_registration_id_idx",
+          "columns": [
+            {
+              "expression": "registration_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1396,6 +1727,13 @@
           "nullsNotDistinct": false,
           "columns": [
             "stripe_payment_intent_id"
+          ]
+        },
+        "orders_sumup_client_transaction_id_unique": {
+          "name": "orders_sumup_client_transaction_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "sumup_client_transaction_id"
           ]
         }
       },
@@ -2157,6 +2495,32 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.sumup_events_processed": {
+      "name": "sumup_events_processed",
+      "schema": "",
+      "columns": {
+        "sumup_event_id": {
+          "name": "sumup_event_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.auth_account": {
       "name": "auth_account",
       "schema": "",
@@ -2497,79 +2861,6 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
-    "public.admission_signing_keys": {
-      "name": "admission_signing_keys",
-      "schema": "",
-      "columns": {
-        "event_id": {
-          "name": "event_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "kid": {
-          "name": "kid",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "algorithm": {
-          "name": "algorithm",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "EdDSA"
-        },
-        "public_jwk": {
-          "name": "public_jwk",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "private_jwk": {
-          "name": "private_jwk",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "admission_signing_keys_event_id_events_id_fk": {
-          "name": "admission_signing_keys_event_id_events_id_fk",
-          "tableFrom": "admission_signing_keys",
-          "tableTo": "events",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "admission_signing_keys_kid_unique": {
-          "name": "admission_signing_keys_kid_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "kid"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -2589,6 +2880,14 @@
         "published"
       ]
     },
+    "public.order_kind": {
+      "name": "order_kind",
+      "schema": "public",
+      "values": [
+        "registration",
+        "upsell"
+      ]
+    },
     "public.order_status": {
       "name": "order_status",
       "schema": "public",
@@ -2597,6 +2896,14 @@
         "paid",
         "failed",
         "refunded"
+      ]
+    },
+    "public.payment_provider": {
+      "name": "payment_provider",
+      "schema": "public",
+      "values": [
+        "stripe",
+        "sumup"
       ]
     },
     "public.profile_verification_channel": {
@@ -2616,6 +2923,14 @@
         "tier_prices"
       ]
     },
+    "public.registration_status": {
+      "name": "registration_status",
+      "schema": "public",
+      "values": [
+        "confirmed",
+        "refunded"
+      ]
+    },
     "public.tier_selection_mode": {
       "name": "tier_selection_mode",
       "schema": "public",
@@ -2629,7 +2944,85 @@
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
+  "views": {
+    "public.admissions_admin_list": {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "registration_id": {
+          "name": "registration_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signed_credential": {
+          "name": "signed_credential",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checked_in_at": {
+          "name": "checked_in_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_in_by": {
+          "name": "checked_in_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "given_name": {
+          "name": "given_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "family_name": {
+          "name": "family_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "definition": "select \"admissions\".\"id\", \"admissions\".\"registration_id\", \"admissions\".\"event_id\", \"admissions\".\"signed_credential\", \"admissions\".\"checked_in_at\", \"admissions\".\"checked_in_by\", \"admissions\".\"revoked_at\", \"admissions\".\"created_at\", \"event_registrations\".\"person_id\", \"people\".\"given_name\", \"people\".\"family_name\" from \"admissions\" inner join \"event_registrations\" on \"admissions\".\"registration_id\" = \"event_registrations\".\"id\" inner join \"people\" on \"event_registrations\".\"person_id\" = \"people\".\"id\"",
+      "name": "admissions_admin_list",
+      "schema": "public",
+      "isExisting": false,
+      "materialized": false
+    }
+  },
   "_meta": {
     "columns": {},
     "schemas": {},
