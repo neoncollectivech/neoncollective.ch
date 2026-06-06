@@ -37,9 +37,7 @@ export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps)
     onSuccess: async (reader) => {
       setPairingCode("");
       await queryClient.invalidateQueries({ queryKey: posApi.keys.readers() });
-      toast.success(
-        `Paired ${reader.name}. Keep Virtual Solo open until status is ONLINE.`,
-      );
+      toast.success(`Paired ${reader.name}.`);
     },
     onError: (error) => {
       toast.error(getApiErrorMessage(error, "Could not pair reader."));
@@ -80,41 +78,22 @@ export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps)
   }
 
   const readers = readersQuery.data?.readers ?? [];
-  const merchantCode = readersQuery.data?.sumup.configuredMerchantCode ?? "…";
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Pair Virtual Solo (dev)</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-base">Pair reader</CardTitle>
+          <a
+            className="text-primary text-sm underline"
+            href={VIRTUAL_SOLO_URL}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Virtual Solo
+          </a>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <ol className="list-decimal space-y-1 pl-4">
-            <li>
-              Open{" "}
-              <a
-                className="text-primary underline"
-                href={VIRTUAL_SOLO_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Virtual Solo
-              </a>{" "}
-              first → Get started → copy the pairing code (do not close the
-              tab).
-            </li>
-            <li>
-              Paste the code below and pair (merchant{" "}
-              <code className="text-foreground">{merchantCode}</code>).
-            </li>
-            <li>
-              Wait here until status flips to <strong>ONLINE</strong> (Virtual
-              Solo “Ready” alone is not enough — SumUp Cloud API must agree).
-            </li>
-            <li>
-              Remove stale readers below if you paired more than once.
-            </li>
-          </ol>
+        <CardContent>
           <form
             className="space-y-3"
             onSubmit={(event) => {
@@ -130,13 +109,12 @@ export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps)
               <Input
                 autoComplete="off"
                 id="pairingCode"
-                placeholder="From Virtual Solo"
                 value={pairingCode}
                 onChange={(event) => setPairingCode(event.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="readerName">Reader name</Label>
+              <Label htmlFor="readerName">Name</Label>
               <Input
                 id="readerName"
                 value={readerName}
@@ -148,22 +126,13 @@ export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps)
               disabled={pairMutation.isPending || pairingCode.trim().length < 8}
               type="submit"
             >
-              {pairMutation.isPending ? "Pairing…" : "Pair reader"}
+              {pairMutation.isPending ? "Pairing…" : "Pair"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {readers.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">No Solo readers</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            Pair Virtual Solo above, then select the reader here.
-          </CardContent>
-        </Card>
-      ) : (
+      {readers.length > 0 ? (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-base">Solo reader</CardTitle>
@@ -179,17 +148,16 @@ export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps)
           <CardContent className="space-y-2">
             {readers.map((reader) => {
               const selected = session?.readerId === reader.id;
-              const offline = !reader.online;
               const confirmingDelete = confirmDeleteId === reader.id;
 
               return (
-                <div key={reader.id} className="flex gap-2">
+                <div key={reader.id} className="flex min-w-0 gap-2">
                   <Button
                     className={cn(
-                      "h-auto min-w-0 flex-1 justify-start py-3",
+                      "h-auto min-w-0 flex-1 justify-start overflow-hidden py-3 whitespace-normal",
                       selected && "ring-2 ring-primary",
                     )}
-                    disabled={offline || deleteMutation.isPending}
+                    disabled={deleteMutation.isPending}
                     type="button"
                     variant={selected ? "default" : "outline"}
                     onClick={() => {
@@ -201,16 +169,13 @@ export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps)
                       onSelected();
                     }}
                   >
-                    <span className="flex flex-col items-start gap-0.5 text-left">
-                      <span>{reader.name}</span>
-                      <span className="text-xs opacity-80">
+                    <span className="flex w-full min-w-0 flex-col items-start gap-0.5 text-left">
+                      <span className="w-full truncate">{reader.name}</span>
+                      <span className="w-full truncate text-xs opacity-80">
                         {reader.connectionStatus ?? reader.status ?? "unknown"}
-                        {reader.deviceIdentifier && offline
+                        {reader.deviceIdentifier
                           ? ` · ${reader.deviceIdentifier}`
                           : null}
-                        {offline
-                          ? " — keep Virtual Solo tab open until ONLINE"
-                          : " — ready"}
                       </span>
                     </span>
                   </Button>
@@ -254,7 +219,7 @@ export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps)
             })}
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }
