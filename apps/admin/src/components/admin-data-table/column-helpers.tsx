@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { CellContext, ColumnDef } from "@tanstack/react-table";
 import type {
   AdminColumnDef,
@@ -5,10 +6,68 @@ import type {
 } from "@/components/admin-data-table/types";
 import type { AdminFkServiceDefinition } from "@/lib/admin-fk-services";
 
+import { Link } from "react-router-dom";
+
 import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { DataTableColumnHeader } from "@/components/admin-data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+
+/** Primary navigation link styling for list → detail rows. */
+export const adminDetailLinkClassName =
+  "text-primary underline-offset-4 hover:underline";
+
+export function AdminDetailLink({
+  href,
+  children,
+  className,
+}: {
+  href: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Link className={className ?? adminDetailLinkClassName} to={href}>
+      {children}
+    </Link>
+  );
+}
+
+export function adminLinkColumn<TRow>(opts: {
+  id: string;
+  accessorKey?: keyof TRow & string;
+  header: string;
+  sortable?: boolean;
+  className?: string;
+  getHref: (row: TRow) => string | undefined;
+  getLabel: (row: TRow) => string;
+}): AdminColumnDef<TRow> {
+  return {
+    id: opts.id,
+    accessorKey: opts.accessorKey,
+    header: opts.sortable ? createSortHeader(opts.header) : opts.header,
+    enableSorting: Boolean(opts.sortable),
+    meta: { sortable: opts.sortable },
+    cell: ({ row }) => {
+      const label = opts.getLabel(row.original);
+      const href = opts.getHref(row.original);
+
+      if (!href || !label) {
+        return (
+          <span className={opts.className ?? "text-muted-foreground"}>
+            {label || "—"}
+          </span>
+        );
+      }
+
+      return (
+        <AdminDetailLink className={opts.className} href={href}>
+          {label}
+        </AdminDetailLink>
+      );
+    },
+  };
+}
 
 function createSortHeader<TRow, TValue>(
   title: string,
@@ -134,6 +193,7 @@ export function adminFkColumn<TRow extends Record<string, unknown>>(
     fk: AdminFkServiceDefinition;
     display: string | readonly string[];
     sortable?: boolean;
+    href?: (row: TRow) => string | undefined;
   },
 ): AdminColumnDef<TRow> {
   return {
@@ -169,6 +229,7 @@ export function adminFkColumn<TRow extends Record<string, unknown>>(
                 ? null
                 : String(foreignId)
           }
+          href={opts.href ? () => opts.href!(ctx.row.original) : undefined}
         />
       );
     },

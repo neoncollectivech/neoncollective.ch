@@ -8,9 +8,9 @@ import type {
   OrderRow,
 } from "@/lib/admin-api";
 
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
+import { AdminDetailLink } from "@/components/admin-data-table/column-helpers";
 import { AdminSortableTableHead } from "@/components/admin-sortable-table-head";
 import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { Badge } from "@/components/ui/badge";
@@ -90,7 +90,6 @@ export function PersonOrdersTable({ orders }: PersonOrdersTableProps) {
             sortField={sort.sortField}
             onSort={sort.toggleSort}
           />
-          <TableHead />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -102,6 +101,11 @@ export function PersonOrdersTable({ orders }: PersonOrdersTableProps) {
                 fkService={eventFkService}
                 foreignDisplayField="title"
                 foreignId={order.eventId}
+                href={() =>
+                  isUuid(order.id)
+                    ? eventOrderPath(order.eventId, order.id)
+                    : undefined
+                }
               />
             </TableCell>
             <TableCell>CHF {(order.amountCents / 100).toFixed(2)}</TableCell>
@@ -117,13 +121,6 @@ export function PersonOrdersTable({ orders }: PersonOrdersTableProps) {
             </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(order.createdAt).toLocaleString()}
-            </TableCell>
-            <TableCell>
-              {isUuid(order.id) ? (
-                <Button asChild size="sm" variant="ghost">
-                  <Link to={eventOrderPath(order.eventId, order.id)}>View</Link>
-                </Button>
-              ) : null}
             </TableCell>
           </TableRow>
         ))}
@@ -173,7 +170,6 @@ export function PersonRegistrationsTable({
             sortField={sort.sortField}
             onSort={sort.toggleSort}
           />
-          <TableHead />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -185,6 +181,14 @@ export function PersonRegistrationsTable({
                 fkService={eventFkService}
                 foreignDisplayField="title"
                 foreignId={registration.eventId}
+                href={() =>
+                  isUuid(registration.primaryOrderId)
+                    ? eventOrderPath(
+                        registration.eventId,
+                        registration.primaryOrderId,
+                      )
+                    : undefined
+                }
               />
             </TableCell>
             <TableCell>
@@ -198,20 +202,6 @@ export function PersonRegistrationsTable({
             </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(registration.confirmedAt).toLocaleString()}
-            </TableCell>
-            <TableCell>
-              {isUuid(registration.primaryOrderId) ? (
-                <Button asChild size="sm" variant="ghost">
-                  <Link
-                    to={eventOrderPath(
-                      registration.eventId,
-                      registration.primaryOrderId,
-                    )}
-                  >
-                    Primary order
-                  </Link>
-                </Button>
-              ) : null}
             </TableCell>
           </TableRow>
         ))}
@@ -259,7 +249,6 @@ export function PersonAdmissionsTable({
             sortField={sort.sortField}
             onSort={sort.toggleSort}
           />
-          <TableHead />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -271,6 +260,11 @@ export function PersonAdmissionsTable({
                 fkService={eventFkService}
                 foreignDisplayField="title"
                 foreignId={admission.eventId}
+                href={() =>
+                  isUuid(admission.id)
+                    ? eventAdmissionPath(admission.eventId, admission.id)
+                    : undefined
+                }
               />
             </TableCell>
             <TableCell>
@@ -284,17 +278,6 @@ export function PersonAdmissionsTable({
             </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(admission.createdAt).toLocaleString()}
-            </TableCell>
-            <TableCell>
-              {isUuid(admission.id) ? (
-                <Button asChild size="sm" variant="ghost">
-                  <Link
-                    to={eventAdmissionPath(admission.eventId, admission.id)}
-                  >
-                    View
-                  </Link>
-                </Button>
-              ) : null}
             </TableCell>
           </TableRow>
         ))}
@@ -357,7 +340,6 @@ export function PersonInviteesTable({ invitees }: PersonInviteesTableProps) {
             sortField={sort.sortField}
             onSort={sort.toggleSort}
           />
-          <TableHead />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -369,6 +351,11 @@ export function PersonInviteesTable({ invitees }: PersonInviteesTableProps) {
                 fkService={eventFkService}
                 foreignDisplayField="title"
                 foreignId={invitee.eventId}
+                href={() =>
+                  isUuid(invitee.eventId)
+                    ? eventWorkspaceSectionPath(invitee.eventId, "invitees")
+                    : undefined
+                }
               />
             </TableCell>
             <TableCell>
@@ -380,17 +367,6 @@ export function PersonInviteesTable({ invitees }: PersonInviteesTableProps) {
             </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(invitee.createdAt).toLocaleString()}
-            </TableCell>
-            <TableCell>
-              {isUuid(invitee.eventId) ? (
-                <Button asChild size="sm" variant="ghost">
-                  <Link
-                    to={eventWorkspaceSectionPath(invitee.eventId, "invitees")}
-                  >
-                    Event invites
-                  </Link>
-                </Button>
-              ) : null}
             </TableCell>
           </TableRow>
         ))}
@@ -453,7 +429,6 @@ export function PersonHostedInviteesTable({
             sortField={sort.sortField}
             onSort={sort.toggleSort}
           />
-          <TableHead />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -465,6 +440,11 @@ export function PersonHostedInviteesTable({
                 fkService={eventFkService}
                 foreignDisplayField="title"
                 foreignId={invitee.eventId}
+                href={() =>
+                  isUuid(invitee.eventId)
+                    ? eventOverviewPath(invitee.eventId)
+                    : undefined
+                }
               />
             </TableCell>
             <TableCell>
@@ -485,13 +465,6 @@ export function PersonHostedInviteesTable({
               ) : (
                 <Badge>Active</Badge>
               )}
-            </TableCell>
-            <TableCell>
-              {isUuid(invitee.eventId) ? (
-                <Button asChild size="sm" variant="ghost">
-                  <Link to={eventOverviewPath(invitee.eventId)}>Event</Link>
-                </Button>
-              ) : null}
             </TableCell>
           </TableRow>
         ))}
@@ -633,7 +606,6 @@ export function PersonInviteRedemptionsTable({
             sortField={sort.sortField}
             onSort={sort.toggleSort}
           />
-          <TableHead />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -648,21 +620,18 @@ export function PersonInviteRedemptionsTable({
               />
             </TableCell>
             <TableCell className="font-mono text-xs">
-              {redemption.orderId.slice(0, 8)}…
+              {isUuid(redemption.orderId) ? (
+                <AdminDetailLink
+                  href={eventOrderPath(redemption.eventId, redemption.orderId)}
+                >
+                  {redemption.orderId.slice(0, 8)}…
+                </AdminDetailLink>
+              ) : (
+                redemption.orderId.slice(0, 8)
+              )}
             </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(redemption.createdAt).toLocaleString()}
-            </TableCell>
-            <TableCell>
-              {isUuid(redemption.orderId) ? (
-                <Button asChild size="sm" variant="ghost">
-                  <Link
-                    to={eventOrderPath(redemption.eventId, redemption.orderId)}
-                  >
-                    View order
-                  </Link>
-                </Button>
-              ) : null}
             </TableCell>
           </TableRow>
         ))}

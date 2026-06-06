@@ -1,8 +1,6 @@
 import type { AdminColumnDef } from "@/components/admin-data-table/types";
 import type { OrderRow } from "@/lib/admin-api";
 
-import { Link } from "react-router-dom";
-
 import {
   adminActionsColumn,
   adminBadgeColumn,
@@ -26,6 +24,14 @@ export function orderColumns(
   opts: OrderColumnsOptions,
 ): AdminColumnDef<OrderRow>[] {
   const cols: AdminColumnDef<OrderRow>[] = [
+    adminFkColumn("personId", {
+      header: "Guest",
+      fk: personFkService,
+      display: ["givenName", "familyName"],
+      sortable: true,
+      href: (order) =>
+        isUuid(order.id) ? eventOrderPath(opts.eventId, order.id) : undefined,
+    }),
     adminDateColumn("createdAt", { header: "Date & time", sortable: true }),
   ];
 
@@ -40,11 +46,6 @@ export function orderColumns(
   }
 
   cols.push(
-    adminFkColumn("personId", {
-      header: "Person",
-      fk: personFkService,
-      display: ["givenName", "familyName"],
-    }),
     adminMoneyColumn("amountCents", { header: "Amount", sortable: true }),
     adminBadgeColumn("orderKind", {
       header: "Kind",
@@ -56,28 +57,23 @@ export function orderColumns(
       cell: ({ row }) => {
         const order = row.original;
 
+        if (order.status !== "paid") {
+          return "—";
+        }
+
         return (
-          <div className="space-x-2">
-            {isUuid(order.id) ? (
-              <Button asChild size="sm" variant="ghost">
-                <Link to={eventOrderPath(opts.eventId, order.id)}>View</Link>
-              </Button>
-            ) : null}
-            {order.status === "paid" ? (
-              <Button
-                disabled={opts.isRefunding}
-                size="sm"
-                variant="destructive"
-                onClick={() => {
-                  if (confirm("Refund this order?")) {
-                    opts.onRefund(order.id);
-                  }
-                }}
-              >
-                Refund
-              </Button>
-            ) : null}
-          </div>
+          <Button
+            disabled={opts.isRefunding}
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              if (confirm("Refund this order?")) {
+                opts.onRefund(order.id);
+              }
+            }}
+          >
+            Refund
+          </Button>
         );
       },
     }),

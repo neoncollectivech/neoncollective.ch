@@ -1,12 +1,11 @@
 import type { AdminColumnDef } from "@/components/admin-data-table/types";
 import type { PersonRow } from "@/lib/admin-api";
 
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
-import { DataTableColumnHeader } from "@/components/admin-data-table/data-table-column-header";
 import {
   adminActionsColumn,
+  adminLinkColumn,
   adminSelectionColumn,
   adminTextColumn,
 } from "@/components/admin-data-table/column-helpers";
@@ -37,20 +36,18 @@ async function copyPersonLoginLink(person: {
 export function peopleColumns(): AdminColumnDef<PersonRow>[] {
   return [
     adminSelectionColumn({ idPrefix: "people-row" }),
-    {
+    adminLinkColumn({
       id: "name",
       accessorKey: "givenName",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Name" />
-      ),
-      enableSorting: true,
-      meta: { sortable: true },
-      cell: ({ row }) => (
-        <span>
-          {row.original.givenName} {row.original.familyName}
-        </span>
-      ),
-    },
+      header: "Name",
+      sortable: true,
+      className: "font-medium",
+      getLabel: (person) =>
+        `${person.givenName} ${person.familyName}`.trim() ||
+        person.id.slice(0, 8),
+      getHref: (person) =>
+        isUuid(person.id) ? `/people/${person.id}` : undefined,
+    }),
     adminTextColumn("email", { header: "Email", sortable: true }),
     {
       id: "phone",
@@ -91,24 +88,18 @@ export function peopleColumns(): AdminColumnDef<PersonRow>[] {
         const p = row.original;
         const loginContact = personLoginContact(p);
 
+        if (!loginContact) {
+          return "—";
+        }
+
         return (
-          <div className="flex flex-wrap justify-end gap-1">
-            {loginContact ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void copyPersonLoginLink(p)}
-              >
-                Copy login link
-              </Button>
-            ) : null}
-            {isUuid(p.id) ? (
-              <Button asChild size="sm" variant="ghost">
-                <Link to={`/people/${p.id}`}>View</Link>
-              </Button>
-            ) : null}
-            {!loginContact && !isUuid(p.id) ? "—" : null}
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void copyPersonLoginLink(p)}
+          >
+            Copy login link
+          </Button>
         );
       },
     }),

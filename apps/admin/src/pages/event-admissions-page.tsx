@@ -3,9 +3,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
+import { AdminDetailLink } from "@/components/admin-data-table/column-helpers";
 import { AdminDataTable } from "@/components/admin-data-table";
 import { EventWorkspaceGate } from "@/components/layout/event-workspace-gate";
 import { Button } from "@/components/ui/button";
@@ -38,12 +39,9 @@ function admissionColumns(eventId: string): ColumnDef<AdmissionRow>[] {
         const label = `${givenName} ${familyName}`.trim();
 
         return (
-          <Link
-            className="text-primary underline-offset-4 hover:underline"
-            to={eventAdmissionPath(eventId, id)}
-          >
+          <AdminDetailLink href={eventAdmissionPath(eventId, id)}>
             {label || personId.slice(0, 8)}
-          </Link>
+          </AdminDetailLink>
         );
       },
     },

@@ -110,7 +110,10 @@ export function AdminFkCell({
   const href = resolveHref();
   const content =
     href && isUuid(foreignId) ? (
-      <Link className="text-primary hover:underline" to={href}>
+      <Link
+        className="text-primary underline-offset-4 hover:underline"
+        to={href}
+      >
         {label}
       </Link>
     ) : (
