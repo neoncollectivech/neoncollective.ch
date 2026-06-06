@@ -4,6 +4,7 @@ import { normalizeOptionalPhoneE164 } from "../../helpers/contact";
 import { verifyAdmissionCredential } from "../../helpers/admission-jwt";
 import { admissionSigningKeysService } from "../../services/admission-signing-keys.service";
 import { admissionsService } from "../../services/admissions.service";
+import { eventRegistrationsService } from "../../services/event-registrations.service";
 import { eventTiersService } from "../../services/event-tiers.service";
 import { ordersService } from "../../services/orders.service";
 import { orderTiersService } from "../../services/order-tiers.service";
@@ -199,26 +200,12 @@ export async function resolvePosGuest(params: {
       statuses: ["paid"],
     });
     const registeredTiers = await listRegisteredOrderTiersForOrders(paidOrderIds, tx);
-    const exclusiveTierIds = activeTiers
-      .filter((tier) => tier.selectionMode === "exclusive")
-      .map((tier) => tier.id);
-    const personOrders = await ordersService.listPendingOrPaidForPersonOnEventInTx(
-      tx,
-      params.eventId,
-      personId,
-    );
-    const hasPaidExclusiveResolved = await (async () => {
-      for (const order of personOrders) {
-        if (order.status !== "paid") {
-          continue;
-        }
-        const tierIds = await orderTiersService.getEventTierIdsForOrder(order.id, tx);
-        if (tierIds.some((id) => exclusiveTierIds.includes(id))) {
-          return true;
-        }
-      }
-      return false;
-    })();
+    const hasPaidExclusiveResolved =
+      await eventRegistrationsService.hasConfirmedRegistrationInTx(
+        tx,
+        personId,
+        params.eventId,
+      );
 
     const availableUpsellTiers = hasPaidExclusiveResolved
       ? await resolveAvailableUpsellTiersForPerson({

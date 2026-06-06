@@ -32,6 +32,11 @@ export const promotionKindEnum = pgEnum("promotion_kind", [
   "amount_off",
   "tier_prices",
 ]);
+export const registrationStatusEnum = pgEnum("registration_status", [
+  "confirmed",
+  "refunded",
+]);
+export const orderKindEnum = pgEnum("order_kind", ["registration", "upsell"]);
 
 import type { PromotionTierOverride } from "../helpers/promotion-code";
 
@@ -249,6 +254,8 @@ export const orders = pgTable(
     checkoutFulfilledAt: timestamp("checkout_fulfilled_at", { withTimezone: true }),
     /** Set once when post-checkout access email is eligible to send. */
     accessEmailSentAt: timestamp("access_email_sent_at", { withTimezone: true }),
+    registrationId: uuid("registration_id"),
+    orderKind: orderKindEnum("order_kind").notNull().default("registration"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -257,6 +264,37 @@ export const orders = pgTable(
     index("orders_invite_link_id_idx").on(t.inviteLinkId),
     index("orders_person_id_idx").on(t.personId),
     index("orders_promotion_code_id_idx").on(t.promotionCodeId),
+    index("orders_registration_id_idx").on(t.registrationId),
+  ],
+);
+
+/** Person enrolled on an event (created when exclusive order is paid). */
+export const eventRegistrations = pgTable(
+  "event_registrations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    personId: uuid("person_id")
+      .notNull()
+      .references(() => people.id, { onDelete: "restrict" }),
+    status: registrationStatusEnum("status").notNull().default("confirmed"),
+    exclusiveTierId: uuid("exclusive_tier_id")
+      .notNull()
+      .references(() => eventTiers.id, { onDelete: "restrict" }),
+    primaryOrderId: uuid("primary_order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "restrict" }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("event_registrations_event_person_unique").on(t.eventId, t.personId),
+    index("event_registrations_event_id_idx").on(t.eventId),
+    index("event_registrations_person_id_idx").on(t.personId),
+    index("event_registrations_primary_order_id_idx").on(t.primaryOrderId),
   ],
 );
 
@@ -319,6 +357,7 @@ export const admissions = pgTable(
     orderId: uuid("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
+    registrationId: uuid("registration_id"),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
     checkedInBy: text("checked_in_by"),
@@ -327,7 +366,12 @@ export const admissions = pgTable(
   (t) => [
     index("admissions_event_id_idx").on(t.eventId),
     index("admissions_order_id_idx").on(t.orderId),
-    uniqueIndex("admissions_order_id_unique").on(t.orderId),
+    uniqueIndex("admissions_registration_id_unique").on(t.registrationId),
+    foreignKey({
+      columns: [t.registrationId],
+      foreignColumns: [eventRegistrations.id],
+      name: "admissions_registration_id_fk",
+    }).onDelete("cascade"),
   ],
 );
 

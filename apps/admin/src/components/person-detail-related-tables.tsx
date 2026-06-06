@@ -1,6 +1,7 @@
 import type {
   AdmissionRow,
   EventInviteeListRow,
+  EventRegistrationRow,
   EventRow,
   InviteLinkRow,
   InviteRedemptionRow,
@@ -76,6 +77,13 @@ export function PersonOrdersTable({ orders }: PersonOrdersTableProps) {
             onSort={sort.toggleSort}
           />
           <AdminSortableTableHead
+            field="orderKind"
+            label="Kind"
+            sortDirection={sort.sortDirection}
+            sortField={sort.sortField}
+            onSort={sort.toggleSort}
+          />
+          <AdminSortableTableHead
             field="createdAt"
             label="Created"
             sortDirection={sort.sortDirection}
@@ -100,6 +108,13 @@ export function PersonOrdersTable({ orders }: PersonOrdersTableProps) {
             <TableCell>
               <Badge>{order.status}</Badge>
             </TableCell>
+            <TableCell>
+              <Badge
+                variant={order.orderKind === "upsell" ? "secondary" : "default"}
+              >
+                {order.orderKind}
+              </Badge>
+            </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(order.createdAt).toLocaleString()}
             </TableCell>
@@ -107,6 +122,94 @@ export function PersonOrdersTable({ orders }: PersonOrdersTableProps) {
               {isUuid(order.id) ? (
                 <Button asChild size="sm" variant="ghost">
                   <Link to={eventOrderPath(order.eventId, order.id)}>View</Link>
+                </Button>
+              ) : null}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+type PersonRegistrationsTableProps = {
+  registrations: EventRegistrationRow[];
+};
+
+export function PersonRegistrationsTable({
+  registrations,
+}: PersonRegistrationsTableProps) {
+  const fk = useForeignKey({ rows: registrations, load: [eventFkService] });
+  const sort = useClientTableSort(registrations, {
+    defaultField: "confirmedAt",
+  });
+
+  if (registrations.length === 0) {
+    return <EmptyRow message="No event registrations." />;
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <AdminSortableTableHead
+            field="eventId"
+            label="Event"
+            sortDirection={sort.sortDirection}
+            sortField={sort.sortField}
+            onSort={sort.toggleSort}
+          />
+          <AdminSortableTableHead
+            field="status"
+            label="Status"
+            sortDirection={sort.sortDirection}
+            sortField={sort.sortField}
+            onSort={sort.toggleSort}
+          />
+          <AdminSortableTableHead
+            field="confirmedAt"
+            label="Confirmed"
+            sortDirection={sort.sortDirection}
+            sortField={sort.sortField}
+            onSort={sort.toggleSort}
+          />
+          <TableHead />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sort.rows.map((registration) => (
+          <TableRow key={registration.id}>
+            <TableCell>
+              <AdminFkCell
+                fk={fk}
+                fkService={eventFkService}
+                foreignDisplayField="title"
+                foreignId={registration.eventId}
+              />
+            </TableCell>
+            <TableCell>
+              <Badge
+                variant={
+                  registration.status === "refunded" ? "secondary" : "default"
+                }
+              >
+                {registration.status}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+              {new Date(registration.confirmedAt).toLocaleString()}
+            </TableCell>
+            <TableCell>
+              {isUuid(registration.primaryOrderId) ? (
+                <Button asChild size="sm" variant="ghost">
+                  <Link
+                    to={eventOrderPath(
+                      registration.eventId,
+                      registration.primaryOrderId,
+                    )}
+                  >
+                    Primary order
+                  </Link>
                 </Button>
               ) : null}
             </TableCell>
@@ -455,7 +558,9 @@ export function PersonInviteLinksTable({ links }: PersonInviteLinksTableProps) {
                   foreignId={link.eventId}
                 />
               </TableCell>
-              <TableCell className="text-right">{link.maxRedemptions}</TableCell>
+              <TableCell className="text-right">
+                {link.maxRedemptions}
+              </TableCell>
               <TableCell className="text-muted-foreground">
                 {new Date(link.createdAt).toLocaleString()}
               </TableCell>
@@ -498,7 +603,9 @@ export function PersonInviteRedemptionsTable({
   const sort = useClientTableSort(redemptions, { defaultField: "createdAt" });
 
   if (redemptions.length === 0) {
-    return <EmptyRow message="No invite link redemptions on this person's orders." />;
+    return (
+      <EmptyRow message="No invite link redemptions on this person's orders." />
+    );
   }
 
   return (

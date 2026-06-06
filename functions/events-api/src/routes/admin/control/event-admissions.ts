@@ -4,10 +4,8 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { AppEnv } from "../../../auth/env";
 import { admissionSigningKeysService } from "../../../services/admission-signing-keys.service";
 import { admissionsService } from "../../../services/admissions.service";
-import { eventTiersService } from "../../../services/event-tiers.service";
+import { eventRegistrationsService } from "../../../services/event-registrations.service";
 import { eventsService } from "../../../services/events.service";
-import { orderTiersService } from "../../../services/order-tiers.service";
-import { ordersService } from "../../../services/orders.service";
 import { runTransaction } from "../../../services/transaction";
 import { jsonReasonFailure } from "../../shared/respond";
 
@@ -30,14 +28,14 @@ export async function getEventAdmissionsSummaryHandler(
 
   const signingMeta = await admissionSigningKeysService.getPublicMetaForEvent(eventId);
   const counts = await runTransaction((tx) =>
-    admissionsService.countPaidExclusiveOrdersWithoutAdmissionInTx(tx, eventId),
+    admissionsService.countRegistrationAdmissionsGapInTx(tx, eventId),
   );
 
   return c.json({
     signingKey: signingMeta
       ? { kid: signingMeta.kid, createdAt: signingMeta.createdAt.toISOString() }
       : null,
-    paidExclusiveOrders: counts.paidExclusiveOrders,
+    confirmedRegistrations: counts.confirmedRegistrations,
     withAdmission: counts.withAdmission,
     eligibleWithoutAdmission: counts.eligibleWithoutAdmission,
   });
@@ -96,24 +94,25 @@ export async function generateEventAdmissionsHandler(
     let skipped = 0;
     let failed = 0;
 
-    const paidOrderIds = await ordersService.listPaidOrderIdsForEventInTx(tx, eventId);
+    const registrations = await eventRegistrationsService.listConfirmedForEventInTx(
+      tx,
+      eventId,
+    );
 
-    for (const orderId of paidOrderIds) {
-      const tierIds = await orderTiersService.getEventTierIdsForOrder(orderId, tx);
-      const hasExclusive = Boolean(
-        await eventTiersService.findExclusiveTierIdAmong(tierIds, tx),
+    for (const registration of registrations) {
+      const existing = await admissionsService.hasActiveAdmissionForRegistrationInTx(
+        tx,
+        registration.id,
       );
-      if (!hasExclusive) {
-        continue;
-      }
-
-      const existing = await admissionsService.findIdByOrderInTx(tx, orderId);
       if (existing) {
         skipped += 1;
         continue;
       }
 
-      const issued = await admissionsService.issueAdmissionForPaidOrderInTx(tx, orderId);
+      const issued = await admissionsService.issueAdmissionForPaidOrderInTx(
+        tx,
+        registration.primaryOrderId,
+      );
       if (issued.ok) {
         created += 1;
       } else {

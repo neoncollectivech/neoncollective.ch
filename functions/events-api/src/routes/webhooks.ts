@@ -7,6 +7,7 @@ import type { AppEnv } from "../auth/env";
 import { authFactory } from "../auth/factory";
 import { verifyStripeWebhook } from "../auth/middleware/stripe-webhook";
 import { admissionsService } from "../services/admissions.service";
+import { eventRegistrationsService } from "../services/event-registrations.service";
 import { inviteRedemptionsService } from "../services/invite-redemptions.service";
 import { ordersService } from "../services/orders.service";
 import { stripeEventsProcessedService } from "../services/stripe-events-processed.service";
@@ -175,7 +176,38 @@ async function handleChargeRefunded(
       }
 
       await ordersService.markRefundedInTx(tx, order.id);
-      await admissionsService.revokeForOrderInTx(tx, order.id);
+
+      const isPrimary =
+        order.orderKind === "registration" ||
+        (await eventRegistrationsService.findByPrimaryOrderIdInTx(tx, order.id)) != null;
+
+      if (isPrimary) {
+        const registration =
+          (await eventRegistrationsService.findByPrimaryOrderIdInTx(tx, order.id)) ??
+          (await eventRegistrationsService.findByPersonOnEventInTx(
+            tx,
+            order.personId,
+            order.eventId,
+          ));
+        if (registration) {
+          await eventRegistrationsService.markRefundedInTx(tx, registration.id);
+          await admissionsService.revokeForRegistrationInTx(tx, registration.id);
+        }
+      } else if (order.registrationId) {
+        const admission = await admissionsService.findAdmissionForPersonOnEventInTx(
+          tx,
+          order.personId,
+          order.eventId,
+        );
+        if (admission) {
+          await admissionsService.refreshSignedCredentialInTx(
+            tx,
+            admission,
+            order.personId,
+          );
+        }
+      }
+
       await inviteRedemptionsService.deleteForOrderInTx(tx, order.id);
       log.info({ orderId, eventId: event.id }, "Order refunded via webhook");
     });

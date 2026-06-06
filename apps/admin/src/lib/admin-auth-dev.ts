@@ -6,10 +6,12 @@ export function isAdminAuthDisabled(): boolean {
     return false;
   }
   const flag = import.meta.env.VITE_ADMIN_AUTH_DISABLED?.trim();
+
   return flag === "1" || flag === "true";
 }
 
 export function devAdminDisplayEmail(): string {
   const email = import.meta.env.VITE_ADMIN_AUTH_DEV_EMAIL?.trim();
+
   return email && email.length > 0 ? email : DEFAULT_DEV_ADMIN_EMAIL;
 }

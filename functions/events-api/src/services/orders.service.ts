@@ -58,6 +58,8 @@ export const ordersResourceMeta = introspectTable(orders, {
       "status",
       "amountCents",
       "locale",
+      "orderKind",
+      "registrationId",
       "createdAt",
     ],
     read: [
@@ -67,6 +69,8 @@ export const ordersResourceMeta = introspectTable(orders, {
       "status",
       "amountCents",
       "locale",
+      "orderKind",
+      "registrationId",
       "stripePaymentIntentId",
       "inviteLinkId",
       "promotionCodeId",

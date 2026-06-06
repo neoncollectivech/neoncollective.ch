@@ -45,6 +45,12 @@ export const adminKeys = {
       ["admin", "admissions", "list", params] as const,
     detail: (id: string) => ["admin", "admissions", id] as const,
   },
+  eventRegistrations: {
+    all: ["admin", "event-registrations"] as const,
+    list: (params?: Record<string, string>) =>
+      ["admin", "event-registrations", "list", params] as const,
+    detail: (id: string) => ["admin", "event-registrations", id] as const,
+  },
   inviteRedemptions: {
     all: ["admin", "invite-redemptions"] as const,
     list: (params?: Record<string, string>) =>

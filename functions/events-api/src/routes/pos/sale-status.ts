@@ -55,7 +55,7 @@ export async function getPosSaleStatus(
   let signedCredential: string | null = null;
   if (refreshedOrder.status === "paid") {
     signedCredential = await runTransaction(async (tx) => {
-      const admission = await admissionsService.findCanonicalAdmissionForPersonOnEventInTx(
+      const admission = await admissionsService.findAdmissionForPersonOnEventInTx(
         tx,
         refreshedOrder.personId,
         eventId,

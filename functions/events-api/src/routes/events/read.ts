@@ -12,6 +12,7 @@ import {
 } from "../shared/invite-links-orchestration";
 import { buildEventPayload } from "./payload";
 import { resolveInviteOnlyEntitlement } from "../shared/invite-only-entitlement";
+import { eventRegistrationsService } from "../../services/event-registrations.service";
 import { ordersService } from "../../services/orders.service";
 import { orderTiersService } from "../../services/order-tiers.service";
 import type { ResolvedParticipantSession } from "../registrations/session";
@@ -44,19 +45,30 @@ export async function findPaidRegistrationForViewer(
   eventId: string,
   personId: string,
 ): Promise<{ tierName: string; tiers: RegisteredOrderTierPayload[] } | null> {
-  const paidOrderIds = await ordersService.listPaidOrderIdsForPersonOnEvent(
-    eventId,
+  const registration = await eventRegistrationsService.findByPersonOnEvent(
     personId,
+    eventId,
+  );
+  if (!registration || registration.status !== "confirmed") {
+    return null;
+  }
+
+  let paidOrderIds = await eventRegistrationsService.listPaidOrderIdsForRegistration(
+    registration.id,
   );
   if (paidOrderIds.length === 0) {
-    return null;
+    paidOrderIds = await ordersService.listPaidOrderIdsForPersonOnEvent(eventId, personId);
   }
-  const tiers = await listRegisteredOrderTiersForOrders(paidOrderIds);
-  if (tiers.length === 0) {
-    return null;
-  }
-  const tierName = await formatOrderTierNames(paidOrderIds[0]!);
-  return tierName ? { tierName, tiers } : null;
+
+  const tiers =
+    paidOrderIds.length > 0
+      ? await listRegisteredOrderTiersForOrders(paidOrderIds)
+      : [];
+  const tierName =
+    (await formatOrderTierNames(registration.primaryOrderId)) ||
+    tiers.map((tier) => tier.name).join(" + ");
+
+  return { tierName, tiers };
 }
 
 async function resolveAvailableUpsellTiers(params: {

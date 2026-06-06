@@ -21,6 +21,7 @@ import { inviteLinksResource } from "./resources/invite-links";
 import { inviteRedemptionsResource } from "./resources/invite-redemptions";
 import { orderTiersResource } from "./resources/order-tiers";
 import { promotionCodesResource } from "./resources/promotion-codes";
+import { eventRegistrationsResource } from "./resources/event-registrations";
 
 const adminAuth = [requireAdminSession];
 const resourceRouterOpts = { mapCtx };
@@ -65,6 +66,7 @@ export function createAdminRouter(): Hono<AppEnv> {
   mountResource(admin, "/invite-redemptions", inviteRedemptionsResource);
   mountResource(admin, "/invite-links", inviteLinksResource);
   mountResource(admin, "/promotion-codes", promotionCodesResource);
+  mountResource(admin, "/event-registrations", eventRegistrationsResource);
 
   const eventScoped = new Hono();
   eventScoped.route("/", createInviteesProvider());

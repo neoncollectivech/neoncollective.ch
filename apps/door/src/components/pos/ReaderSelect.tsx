@@ -25,13 +25,17 @@ export function ReaderSelect({ onSelected }: ReaderSelectProps) {
   const queryClient = useQueryClient();
   const [pairingCode, setPairingCode] = useState("");
   const [readerName, setReaderName] = useState("Virtual");
-  const readersQuery = useQuery(posApi.readers.list({ pollWhileOffline: true }));
+  const readersQuery = useQuery(
+    posApi.readers.list({ pollWhileOffline: true }),
+  );
   const pairMutation = useMutation({
     ...posApi.readers.pair(),
     onSuccess: async (reader) => {
       setPairingCode("");
       await queryClient.invalidateQueries({ queryKey: posApi.keys.readers() });
-      toast.success(`Paired ${reader.name}. Keep Virtual Solo open until status is ONLINE.`);
+      toast.success(
+        `Paired ${reader.name}. Keep Virtual Solo open until status is ONLINE.`,
+      );
     },
     onError: (error) => {
       toast.error(getApiErrorMessage(error, "Could not pair reader."));
@@ -57,8 +61,7 @@ export function ReaderSelect({ onSelected }: ReaderSelectProps) {
   }
 
   const readers = readersQuery.data?.readers ?? [];
-  const merchantCode =
-    readersQuery.data?.sumup.configuredMerchantCode ?? "…";
+  const merchantCode = readersQuery.data?.sumup.configuredMerchantCode ?? "…";
 
   return (
     <div className="space-y-4">
@@ -78,18 +81,20 @@ export function ReaderSelect({ onSelected }: ReaderSelectProps) {
               >
                 Virtual Solo
               </a>{" "}
-              first → Get started → copy the pairing code (do not close the tab).
+              first → Get started → copy the pairing code (do not close the
+              tab).
             </li>
             <li>
               Paste the code below and pair (merchant{" "}
               <code className="text-foreground">{merchantCode}</code>).
             </li>
             <li>
-              Wait here until status flips to <strong>ONLINE</strong> (Virtual Solo
-              “Ready” alone is not enough — SumUp Cloud API must agree).
+              Wait here until status flips to <strong>ONLINE</strong> (Virtual
+              Solo “Ready” alone is not enough — SumUp Cloud API must agree).
             </li>
             <li>
-              Delete extra stale readers in SumUp Dashboard if you paired more than once.
+              Delete extra stale readers in SumUp Dashboard if you paired more
+              than once.
             </li>
           </ol>
           <form

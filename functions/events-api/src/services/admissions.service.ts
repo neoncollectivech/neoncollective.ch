@@ -7,11 +7,21 @@ import { admissions, orders, people } from "../db/schema";
 import { signAdmissionCredential, verifyAdmissionCredential } from "../helpers/admission-jwt";
 import { formatOrderTierNamesFromLines } from "../helpers/order-tier-labels";
 import { admissionSigningKeysService } from "./admission-signing-keys.service";
+import { eventRegistrationsService } from "./event-registrations.service";
 import { eventTiersService } from "./event-tiers.service";
 import { orderTiersService } from "./order-tiers.service";
 import { ordersService } from "./orders.service";
 import type { EntityTx } from "./transaction";
 import { TableService } from "./base/table-service";
+
+function isPostgresUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error != null &&
+    "code" in error &&
+    (error as { code?: string }).code === "23505"
+  );
+}
 
 export type CheckInGuestDisplay = {
   guestName: string;
@@ -50,58 +60,33 @@ export class AdmissionsService extends TableService<typeof admissions> {
     });
   }
 
-  async listPaidOrderIdsForPersonOnEventInTx(
-    tx: AdmissionTx,
-    personId: string,
-    eventId: string,
-  ): Promise<string[]> {
-    return ordersService.listIdsForPersonOnEventAndStatusesInTx(tx, {
-      eventId,
-      personId,
-      statuses: ["paid"],
-    });
-  }
-
   async aggregatedTierIdsForPersonOnEventInTx(
     tx: AdmissionTx,
     personId: string,
     eventId: string,
   ): Promise<string[]> {
-    const paidOrderIds = await this.listPaidOrderIdsForPersonOnEventInTx(tx, personId, eventId);
-
-    return orderTiersService.listEventTierIdsForPaidPersonOnEventInTx(tx, {
-      personId,
-      eventId,
-    }, paidOrderIds);
+    return eventRegistrationsService.listTierIdsForPersonOnEventInTx(tx, personId, eventId);
   }
 
-  async findCanonicalAdmissionForPersonOnEventInTx(
+  async findAdmissionForPersonOnEventInTx(
     tx: AdmissionTx,
     personId: string,
     eventId: string,
   ): Promise<typeof admissions.$inferSelect | null> {
-    const personOrders = await ordersService.listPendingOrPaidForPersonOnEventInTx(
+    const registration = await eventRegistrationsService.findByPersonOnEventInTx(
       tx,
-      eventId,
       personId,
+      eventId,
     );
-
-    for (const order of personOrders) {
-      if (order.status !== "paid") {
-        continue;
-      }
-      const tierIds = await orderTiersService.getEventTierIdsForOrder(order.id, tx);
-      const exclusiveTierId = await eventTiersService.findExclusiveTierIdAmong(tierIds, tx);
-      if (!exclusiveTierId) {
-        continue;
-      }
-      const admission = await this.findByOrderId(order.id, tx);
-      if (admission) {
-        return admission;
-      }
+    if (!registration || registration.status !== "confirmed") {
+      return null;
     }
-
-    return null;
+    const [admission] = await tx
+      .select()
+      .from(admissions)
+      .where(eq(admissions.registrationId, registration.id))
+      .limit(1);
+    return admission ?? null;
   }
 
   async orderHasExclusiveTierInTx(tx: AdmissionTx, orderId: string): Promise<boolean> {
@@ -169,7 +154,24 @@ export class AdmissionsService extends TableService<typeof admissions> {
     const hasExclusive = await this.orderHasExclusiveTierInTx(tx, orderId);
 
     if (hasExclusive) {
-      let admission = await this.findByOrderId(orderId, tx);
+      const registration = await eventRegistrationsService.findByPersonOnEventInTx(
+        tx,
+        order.personId,
+        order.eventId,
+      );
+      if (!registration || registration.status !== "confirmed") {
+        return { ok: false, reason: "canonical_missing" };
+      }
+
+      let admission =
+        (
+          await tx
+            .select()
+            .from(admissions)
+            .where(eq(admissions.registrationId, registration.id))
+            .limit(1)
+        )[0] ?? null;
+
       if (!admission) {
         const admissionId = crypto.randomUUID();
         const credential = await signAdmissionCredential({
@@ -177,19 +179,33 @@ export class AdmissionsService extends TableService<typeof admissions> {
           kid: signingKey.kid,
           privateJwk: signingKey.privateJwk,
         });
-        const [inserted] = await tx
-          .insert(admissions)
-          .values({
-            id: admissionId,
-            eventId: order.eventId,
-            orderId,
-            signedCredential: credential,
-          })
-          .onConflictDoNothing({ target: admissions.orderId })
-          .returning();
+        let inserted: typeof admissions.$inferSelect | undefined;
+        try {
+          [inserted] = await tx
+            .insert(admissions)
+            .values({
+              id: admissionId,
+              eventId: order.eventId,
+              orderId,
+              registrationId: registration.id,
+              signedCredential: credential,
+            })
+            .returning();
+        } catch (error) {
+          if (!isPostgresUniqueViolation(error)) {
+            throw error;
+          }
+        }
 
         if (!inserted) {
-          admission = await this.findByOrderId(orderId, tx);
+          admission =
+            (
+              await tx
+                .select()
+                .from(admissions)
+                .where(eq(admissions.registrationId, registration.id))
+                .limit(1)
+            )[0] ?? null;
           if (!admission) {
             return { ok: false, reason: "no_tiers" };
           }
@@ -210,7 +226,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
       return { ok: true };
     }
 
-    const canonical = await this.findCanonicalAdmissionForPersonOnEventInTx(
+    const canonical = await this.findAdmissionForPersonOnEventInTx(
       tx,
       order.personId,
       order.eventId,
@@ -228,7 +244,10 @@ export class AdmissionsService extends TableService<typeof admissions> {
   }
 
   async resolveGuestDisplayForAdmission(
-    admission: Pick<typeof admissions.$inferSelect, "orderId" | "eventId">,
+    admission: Pick<
+      typeof admissions.$inferSelect,
+      "orderId" | "eventId" | "registrationId"
+    >,
   ): Promise<CheckInGuestDisplay> {
     const db = getDb();
     const [personRow] = await db
@@ -250,12 +269,14 @@ export class AdmissionsService extends TableService<typeof admissions> {
       return { guestName, tiers: "" };
     }
 
-    const paidOrderIds = await ordersService.listIdsForPersonOnEventAndStatuses({
-      eventId: admission.eventId,
-      personId: personRow.personId,
-      statuses: ["paid"],
-    });
-    const tierIds = await orderTiersService.listTierIdsAmongOrderIds(paidOrderIds);
+    const registration = await eventRegistrationsService.findByPersonOnEvent(
+      personRow.personId,
+      admission.eventId,
+    );
+    const tierIds =
+      registration?.status === "confirmed"
+        ? await eventRegistrationsService.listTierIdsForRegistration(registration.id)
+        : [];
     const tiers = await eventTiersService.getByIds(tierIds);
     const lines = tierIds.map((eventTierId) => {
       const tier = tiers.find((t) => t.id === eventTierId);
@@ -486,23 +507,27 @@ export class AdmissionsService extends TableService<typeof admissions> {
     };
   }
 
-  async revokeForOrderInTx(tx: AdmissionTx, orderId: string): Promise<void> {
+  async revokeForRegistrationInTx(tx: AdmissionTx, registrationId: string): Promise<void> {
     await tx
       .update(admissions)
       .set({ revokedAt: new Date() })
-      .where(and(eq(admissions.orderId, orderId), isNull(admissions.revokedAt)));
+      .where(
+        and(eq(admissions.registrationId, registrationId), isNull(admissions.revokedAt)),
+      );
   }
 
-  async findIdByOrderInTx(
+  async hasActiveAdmissionForRegistrationInTx(
     tx: AdmissionTx,
-    orderId: string,
-  ): Promise<string | null> {
+    registrationId: string,
+  ): Promise<boolean> {
     const [row] = await tx
       .select({ id: admissions.id })
       .from(admissions)
-      .where(eq(admissions.orderId, orderId))
+      .where(
+        and(eq(admissions.registrationId, registrationId), isNull(admissions.revokedAt)),
+      )
       .limit(1);
-    return row?.id ?? null;
+    return row != null;
   }
 
   async regenerateAllAdmissionsForEventInTx(
@@ -511,28 +536,30 @@ export class AdmissionsService extends TableService<typeof admissions> {
   ): Promise<{ regenerated: number; created: number; skipped: number; failed: number }> {
     let regenerated = 0;
     let created = 0;
-    let skipped = 0;
+    const skipped = 0;
     let failed = 0;
 
-    const paidOrderIds = await ordersService.listPaidOrderIdsForEventInTx(tx, eventId);
+    const registrations = await eventRegistrationsService.listConfirmedForEventInTx(
+      tx,
+      eventId,
+    );
 
-    for (const orderId of paidOrderIds) {
-      const order = await ordersService.getInTx(tx, orderId);
+    for (const registration of registrations) {
+      const order = await ordersService.getInTx(tx, registration.primaryOrderId);
       if (!order) {
         failed += 1;
         continue;
       }
 
-      const tierIds = await orderTiersService.getEventTierIdsForOrder(orderId, tx);
-      const hasExclusive = Boolean(
-        await eventTiersService.findExclusiveTierIdAmong(tierIds, tx),
-      );
-      if (!hasExclusive) {
-        skipped += 1;
-        continue;
-      }
+      const admission =
+        (
+          await tx
+            .select()
+            .from(admissions)
+            .where(eq(admissions.registrationId, registration.id))
+            .limit(1)
+        )[0] ?? null;
 
-      const admission = await this.findByOrderId(orderId, tx);
       if (admission) {
         const refreshed = await this.refreshSignedCredentialInTx(
           tx,
@@ -547,7 +574,10 @@ export class AdmissionsService extends TableService<typeof admissions> {
         continue;
       }
 
-      const issued = await this.issueAdmissionForPaidOrderInTx(tx, orderId);
+      const issued = await this.issueAdmissionForPaidOrderInTx(
+        tx,
+        registration.primaryOrderId,
+      );
       if (issued.ok) {
         created += 1;
       } else {
@@ -558,51 +588,20 @@ export class AdmissionsService extends TableService<typeof admissions> {
     return { regenerated, created, skipped, failed };
   }
 
-  async countPaidExclusiveOrdersWithoutAdmissionInTx(
+  async countRegistrationAdmissionsGapInTx(
     tx: AdmissionTx,
     eventId: string,
-  ): Promise<{ paidExclusiveOrders: number; withAdmission: number; eligibleWithoutAdmission: number }> {
-    const paidOrders = await tx
-      .select({ id: orders.id })
-      .from(orders)
-      .where(and(eq(orders.eventId, eventId), eq(orders.status, "paid")));
-
-    let paidExclusiveOrders = 0;
-    let withAdmission = 0;
-
-    for (const { id: orderId } of paidOrders) {
-      const tierIds = await orderTiersService.getEventTierIdsForOrder(orderId, tx);
-      const hasExclusive = Boolean(
-        await eventTiersService.findExclusiveTierIdAmong(tierIds, tx),
-      );
-      if (!hasExclusive) {
-        continue;
-      }
-      paidExclusiveOrders += 1;
-      const admissionId = await this.findIdByOrderInTx(tx, orderId);
-      if (admissionId) {
-        withAdmission += 1;
-      }
-    }
-
+  ): Promise<{
+    confirmedRegistrations: number;
+    withAdmission: number;
+    eligibleWithoutAdmission: number;
+  }> {
+    const gap = await eventRegistrationsService.countAdmissionsGapForEventInTx(tx, eventId);
     return {
-      paidExclusiveOrders,
-      withAdmission,
-      eligibleWithoutAdmission: paidExclusiveOrders - withAdmission,
+      confirmedRegistrations: gap.confirmedRegistrations,
+      withAdmission: gap.withAdmission,
+      eligibleWithoutAdmission: gap.eligibleWithoutAdmission,
     };
-  }
-
-  async findByOrderId(
-    orderId: string,
-    tx?: AdmissionTx,
-  ): Promise<typeof admissions.$inferSelect | null> {
-    const executor = tx ?? getDb();
-    const [row] = await executor
-      .select()
-      .from(admissions)
-      .where(eq(admissions.orderId, orderId))
-      .limit(1);
-    return row ?? null;
   }
 }
 

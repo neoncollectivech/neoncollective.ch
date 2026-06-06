@@ -27,9 +27,11 @@ export const posApi = {
             return false;
           }
           const readers = query.state.data?.readers;
+
           if (!readers?.some((reader) => !reader.online)) {
             return false;
           }
+
           return 3_000;
         },
       }),

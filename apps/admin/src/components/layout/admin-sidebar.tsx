@@ -17,7 +17,10 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useAdminSidebarModel } from "@/hooks/use-admin-sidebar-model";
-import { devAdminDisplayEmail, isAdminAuthDisabled } from "@/lib/admin-auth-dev";
+import {
+  devAdminDisplayEmail,
+  isAdminAuthDisabled,
+} from "@/lib/admin-auth-dev";
 import { signOut, useSession } from "@/lib/auth-client";
 
 export function AdminSidebar() {

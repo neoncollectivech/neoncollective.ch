@@ -1,4 +1,5 @@
 import type { EntityTx } from "../../services/transaction";
+import { eventRegistrationsService } from "../../services/event-registrations.service";
 import { ordersService } from "../../services/orders.service";
 import { orderTiersService } from "../../services/order-tiers.service";
 import {
@@ -87,13 +88,11 @@ export async function assertPosSaleEligibilityInTx(
   },
 ): Promise<{ ok: true } | { ok: false; reason: PosSaleEligibilityFailureReason; tierName?: string }> {
   const selectedHasExclusive = isExclusiveSelection(params.selectedTiers);
-  const personOrders = await ordersService.listPendingOrPaidForPersonOnEventInTx(
+  const hasPaidExclusiveSeat = await eventRegistrationsService.hasConfirmedRegistrationInTx(
     tx,
-    params.eventId,
     params.personId,
+    params.eventId,
   );
-  const splitOrders = await splitOrdersByModeTx(tx, personOrders, params.exclusiveTierIds);
-  const hasPaidExclusiveSeat = splitOrders.exclusiveOrders.some((order) => order.status === "paid");
 
   if (selectedHasExclusive && hasPaidExclusiveSeat) {
     return { ok: false, reason: "already_registered" };

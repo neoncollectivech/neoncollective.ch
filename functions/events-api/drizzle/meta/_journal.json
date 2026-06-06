@@ -85,6 +85,27 @@
       "when": 1780800000000,
       "tag": "0011_pos_sumup",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780900000000,
+      "tag": "0012_event_registrations",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781000000000,
+      "tag": "0013_event_registrations_contract",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781100000000,
+      "tag": "0014_admissions_registration_id_unique",
+      "breakpoints": true
     }
   ]
 }

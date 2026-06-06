@@ -18,10 +18,12 @@ import { isSessionProfileComplete } from "../registrations/profile";
 import { eventInviteesService } from "../../services/event-invitees.service";
 import { IdentityConflictError, peopleService } from "../../services/people.service";
 import { fulfillPaidOrderInTx } from "./fulfill-paid-order";
+import { eventRegistrationsService } from "../../services/event-registrations.service";
 import { eventsService } from "../../services/events.service";
 import { ordersService } from "../../services/orders.service";
 import { orderTiersService } from "../../services/order-tiers.service";
 import { eventTiersService } from "../../services/event-tiers.service";
+import { splitOrdersByModeTx } from "./shared-pos-eligibility";
 import {
   resolveSelectedCheckoutTiersInTx,
   uniqueCheckoutAddonIds,
@@ -154,34 +156,6 @@ type OrdersByMode = {
   exclusiveOrders: OrderRow[];
   addonOnlyOrders: OrderRow[];
 };
-
-async function splitOrdersByModeTx(
-  tx: CheckoutTx,
-  orders: OrderRow[],
-  exclusiveTierIds: string[],
-): Promise<OrdersByMode> {
-  if (orders.length === 0 || exclusiveTierIds.length === 0) {
-    return { exclusiveOrders: [], addonOnlyOrders: orders };
-  }
-  const orderIds = orders.map((order) => order.id);
-  const lines = await orderTiersService.listForOrders(orderIds, tx);
-  const hasExclusive = new Set<string>();
-  for (const line of lines) {
-    if (exclusiveTierIds.includes(line.eventTierId)) {
-      hasExclusive.add(line.orderId);
-    }
-  }
-  const exclusiveOrders: OrderRow[] = [];
-  const addonOnlyOrders: OrderRow[] = [];
-  for (const order of orders) {
-    if (hasExclusive.has(order.id)) {
-      exclusiveOrders.push(order);
-      continue;
-    }
-    addonOnlyOrders.push(order);
-  }
-  return { exclusiveOrders, addonOnlyOrders };
-}
 
 async function findAlreadyPurchasedAddonIdsTx(
   tx: CheckoutTx,
@@ -495,9 +469,15 @@ export async function createCheckoutIntent(
         ev.id,
         personId,
       );
-      const splitOrders = await splitOrdersByModeTx(tx, personOrders, exclusiveTierIds);
-      const hasPaidExclusiveSeat = splitOrders.exclusiveOrders.some(
-        (order) => order.status === "paid",
+      const splitOrders: OrdersByMode = await splitOrdersByModeTx(
+        tx,
+        personOrders,
+        exclusiveTierIds,
+      );
+      const hasPaidExclusiveSeat = await eventRegistrationsService.hasConfirmedRegistrationInTx(
+        tx,
+        personId,
+        ev.id,
       );
       const latestPendingExclusiveOrder =
         splitOrders.exclusiveOrders.find((order) => order.status === "pending") ??

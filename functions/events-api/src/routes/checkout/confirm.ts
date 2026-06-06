@@ -29,9 +29,30 @@ export async function confirmPaidCheckout(params: {
   if (order.personId !== params.personId) {
     return { ok: false, reason: "order_forbidden" };
   }
-  if (order.status === "paid" && order.checkoutFulfilledAt) {
+
+  if (order.status === "paid") {
+    let paymentIntentStatus: Stripe.PaymentIntent.Status | undefined;
+    if (order.stripePaymentIntentId) {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
+        paymentIntentStatus = pi.status;
+      } catch {
+        return { ok: false, reason: "stripe_unavailable" };
+      }
+    }
+
+    const result = await fulfillPaidOrder({
+      orderId: order.id,
+      source: "client",
+      paymentIntentStatus,
+    });
+    if (result.kind === "failed") {
+      return { ok: false, reason: "checkout_fulfillment_failed" };
+    }
+    await handleFulfillmentResult(result);
     return { ok: true, alreadyPaid: true };
   }
+
   if (order.status !== "pending" && order.status !== "failed") {
     return { ok: false, reason: "checkout_not_confirmable" };
   }

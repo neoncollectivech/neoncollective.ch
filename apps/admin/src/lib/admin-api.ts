@@ -24,6 +24,20 @@ export type OrderRow = {
   status: string;
   amountCents: number;
   locale: string;
+  orderKind: "registration" | "upsell";
+  registrationId: string | null;
+  createdAt: string;
+};
+
+/** Mirrors `eventRegistrationsResourceMeta.project.list`. */
+export type EventRegistrationRow = {
+  id: string;
+  eventId: string;
+  personId: string;
+  status: "confirmed" | "refunded";
+  exclusiveTierId: string;
+  primaryOrderId: string;
+  confirmedAt: string;
   createdAt: string;
 };
 
@@ -190,7 +204,7 @@ export type AdmissionReadRow = AdmissionRow & {
 
 export type EventAdmissionsSummary = {
   signingKey: { kid: string; createdAt: string } | null;
-  paidExclusiveOrders: number;
+  confirmedRegistrations: number;
   withAdmission: number;
   eligibleWithoutAdmission: number;
 };
@@ -257,6 +271,8 @@ const listOrderTiersClient =
   createAdminListClient<OrderTierRow>("/admin/order-tiers");
 const listAdmissionsClient =
   createAdminListClient<AdmissionRow>("/admin/admissions");
+const listEventRegistrationsClient =
+  createAdminListClient<EventRegistrationRow>("/admin/event-registrations");
 const listInviteRedemptionsClient = createAdminListClient<InviteRedemptionRow>(
   "/admin/invite-redemptions",
 );
@@ -720,6 +736,7 @@ export async function deletePerson(personId: string) {
 export const listEventTiers = listEventTiersClient;
 export const listOrderTiers = listOrderTiersClient;
 export const listAdmissions = listAdmissionsClient;
+export const listEventRegistrations = listEventRegistrationsClient;
 
 export async function getAdmission(admissionId: string) {
   const res = await api.get<ItemResponse<AdmissionReadRow>>(

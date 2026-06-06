@@ -33,6 +33,7 @@ import {
   listInviteLinks,
   listInviteRedemptions,
   listAdmissions,
+  listEventRegistrations,
   listOrderTiers,
   listOrders,
   patchEvent,
@@ -577,6 +578,17 @@ export const adminApi = {
           listAdmissions(relatedListParams({ personId, sort: "-createdAt" })),
         enabled: Boolean(personId),
       }),
+    registrations: (personId: string) =>
+      queryOptions({
+        queryKey: adminKeys.eventRegistrations.list(
+          relatedListParams({ personId, sort: "-confirmedAt" }),
+        ),
+        queryFn: () =>
+          listEventRegistrations(
+            relatedListParams({ personId, sort: "-confirmedAt" }),
+          ),
+        enabled: Boolean(personId),
+      }),
     inviteLinks: (personId: string) =>
       queryOptions({
         queryKey: adminKeys.inviteLinks.list(
@@ -593,6 +605,7 @@ export const adminApi = {
         queryKey: [
           ...adminKeys.inviteRedemptions.all,
           "by-orders",
+          orderIds.length,
           [...orderIds].sort().join(","),
         ] as const,
         queryFn: async () => {

@@ -116,7 +116,7 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
   const summary = summaryQuery.data;
   const eligible = summary?.eligibleWithoutAdmission ?? 0;
   const withAdmission = summary?.withAdmission ?? 0;
-  const paidExclusive = summary?.paidExclusiveOrders ?? 0;
+  const confirmedRegistrations = summary?.confirmedRegistrations ?? 0;
   const hasKey = Boolean(summary?.signingKey);
 
   return (
@@ -179,8 +179,9 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
 
       {summary ? (
         <p className="text-sm text-muted-foreground">
-          Paid exclusive orders: {summary.paidExclusiveOrders} · With admission:{" "}
-          {summary.withAdmission} · Eligible without admission: {eligible}
+          Confirmed registrations: {summary.confirmedRegistrations} · With
+          admission: {summary.withAdmission} · Eligible without admission:{" "}
+          {eligible}
         </p>
       ) : null}
 
@@ -191,7 +192,7 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
             !hasKey
               ? "Create a signing key first"
               : eligible === 0
-                ? "No paid orders need admissions"
+                ? "No registrations need admissions"
                 : undefined
           }
           onClick={() => setConfirmOpen(true)}
@@ -201,15 +202,15 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
         <Button
           disabled={
             !hasKey ||
-            paidExclusive === 0 ||
+            confirmedRegistrations === 0 ||
             regenerateMutation.isPending ||
             generateMutation.isPending
           }
           title={
             !hasKey
               ? "Create a signing key first"
-              : paidExclusive === 0
-                ? "No paid exclusive orders"
+              : confirmedRegistrations === 0
+                ? "No confirmed registrations"
                 : undefined
           }
           variant="outline"
@@ -233,7 +234,7 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
           <DialogHeader>
             <DialogTitle>Generate admissions</DialogTitle>
             <DialogDescription>
-              Issue JWT credentials for {eligible} paid order
+              Issue JWT credentials for {eligible} confirmed registration
               {eligible === 1 ? "" : "s"} without an admission row?
             </DialogDescription>
           </DialogHeader>
@@ -270,10 +271,8 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
             <DialogDescription>
               Re-sign compact JWTs for {withAdmission} existing admission
               {withAdmission === 1 ? "" : "s"}
-              {eligible > 0
-                ? ` and create ${eligible} missing`
-                : ""}
-              . Guests must use the new QR codes; check-in status is unchanged.
+              {eligible > 0 ? ` and create ${eligible} missing` : ""}. Guests
+              must use the new QR codes; check-in status is unchanged.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -292,9 +291,7 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
                     void summaryQuery.refetch();
                   },
                   onError: (err) =>
-                    toast.error(
-                      getApiErrorMessage(err, "Regenerate failed"),
-                    ),
+                    toast.error(getApiErrorMessage(err, "Regenerate failed")),
                 })
               }
             >

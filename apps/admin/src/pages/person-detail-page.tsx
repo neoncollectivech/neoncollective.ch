@@ -1,5 +1,4 @@
 import type { PersonLinkCounts } from "@/lib/admin-api";
-
 import type { ReactNode } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -14,6 +13,7 @@ import {
   PersonInviteRedemptionsTable,
   PersonInviteesTable,
   PersonOrdersTable,
+  PersonRegistrationsTable,
 } from "@/components/person-detail-related-tables";
 import { PersonEditFormFields } from "@/components/person-edit-form";
 import { PersonOverviewSummary } from "@/components/person-overview-summary";
@@ -61,7 +61,12 @@ type PersonSectionProps = {
   children: ReactNode;
 };
 
-function PersonSection({ id, title, description, children }: PersonSectionProps) {
+function PersonSection({
+  id,
+  title,
+  description,
+  children,
+}: PersonSectionProps) {
   return (
     <Card id={`person-${id}`}>
       <CardHeader>
@@ -83,9 +88,12 @@ export function PersonDetailPage() {
 
   const personQuery = useQuery(adminApi.person.detail(personId));
   const ordersQuery = useQuery(adminApi.person.orders(personId));
+  const registrationsQuery = useQuery(adminApi.person.registrations(personId));
   const admissionsQuery = useQuery(adminApi.person.admissions(personId));
   const inviteesQuery = useQuery(adminApi.person.invitees(personId));
-  const hostedInviteesQuery = useQuery(adminApi.person.hostedInvitees(personId));
+  const hostedInviteesQuery = useQuery(
+    adminApi.person.hostedInvitees(personId),
+  );
   const inviteLinksQuery = useQuery(adminApi.person.inviteLinks(personId));
   const deletionEligibilityQuery = useQuery(
     adminApi.person.deletionEligibility(personId),
@@ -122,6 +130,7 @@ export function PersonDetailPage() {
   const isLoading =
     personQuery.isLoading ||
     ordersQuery.isLoading ||
+    registrationsQuery.isLoading ||
     admissionsQuery.isLoading ||
     inviteesQuery.isLoading ||
     hostedInviteesQuery.isLoading ||
@@ -139,6 +148,7 @@ export function PersonDetailPage() {
   }
 
   const admissions = admissionsQuery.data?.items ?? [];
+  const registrations = registrationsQuery.data?.items ?? [];
   const invitees = inviteesQuery.data?.items ?? [];
   const hostedInvitees = hostedInviteesQuery.data?.items ?? [];
   const inviteLinks = inviteLinksQuery.data?.items ?? [];
@@ -300,7 +310,15 @@ export function PersonDetailPage() {
           </PersonSection>
 
           <PersonSection
-            description="One admission per exclusive order; add-on orders refresh the same credential."
+            description="Confirmed enrollment per event (created when an exclusive order is paid)."
+            id="registrations"
+            title="Registrations"
+          >
+            <PersonRegistrationsTable registrations={registrations} />
+          </PersonSection>
+
+          <PersonSection
+            description="One admission per registration; add-on orders refresh the same credential."
             id="admissions"
             title="Admissions"
           >

@@ -57,8 +57,7 @@ export function computeEventCapacityFromTiers(
   const used = tiers
     .filter((tier) => tier.selectionMode === "exclusive")
     .reduce((sum, tier) => sum + (tier.sold ?? 0), 0);
-  const remaining =
-    eventQuota != null ? Math.max(0, eventQuota - used) : null;
+  const remaining = eventQuota != null ? Math.max(0, eventQuota - used) : null;
 
   return { used, remaining };
 }

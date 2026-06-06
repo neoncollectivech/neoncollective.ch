@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import type { EntityTx } from "../../services/transaction";
 import { admissionsService } from "../../services/admissions.service";
 import { eventInviteesService } from "../../services/event-invitees.service";
+import { eventRegistrationsService } from "../../services/event-registrations.service";
 import { eventsService } from "../../services/events.service";
 import {
   ensureHostInviteLinkForPersonInTx,
@@ -133,6 +134,12 @@ async function repairPaidOrderFulfillmentInTx(
 ): Promise<boolean> {
   const tierIds = await orderTiersService.getEventTierIdsForOrder(order.id, tx);
   if (tierIds.length > 0) {
+    const registrationSync = await eventRegistrationsService.syncForPaidOrderInTx(tx, order);
+    if (!registrationSync.ok) {
+      log.error({ orderId: order.id }, "Registration sync failed for paid order");
+      return false;
+    }
+
     const issued = await issueAdmissionForPaidOrderInTx(tx, order.id);
     if (!issued) {
       return false;
@@ -194,6 +201,17 @@ async function applyCheckoutFulfillmentSideEffectsInTx(
   }
 
   await ordersService.markPaidInTx(tx, order.id);
+
+  const paidOrder = await ordersService.getInTx(tx, order.id);
+  if (!paidOrder) {
+    return false;
+  }
+
+  const registrationSync = await eventRegistrationsService.syncForPaidOrderInTx(tx, paidOrder);
+  if (!registrationSync.ok) {
+    log.error({ orderId: order.id, reason: registrationSync.reason }, "Registration sync failed");
+    return false;
+  }
 
   const admissionOk = await issueAdmissionForPaidOrderInTx(tx, order.id);
   if (!admissionOk) {

@@ -46,6 +46,11 @@ export function orderColumns(
       display: ["givenName", "familyName"],
     }),
     adminMoneyColumn("amountCents", { header: "Amount", sortable: true }),
+    adminBadgeColumn("orderKind", {
+      header: "Kind",
+      sortable: true,
+      variant: (value) => (value === "upsell" ? "secondary" : "default"),
+    }),
     adminBadgeColumn("status", { header: "Status", sortable: true }),
     adminActionsColumn({
       cell: ({ row }) => {
