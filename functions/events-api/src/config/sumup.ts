@@ -40,5 +40,31 @@ export function sumUpWebhookReturnUrl(): string | undefined {
   if (!url.startsWith("https://")) {
     return undefined;
   }
+  try {
+    const { hostname } = new URL(url);
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.endsWith(".local")
+    ) {
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
   return url;
+}
+
+export function sumUpWebhookSecret(): string | undefined {
+  const secret = process.env.SUMUP_WEBHOOK_SECRET?.trim();
+  return secret || undefined;
+}
+
+/** SumUp recommends verifying `x-payload-signature` in production. */
+export function isSumUpWebhookVerificationRequired(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+export function isSumUpWebhookReturnUrlConfigured(): boolean {
+  return Boolean(sumUpWebhookReturnUrl());
 }

@@ -94,14 +94,7 @@ export async function pairPosReader(params: {
     params,
   );
 
-  return {
-    id: data.reader.id,
-    name: data.reader.name,
-    status: data.reader.status,
-    deviceIdentifier: data.reader.deviceIdentifier ?? null,
-    connectionStatus: null,
-    online: false,
-  };
+  return data.reader;
 }
 
 export async function deletePosReader(readerId: string): Promise<void> {

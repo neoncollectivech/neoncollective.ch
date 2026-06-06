@@ -197,6 +197,20 @@ export class OrdersService extends TableService<
       .where(eq(orders.id, orderId));
   }
 
+  async updateSumupReaderIdInTx(
+    tx: OrderTx,
+    orderId: string,
+    sumupReaderId: string,
+  ): Promise<void> {
+    await tx
+      .update(orders)
+      .set({
+        sumupReaderId: sumupReaderId.trim(),
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId));
+  }
+
   async getBySumupClientTransactionId(
     sumupClientTransactionId: string,
     tx?: OrderTx,

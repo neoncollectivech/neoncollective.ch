@@ -59,6 +59,7 @@ export function PosPage() {
   const [addonTierIds, setAddonTierIds] = useState<string[]>([]);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentAmountCents, setPaymentAmountCents] = useState(0);
+  const [paymentCurrency, setPaymentCurrency] = useState("CHF");
   const [successCredential, setSuccessCredential] = useState<string | null>(
     null,
   );
@@ -104,6 +105,7 @@ export function PosPage() {
     setAddonTierIds([]);
     setOrderId(null);
     setPaymentAmountCents(0);
+    setPaymentCurrency("CHF");
     setSuccessCredential(null);
     setSuccessGuestName(null);
     setSuccessTiers(null);
@@ -154,6 +156,7 @@ export function PosPage() {
       }
       setOrderId(result.orderId);
       setPaymentAmountCents(result.amountCents);
+      setPaymentCurrency(pricingQuery.data?.currency ?? "CHF");
       setStep("payment");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Could not start sale."));
@@ -410,6 +413,7 @@ export function PosPage() {
             {step === "payment" && orderId ? (
               <SoloPaymentStep
                 amountCents={paymentAmountCents}
+                currency={paymentCurrency}
                 orderId={orderId}
                 readerName={session?.readerName ?? null}
                 onCancelled={() => {

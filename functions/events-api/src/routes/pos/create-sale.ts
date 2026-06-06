@@ -12,9 +12,11 @@ import {
 import { resolveCheckoutPricingInTx } from "../checkout/promotion-pricing";
 import { assertPosSaleEligibilityInTx } from "../checkout/shared-pos-eligibility";
 import { resolvePosGuest } from "./resolve-pos-guest";
-import { createSumUpReaderCheckout, SumUpCheckoutError } from "../../helpers/sumup";
-import { fulfillPaidOrderInTx } from "../checkout/fulfill-paid-order";
+import { getSumUpPaymentStatusByClientTransactionId, createSumUpReaderCheckout, SumUpCheckoutError } from "../../helpers/sumup";
+import { fulfillPaidOrderFromSumup, fulfillPaidOrderInTx } from "../checkout/fulfill-paid-order";
+import { handleFulfillmentResult } from "../checkout/handle-fulfillment-result";
 import { isSumUpConfigured } from "../../config/sumup";
+import { resolvePendingPosOrderInTx } from "./resolve-pending-pos-order";
 
 export type CreatePosSaleInput = {
   eventId: string;
@@ -73,6 +75,29 @@ type PreparedPosCharge = {
   eventTitle: string;
   readerId: string;
 };
+
+async function completeAlreadyPaidPosOrder(orderId: string): Promise<CreatePosSaleSuccess | null> {
+  const result = await fulfillPaidOrderFromSumup({
+    orderId,
+    source: "sumup_poll",
+  });
+  if (result.kind === "failed") {
+    return null;
+  }
+  await handleFulfillmentResult(result);
+  const order = await ordersService.get(orderId);
+  if (!order || order.status !== "paid") {
+    return null;
+  }
+  return {
+    ok: true,
+    orderId,
+    amountCents: order.amountCents,
+    readerId: order.sumupReaderId ?? "",
+    paymentStatus: "paid",
+    requiresPayment: false,
+  };
+}
 
 export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePosSaleResult> {
   if (!isSumUpConfigured()) {
@@ -175,6 +200,28 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
         });
       }
 
+      const pendingResolution = await resolvePendingPosOrderInTx(tx, {
+        eventId: ev.id,
+        personId,
+        readerId: input.readerId,
+        selectedTiers,
+        pricing,
+        exclusiveTierIds,
+        eventTitle: ev.title,
+      });
+
+      if (pendingResolution.action === "resume") {
+        return {
+          ok: true as const,
+          kind: "charge" as const,
+          orderId: pendingResolution.order.id,
+          amountCents: pendingResolution.order.amountCents,
+          currency: pendingResolution.currency,
+          eventTitle: pendingResolution.eventTitle,
+          readerId: input.readerId,
+        };
+      }
+
       const orderId = await ordersService.createPendingOrderInTx(tx, {
         eventId: ev.id,
         personId,
@@ -247,6 +294,35 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
       eventTitle: prepared.eventTitle,
       readerId: prepared.readerId,
     };
+
+    const orderBeforeCheckout = await ordersService.get(charge.orderId);
+    if (orderBeforeCheckout?.sumupClientTransactionId) {
+      const paymentStatus = await getSumUpPaymentStatusByClientTransactionId(
+        orderBeforeCheckout.sumupClientTransactionId,
+      );
+      if (paymentStatus === "successful") {
+        const completed = await completeAlreadyPaidPosOrder(charge.orderId);
+        if (completed) {
+          return completed;
+        }
+      }
+    }
+
+    const orderForCheckout = await ordersService.get(charge.orderId);
+    if (!orderForCheckout) {
+      return { ok: false, reason: "checkout_failed" };
+    }
+
+    if (orderForCheckout.sumupClientTransactionId?.trim()) {
+      return {
+        ok: true,
+        orderId: charge.orderId,
+        amountCents: charge.amountCents,
+        readerId: charge.readerId,
+        paymentStatus: "pending",
+        requiresPayment: true,
+      };
+    }
 
     let clientTransactionId: string;
     try {

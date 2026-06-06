@@ -5,6 +5,7 @@ import { runTransaction } from "../../services/transaction";
 import { getSumUpPaymentStatusByClientTransactionId } from "../../helpers/sumup";
 import { formatOrderTierNames } from "../shared/format-order-tiers";
 import { fulfillPaidOrderFromSumup } from "../checkout/fulfill-paid-order";
+import { handleFulfillmentResult } from "../checkout/handle-fulfillment-result";
 
 export type PosSaleStatus = {
   orderId: string;
@@ -35,10 +36,11 @@ export async function getPosSaleStatus(
       order.sumupClientTransactionId,
     );
     if (paymentStatus === "successful") {
-      await fulfillPaidOrderFromSumup({
+      const result = await fulfillPaidOrderFromSumup({
         orderId: order.id,
         source: "sumup_poll",
       });
+      await handleFulfillmentResult(result);
     }
   }
 

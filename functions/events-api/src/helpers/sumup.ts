@@ -6,10 +6,12 @@ import { createLogger } from "@neon/server-kit";
 
 import {
   isSumUpConfigured,
+  isSumUpWebhookVerificationRequired,
   sumUpAffiliateKey,
   sumUpAppId,
   sumUpMerchantCode,
   sumUpWebhookReturnUrl,
+  sumUpWebhookSecret,
 } from "../config/sumup";
 
 const log = createLogger("sumup");
@@ -235,8 +237,13 @@ export function verifySumUpWebhookSignature(
   rawBody: string,
   signatureHeader: string | undefined,
 ): boolean {
-  const secret = process.env.SUMUP_WEBHOOK_SECRET?.trim();
-  if (!secret) {
+  const secret = sumUpWebhookSecret();
+  if (isSumUpWebhookVerificationRequired()) {
+    if (!secret) {
+      log.error("SUMUP_WEBHOOK_SECRET is required in production.");
+      return false;
+    }
+  } else if (!secret) {
     return true;
   }
   if (!signatureHeader?.trim()) {

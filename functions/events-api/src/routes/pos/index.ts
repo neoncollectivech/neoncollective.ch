@@ -68,8 +68,7 @@ const POS_ERRORS = {
   },
   reader_offline: {
     status: 503,
-    error:
-      "The Solo reader is offline. For Virtual Solo: open https://virtual-solo.sumup.com/, pair a fresh code in the same tab, and keep it open until Cloud API status is ONLINE (dashboard “Paired” is not enough).",
+    error: "The Solo reader is offline.",
   },
   checkout_failed: { status: 500, error: "Checkout failed." },
   sale_not_found: { status: 404, error: "Sale not found." },

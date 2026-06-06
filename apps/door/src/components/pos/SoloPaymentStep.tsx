@@ -8,16 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { posApi } from "@/hooks/use-pos-api/api";
 import { getApiErrorMessage } from "@/lib/api-error";
 
-function formatPrice(cents: number): string {
+function formatPrice(cents: number, currency: string): string {
   return new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency: "CHF",
+    currency: currency.toUpperCase(),
   }).format(cents / 100);
 }
 
 type SoloPaymentStepProps = {
   orderId: string;
   amountCents: number;
+  currency: string;
   readerName: string | null;
   onPaid: (
     signedCredential: string,
@@ -30,6 +31,7 @@ type SoloPaymentStepProps = {
 export function SoloPaymentStep({
   orderId,
   amountCents,
+  currency,
   readerName,
   onPaid,
   onCancelled,
@@ -62,7 +64,7 @@ export function SoloPaymentStep({
       </CardHeader>
       <CardContent className="space-y-4 text-center">
         <p className="text-3xl font-semibold tabular-nums">
-          {formatPrice(amountCents)}
+          {formatPrice(amountCents, currency)}
         </p>
         {readerName ? (
           <p className="text-muted-foreground text-sm">Reader: {readerName}</p>
