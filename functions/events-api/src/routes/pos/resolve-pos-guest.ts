@@ -105,13 +105,14 @@ async function resolveGuestFromCredential(
     return { ok: false, reason: "admission_not_found" };
   }
 
-  const guest = await admissionsService.resolveGuestDisplayForAdmission(admission);
-  const order = await ordersService.get(admission.orderId);
-  if (!order) {
+  const person = await admissionsService.resolvePersonForAdmission(admission);
+  if (!person) {
     return { ok: false, reason: "admission_not_found" };
   }
 
-  return { ok: true, personId: order.personId, guestName: guest.guestName };
+  const guest = await admissionsService.resolveGuestDisplayForAdmission(admission);
+
+  return { ok: true, personId: person.personId, guestName: guest.guestName };
 }
 
 export async function resolvePosGuest(params: {

@@ -3,7 +3,7 @@ import { decodeJwt } from "jose";
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index";
-import { admissions, orders, people } from "../db/schema";
+import { admissions, eventRegistrations, people } from "../db/schema";
 import { signAdmissionCredential, verifyAdmissionCredential } from "../helpers/admission-jwt";
 import { formatOrderTierNamesFromLines } from "../helpers/order-tier-labels";
 import { admissionSigningKeysService } from "./admission-signing-keys.service";
@@ -243,23 +243,48 @@ export class AdmissionsService extends TableService<typeof admissions> {
     return { ok: true };
   }
 
+  async resolvePersonForAdmission(
+    admission: Pick<typeof admissions.$inferSelect, "registrationId" | "eventId">,
+    tx?: AdmissionTx,
+  ): Promise<{
+    personId: string;
+    givenName: string;
+    familyName: string;
+    registrationId: string;
+  } | null> {
+    if (!admission.registrationId) {
+      return null;
+    }
+
+    const executor = tx ?? getDb();
+    const [row] = await executor
+      .select({
+        personId: eventRegistrations.personId,
+        givenName: people.givenName,
+        familyName: people.familyName,
+        registrationId: eventRegistrations.id,
+      })
+      .from(eventRegistrations)
+      .innerJoin(people, eq(eventRegistrations.personId, people.id))
+      .where(
+        and(
+          eq(eventRegistrations.id, admission.registrationId),
+          eq(eventRegistrations.eventId, admission.eventId),
+          eq(eventRegistrations.status, "confirmed"),
+        ),
+      )
+      .limit(1);
+
+    return row ?? null;
+  }
+
   async resolveGuestDisplayForAdmission(
     admission: Pick<
       typeof admissions.$inferSelect,
-      "orderId" | "eventId" | "registrationId"
+      "eventId" | "registrationId"
     >,
   ): Promise<CheckInGuestDisplay> {
-    const db = getDb();
-    const [personRow] = await db
-      .select({
-        givenName: people.givenName,
-        familyName: people.familyName,
-        personId: orders.personId,
-      })
-      .from(orders)
-      .innerJoin(people, eq(orders.personId, people.id))
-      .where(eq(orders.id, admission.orderId))
-      .limit(1);
+    const personRow = await this.resolvePersonForAdmission(admission);
 
     const guestName = personRow
       ? `${personRow.givenName} ${personRow.familyName}`.trim() || "Guest"
@@ -269,14 +294,9 @@ export class AdmissionsService extends TableService<typeof admissions> {
       return { guestName, tiers: "" };
     }
 
-    const registration = await eventRegistrationsService.findByPersonOnEvent(
-      personRow.personId,
-      admission.eventId,
+    const tierIds = await eventRegistrationsService.listTierIdsForRegistration(
+      personRow.registrationId,
     );
-    const tierIds =
-      registration?.status === "confirmed"
-        ? await eventRegistrationsService.listTierIdsForRegistration(registration.id)
-        : [];
     const tiers = await eventTiersService.getByIds(tierIds);
     const lines = tierIds.map((eventTierId) => {
       const tier = tiers.find((t) => t.id === eventTierId);
@@ -423,7 +443,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
     const filters = [
       eq(admissions.eventId, eventId),
       isNull(admissions.revokedAt),
-      eq(orders.status, "paid"),
+      eq(eventRegistrations.status, "confirmed"),
     ];
     if (scope.checkedIn === true) {
       filters.push(isNotNull(admissions.checkedInAt));
@@ -435,7 +455,10 @@ export class AdmissionsService extends TableService<typeof admissions> {
     const [countRow] = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(admissions)
-      .innerJoin(orders, eq(admissions.orderId, orders.id))
+      .innerJoin(
+        eventRegistrations,
+        eq(admissions.registrationId, eventRegistrations.id),
+      )
       .where(whereClause);
 
     const rows = await db
@@ -444,14 +467,16 @@ export class AdmissionsService extends TableService<typeof admissions> {
         credential: admissions.signedCredential,
         givenName: people.givenName,
         familyName: people.familyName,
-        personId: orders.personId,
-        orderId: admissions.orderId,
+        registrationId: admissions.registrationId,
         checkedInAt: admissions.checkedInAt,
         revokedAt: admissions.revokedAt,
       })
       .from(admissions)
-      .innerJoin(orders, eq(admissions.orderId, orders.id))
-      .innerJoin(people, eq(orders.personId, people.id))
+      .innerJoin(
+        eventRegistrations,
+        eq(admissions.registrationId, eventRegistrations.id),
+      )
+      .innerJoin(people, eq(eventRegistrations.personId, people.id))
       .where(whereClause)
       .orderBy(desc(admissions.createdAt))
       .limit(scope.limit)
@@ -468,12 +493,12 @@ export class AdmissionsService extends TableService<typeof admissions> {
     }[] = [];
 
     for (const row of rows) {
-      const paidOrderIds = await ordersService.listIdsForPersonOnEventAndStatuses({
-        eventId,
-        personId: row.personId,
-        statuses: ["paid"],
-      });
-      const tierIds = await orderTiersService.listTierIdsAmongOrderIds(paidOrderIds);
+      if (!row.registrationId) {
+        continue;
+      }
+      const tierIds = await eventRegistrationsService.listTierIdsForRegistration(
+        row.registrationId,
+      );
       const tiers = await eventTiersService.getByIds(tierIds);
       const lines = tierIds.map((eventTierId) => {
         const tier = tiers.find((t) => t.id === eventTierId);
@@ -545,12 +570,6 @@ export class AdmissionsService extends TableService<typeof admissions> {
     );
 
     for (const registration of registrations) {
-      const order = await ordersService.getInTx(tx, registration.primaryOrderId);
-      if (!order) {
-        failed += 1;
-        continue;
-      }
-
       const admission =
         (
           await tx
@@ -564,7 +583,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
         const refreshed = await this.refreshSignedCredentialInTx(
           tx,
           admission,
-          order.personId,
+          registration.personId,
         );
         if (refreshed) {
           regenerated += 1;
