@@ -1,9 +1,9 @@
 import { pgView, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-/** Admin list read model: admission + registration person name (see migration 0015). */
+/** Admin list read model: admission + registration person (see migration 0016). */
 export const admissionsAdminListView = pgView("admissions_admin_list", {
   id: uuid("id").primaryKey(),
-  orderId: uuid("order_id").notNull(),
+  registrationId: uuid("registration_id").notNull(),
   eventId: uuid("event_id").notNull(),
   signedCredential: text("signed_credential").notNull(),
   personId: uuid("person_id").notNull(),

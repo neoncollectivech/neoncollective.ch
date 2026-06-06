@@ -22,10 +22,7 @@ import {
   useEventIdParam,
 } from "@/hooks/use-event-id-param";
 import { getApiErrorMessage } from "@/lib/api-error";
-import {
-  eventOrderPath,
-  eventWorkspaceSectionPath,
-} from "@/lib/event-workspace-paths";
+import { eventWorkspaceSectionPath } from "@/lib/event-workspace-paths";
 
 function AdmissionDetailContent({
   eventId,
@@ -110,13 +107,8 @@ function AdmissionDetailContent({
             </Link>
           </p>
           <p>
-            Order:{" "}
-            <Link
-              className="text-primary underline-offset-4 hover:underline"
-              to={eventOrderPath(eventId, admission.orderId)}
-            >
-              {admission.orderId}
-            </Link>
+            Registration:{" "}
+            <span className="font-mono">{admission.registrationId}</span>
           </p>
         </CardContent>
       </Card>

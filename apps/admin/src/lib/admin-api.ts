@@ -185,7 +185,7 @@ export type OrderTierRow = {
 /** Mirrors admissionsAdminListResourceMeta.project.list. */
 export type AdmissionRow = {
   id: string;
-  orderId: string;
+  registrationId: string;
   eventId: string;
   signedCredential: string;
   personId: string;

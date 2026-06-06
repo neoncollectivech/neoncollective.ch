@@ -25,7 +25,6 @@ import { admissionsListService } from "@/lib/admin-list-services";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   eventAdmissionPath,
-  eventOrderPath,
   eventOrdersPath,
 } from "@/lib/event-workspace-paths";
 
@@ -49,15 +48,12 @@ function admissionColumns(eventId: string): ColumnDef<AdmissionRow>[] {
       },
     },
     {
-      accessorKey: "orderId",
-      header: "Order",
+      accessorKey: "registrationId",
+      header: "Registration",
       cell: ({ row }) => (
-        <Link
-          className="text-primary underline-offset-4 hover:underline"
-          to={eventOrderPath(eventId, row.original.orderId)}
-        >
-          {row.original.orderId.slice(0, 8)}…
-        </Link>
+        <span className="font-mono text-sm">
+          {row.original.registrationId.slice(0, 8)}…
+        </span>
       ),
     },
     {

@@ -7,7 +7,7 @@ export { admissionsAdminListView as admissionsAdminListTable };
 
 export type AdmissionsAdminListRow = {
   id: string;
-  orderId: string;
+  registrationId: string;
   eventId: string;
   signedCredential: string;
   personId: string;
@@ -21,7 +21,7 @@ export type AdmissionsAdminListRow = {
 
 export const admissionsAdminListReadFields = [
   "id",
-  "orderId",
+  "registrationId",
   "eventId",
   "signedCredential",
   "personId",
