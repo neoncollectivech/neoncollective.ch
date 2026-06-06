@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,7 @@ export function InviteeLinkActions({
   personId,
   revoked,
 }: InviteeLinkActionsProps) {
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const [editOpen, setEditOpen] = useState(false);
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [maxRedemptionsInput, setMaxRedemptionsInput] = useState("");
@@ -152,18 +154,19 @@ export function InviteeLinkActions({
             disabled={deleteMutation.isPending}
             size="sm"
             variant="ghost"
-            onClick={() => {
-              if (
-                !window.confirm(
-                  "Delete this invite link? The URL will stop working. This cannot be undone.",
-                )
-              ) {
-                return;
-              }
-              deleteMutation.mutate(link.id, {
-                onSuccess: () => toast.success("Invite link deleted"),
-              });
-            }}
+            onClick={() =>
+              confirm({
+                title: "Delete this invite link?",
+                description:
+                  "The URL will stop working. This cannot be undone.",
+                confirmLabel: "Delete",
+                variant: "destructive",
+                onConfirm: () =>
+                  deleteMutation.mutate(link.id, {
+                    onSuccess: () => toast.success("Invite link deleted"),
+                  }),
+              })
+            }
           >
             {deleteMutation.isPending ? "Deleting…" : "Delete"}
           </Button>
@@ -270,6 +273,7 @@ export function InviteeLinkActions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 }

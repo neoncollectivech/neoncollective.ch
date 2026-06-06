@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AdminDataTable } from "@/components/admin-data-table";
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { promotionCodesColumns } from "@/components/admin-data-table/columns/promotion-codes-columns";
 import { EventWorkspaceGate } from "@/components/layout/event-workspace-gate";
 import { PromotionCodeFormDialog } from "@/components/promotion-code-form-dialog";
@@ -26,6 +27,7 @@ function EventPromotionsContent({
   event,
   tiers,
 }: EventPromotionsContentProps) {
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const [dialogOpen, setDialogOpen] = useState(false);
   const patchMutation = useMutation(adminApi.event.patchPromotionCode(eventId));
   const deleteMutation = useMutation(
@@ -54,19 +56,19 @@ function EventPromotionsContent({
           );
         },
         onDelete: (row: EventPromotionCodeRow) => {
-          if (
-            !confirm(
-              `Delete promotion code "${row.code}"? This cannot be undone.`,
-            )
-          ) {
-            return;
-          }
-          deleteMutation.mutate(row.id, {
-            onSuccess: () => toast.success("Promotion code deleted"),
+          confirm({
+            title: `Delete promotion code "${row.code}"?`,
+            description: "This cannot be undone.",
+            confirmLabel: "Delete",
+            variant: "destructive",
+            onConfirm: () =>
+              deleteMutation.mutate(row.id, {
+                onSuccess: () => toast.success("Promotion code deleted"),
+              }),
           });
         },
       }),
-    [event.slug, event.accessMode, patchMutation, deleteMutation],
+    [confirm, event.slug, event.accessMode, patchMutation, deleteMutation],
   );
 
   return (
@@ -99,6 +101,7 @@ function EventPromotionsContent({
         tiers={tiers}
         onOpenChange={setDialogOpen}
       />
+      <ConfirmDialog />
     </div>
   );
 }

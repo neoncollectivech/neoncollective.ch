@@ -8,6 +8,7 @@ import {
   adminFkColumn,
   adminMoneyColumn,
 } from "@/components/admin-data-table/column-helpers";
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { eventFkService, personFkService } from "@/lib/admin-fk-services";
 import { eventOrderPath } from "@/lib/event-workspace-paths";
@@ -19,6 +20,39 @@ type OrderColumnsOptions = {
   isRefunding?: boolean;
   hideEventColumn?: boolean;
 };
+
+function OrderRefundButton({
+  orderId,
+  disabled,
+  onRefund,
+}: {
+  orderId: string;
+  disabled?: boolean;
+  onRefund: (orderId: string) => void;
+}) {
+  const { confirm, ConfirmDialog } = useConfirmDialog();
+
+  return (
+    <>
+      <Button
+        disabled={disabled}
+        size="sm"
+        variant="destructive"
+        onClick={() =>
+          confirm({
+            title: "Refund this order?",
+            confirmLabel: "Refund",
+            variant: "destructive",
+            onConfirm: () => onRefund(orderId),
+          })
+        }
+      >
+        Refund
+      </Button>
+      <ConfirmDialog />
+    </>
+  );
+}
 
 export function orderColumns(
   opts: OrderColumnsOptions,
@@ -62,18 +96,11 @@ export function orderColumns(
         }
 
         return (
-          <Button
+          <OrderRefundButton
             disabled={opts.isRefunding}
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              if (confirm("Refund this order?")) {
-                opts.onRefund(order.id);
-              }
-            }}
-          >
-            Refund
-          </Button>
+            orderId={order.id}
+            onRefund={opts.onRefund}
+          />
         );
       },
     }),

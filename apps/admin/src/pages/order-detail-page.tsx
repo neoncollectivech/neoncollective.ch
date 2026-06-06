@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,7 @@ function isAdminDeletableOrder(order: {
 }
 
 export function OrderDetailPage() {
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const navigate = useNavigate();
   const { eventId: routeEventId, isValid: eventIdValid } = useEventIdParam();
   const { orderId, isValid: orderIdValid } = useOrderIdParam();
@@ -133,22 +135,25 @@ export function OrderDetailPage() {
                     disabled={deleteMutation.isPending}
                     size="sm"
                     variant="destructive"
-                    onClick={() => {
-                      if (
-                        confirm(
+                    onClick={() =>
+                      confirm({
+                        title:
                           order.status === "pending"
-                            ? "Delete this pending order? This cannot be undone. Related tier lines and admissions will be removed."
-                            : "Delete this free order? This cannot be undone. Related tier lines and admissions will be removed.",
-                        )
-                      ) {
-                        deleteMutation.mutate(orderId, {
-                          onSuccess: () => {
-                            toast.success("Order deleted");
-                            navigate(eventOrdersPath(routeEventId));
-                          },
-                        });
-                      }
-                    }}
+                            ? "Delete this pending order?"
+                            : "Delete this free order?",
+                        description:
+                          "This cannot be undone. Related tier lines and admissions will be removed.",
+                        confirmLabel: "Delete",
+                        variant: "destructive",
+                        onConfirm: () =>
+                          deleteMutation.mutate(orderId, {
+                            onSuccess: () => {
+                              toast.success("Order deleted");
+                              navigate(eventOrdersPath(routeEventId));
+                            },
+                          }),
+                      })
+                    }
                   >
                     Delete
                   </Button>
@@ -158,13 +163,17 @@ export function OrderDetailPage() {
                     disabled={refundMutation.isPending}
                     size="sm"
                     variant="destructive"
-                    onClick={() => {
-                      if (confirm("Refund this order?")) {
-                        refundMutation.mutate(orderId, {
-                          onSuccess: () => toast.success("Refund initiated"),
-                        });
-                      }
-                    }}
+                    onClick={() =>
+                      confirm({
+                        title: "Refund this order?",
+                        confirmLabel: "Refund",
+                        variant: "destructive",
+                        onConfirm: () =>
+                          refundMutation.mutate(orderId, {
+                            onSuccess: () => toast.success("Refund initiated"),
+                          }),
+                      })
+                    }
                   >
                     Refund
                   </Button>
@@ -298,6 +307,7 @@ export function OrderDetailPage() {
           )}
         </>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

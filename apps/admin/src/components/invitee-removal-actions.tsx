@@ -1,6 +1,7 @@
 import type { EventInviteeListRow } from "@/lib/admin-api";
 import type { UseForeignKeyResult } from "@/hooks/use-foreign-key";
 
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { inviteeRemovalAction } from "@/lib/invitee-removal";
 
@@ -21,42 +22,47 @@ export function InviteeRemovalActions({
   onDelete,
   onRevoke,
 }: InviteeRemovalActionsProps) {
+  const { confirm, ConfirmDialog } = useConfirmDialog();
+
   if (invitee.revokedAt) {
     return null;
   }
 
   const action = inviteeRemovalAction(invitee, fk?.lookups.order);
 
-  if (action === "delete") {
-    return (
+  const button =
+    action === "delete" ? (
       <Button
         disabled={deletePending}
         size="sm"
         variant="outline"
-        onClick={() => {
-          if (
-            !confirm(
-              "Delete this invitee from the list? This cannot be undone.",
-            )
-          ) {
-            return;
-          }
-          onDelete(invitee.id);
-        }}
+        onClick={() =>
+          confirm({
+            title: "Delete this invitee from the list?",
+            description: "This cannot be undone.",
+            confirmLabel: "Delete",
+            variant: "destructive",
+            onConfirm: () => onDelete(invitee.id),
+          })
+        }
       >
         Delete
       </Button>
+    ) : (
+      <Button
+        disabled={revokePending}
+        size="sm"
+        variant="outline"
+        onClick={() => onRevoke(invitee.id)}
+      >
+        Revoke
+      </Button>
     );
-  }
 
   return (
-    <Button
-      disabled={revokePending}
-      size="sm"
-      variant="outline"
-      onClick={() => onRevoke(invitee.id)}
-    >
-      Revoke
-    </Button>
+    <>
+      {button}
+      <ConfirmDialog />
+    </>
   );
 }

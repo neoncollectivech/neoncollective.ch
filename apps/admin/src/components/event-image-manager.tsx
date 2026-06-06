@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { EventImageFocalPreview } from "@/components/event-image-focal-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ export function EventImageManager({ eventId }: EventImageManagerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const imagesQuery = useQuery(adminApi.event.images(eventId));
   const deleteMutation = useMutation(adminApi.event.deleteImage(eventId));
   const reorderMutation = useMutation(adminApi.event.reorderImages(eventId));
@@ -138,13 +140,16 @@ export function EventImageManager({ eventId }: EventImageManagerProps) {
   };
 
   const handleDelete = (imageId: string) => {
-    if (!confirm("Delete this image?")) {
-      return;
-    }
-    deleteMutation.mutate(imageId, {
-      onSuccess: () => toast.success("Image deleted"),
-      onError: (err) =>
-        toast.error(getApiErrorMessage(err, "Failed to delete image")),
+    confirm({
+      title: "Delete this image?",
+      confirmLabel: "Delete",
+      variant: "destructive",
+      onConfirm: () =>
+        deleteMutation.mutate(imageId, {
+          onSuccess: () => toast.success("Image deleted"),
+          onError: (err) =>
+            toast.error(getApiErrorMessage(err, "Failed to delete image")),
+        }),
     });
   };
 
@@ -220,6 +225,7 @@ export function EventImageManager({ eventId }: EventImageManagerProps) {
           ))}
         </ul>
       ) : null}
+      <ConfirmDialog />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,6 +47,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
   const [rows, setRows] = useState<TierFormRow[]>(() =>
     tiers.map(tierToFormRow),
   );
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const saveMutation = useMutation(adminApi.event.putTiers(eventId));
 
   useEffect(() => {
@@ -62,11 +64,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
     setRows((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSave = () => {
-    if (!confirm("Save tier changes for this event?")) {
-      return;
-    }
-
+  const saveTiers = () => {
     for (const row of rows) {
       if (!row.name.trim()) {
         toast.error("Each tier needs a name");
@@ -104,6 +102,14 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
 
     saveMutation.mutate(payload, {
       onSuccess: () => toast.success("Tiers saved"),
+    });
+  };
+
+  const handleSave = () => {
+    confirm({
+      title: "Save tier changes for this event?",
+      confirmLabel: "Save",
+      onConfirm: saveTiers,
     });
   };
 
@@ -217,6 +223,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
           {saveMutation.isPending ? "Saving…" : "Save tiers"}
         </Button>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

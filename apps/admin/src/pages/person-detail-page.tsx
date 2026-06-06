@@ -15,6 +15,7 @@ import {
   PersonOrdersTable,
   PersonRegistrationsTable,
 } from "@/components/person-detail-related-tables";
+import { useConfirmDialog } from "@/components/confirm-dialog";
 import { PersonEditFormFields } from "@/components/person-edit-form";
 import { PersonOverviewSummary } from "@/components/person-overview-summary";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,7 @@ function PersonSection({ id, title, children }: PersonSectionProps) {
 export function PersonDetailPage() {
   const navigate = useNavigate();
   const { id: personId, isValid } = useUuidRouteParam();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PersonEditForm | null>(null);
 
@@ -214,18 +216,21 @@ export function PersonDetailPage() {
                     disabled={deleteMutation.isPending}
                     size="sm"
                     variant="destructive"
-                    onClick={() => {
-                      if (
-                        confirm("Delete this person? This cannot be undone.")
-                      ) {
-                        deleteMutation.mutate(undefined, {
-                          onSuccess: () => {
-                            toast.success("Person deleted");
-                            navigate("/people");
-                          },
-                        });
-                      }
-                    }}
+                    onClick={() =>
+                      confirm({
+                        title: "Delete this person?",
+                        description: "This cannot be undone.",
+                        confirmLabel: "Delete",
+                        variant: "destructive",
+                        onConfirm: () =>
+                          deleteMutation.mutate(undefined, {
+                            onSuccess: () => {
+                              toast.success("Person deleted");
+                              navigate("/people");
+                            },
+                          }),
+                      })
+                    }
                   >
                     Delete
                   </Button>
@@ -319,6 +324,7 @@ export function PersonDetailPage() {
           </PersonSection>
         </>
       ) : null}
+      <ConfirmDialog />
     </div>
   );
 }
