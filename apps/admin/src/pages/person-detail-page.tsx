@@ -1,15 +1,22 @@
 import type { PersonLinkCounts } from "@/lib/admin-api";
 
+import type { ReactNode } from "react";
+
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
+  PersonAdmissionsTable,
+  PersonHostedInviteesTable,
+  PersonInviteLinksTable,
+  PersonInviteRedemptionsTable,
   PersonInviteesTable,
   PersonOrdersTable,
 } from "@/components/person-detail-related-tables";
 import { PersonEditFormFields } from "@/components/person-edit-form";
+import { PersonOverviewSummary } from "@/components/person-overview-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +54,27 @@ function personDeletionBlockers(links: PersonLinkCounts): string | null {
   return `Cannot delete: linked ${parts.join(", ")}.`;
 }
 
+type PersonSectionProps = {
+  id: string;
+  title: string;
+  description?: string;
+  children: ReactNode;
+};
+
+function PersonSection({ id, title, description, children }: PersonSectionProps) {
+  return (
+    <Card id={`person-${id}`}>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description ? (
+          <p className="text-sm text-muted-foreground">{description}</p>
+        ) : null}
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
 export function PersonDetailPage() {
   const navigate = useNavigate();
   const { id: personId, isValid } = useUuidRouteParam();
@@ -55,10 +83,25 @@ export function PersonDetailPage() {
 
   const personQuery = useQuery(adminApi.person.detail(personId));
   const ordersQuery = useQuery(adminApi.person.orders(personId));
+  const admissionsQuery = useQuery(adminApi.person.admissions(personId));
   const inviteesQuery = useQuery(adminApi.person.invitees(personId));
+  const hostedInviteesQuery = useQuery(adminApi.person.hostedInvitees(personId));
+  const inviteLinksQuery = useQuery(adminApi.person.inviteLinks(personId));
   const deletionEligibilityQuery = useQuery(
     adminApi.person.deletionEligibility(personId),
   );
+
+  const orders = ordersQuery.data?.items ?? [];
+  const orderIds = useMemo(() => orders.map((order) => order.id), [orders]);
+  const orderEventById = useMemo(
+    () => new Map(orders.map((order) => [order.id, order.eventId])),
+    [orders],
+  );
+
+  const redemptionsQuery = useQuery(
+    adminApi.person.inviteRedemptionsForOrders(orderIds),
+  );
+
   const person = personQuery.data;
 
   useEffect(() => {
@@ -79,7 +122,11 @@ export function PersonDetailPage() {
   const isLoading =
     personQuery.isLoading ||
     ordersQuery.isLoading ||
+    admissionsQuery.isLoading ||
     inviteesQuery.isLoading ||
+    hostedInviteesQuery.isLoading ||
+    inviteLinksQuery.isLoading ||
+    redemptionsQuery.isLoading ||
     deletionEligibilityQuery.isLoading;
 
   const deletable = deletionEligibilityQuery.data?.deletable === true;
@@ -91,8 +138,21 @@ export function PersonDetailPage() {
     return <Navigate replace to="/people" />;
   }
 
-  const orders = ordersQuery.data?.items ?? [];
+  const admissions = admissionsQuery.data?.items ?? [];
   const invitees = inviteesQuery.data?.items ?? [];
+  const hostedInvitees = hostedInviteesQuery.data?.items ?? [];
+  const inviteLinks = inviteLinksQuery.data?.items ?? [];
+  const inviteRedemptions = (redemptionsQuery.data?.items ?? [])
+    .map((redemption) => {
+      const eventId = orderEventById.get(redemption.orderId);
+
+      if (!eventId) {
+        return null;
+      }
+
+      return { ...redemption, eventId };
+    })
+    .filter((row) => row != null);
 
   return (
     <div className="space-y-6">
@@ -105,10 +165,26 @@ export function PersonDetailPage() {
         </h2>
       </div>
 
-      {isLoading && <p className="text-muted-foreground">Loading…</p>}
+      {isLoading && !person ? (
+        <p className="text-muted-foreground">Loading…</p>
+      ) : null}
 
-      {person && (
+      {person ? (
         <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PersonOverviewSummary
+                admissions={admissions.length}
+                inviteRedemptions={inviteRedemptions.length}
+                isLoading={isLoading}
+                links={deletionEligibilityQuery.data?.links}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle>Contact</CardTitle>
@@ -219,25 +295,51 @@ export function PersonDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PersonOrdersTable orders={orders} />
-            </CardContent>
-          </Card>
+          <PersonSection id="orders" title="Orders">
+            <PersonOrdersTable orders={orders} />
+          </PersonSection>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Invitees</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PersonInviteesTable invitees={invitees} />
-            </CardContent>
-          </Card>
+          <PersonSection
+            description="One admission per exclusive order; add-on orders refresh the same credential."
+            id="admissions"
+            title="Admissions"
+          >
+            <PersonAdmissionsTable admissions={admissions} />
+          </PersonSection>
+
+          <PersonSection
+            description="Events this person is invited to as a guest."
+            id="event-invites"
+            title="Event invites"
+          >
+            <PersonInviteesTable invitees={invitees} />
+          </PersonSection>
+
+          <PersonSection
+            description="Share links this person can send as a first-degree host."
+            id="guest-invite-links"
+            title="Guest invite links"
+          >
+            <PersonInviteLinksTable links={inviteLinks} />
+          </PersonSection>
+
+          <PersonSection
+            description="Second-degree guests invited through this person's link."
+            id="guests-invited"
+            title="Guests invited"
+          >
+            <PersonHostedInviteesTable invitees={hostedInvitees} />
+          </PersonSection>
+
+          <PersonSection
+            description="Invite links redeemed on this person's checkout orders."
+            id="invite-redemptions"
+            title="Invite redemptions"
+          >
+            <PersonInviteRedemptionsTable redemptions={inviteRedemptions} />
+          </PersonSection>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

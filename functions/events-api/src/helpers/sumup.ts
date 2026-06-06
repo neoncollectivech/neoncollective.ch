@@ -201,50 +201,12 @@ export async function deleteSumUpReader(readerId: string): Promise<void> {
   await getSumUpClient().readers.delete(sumUpMerchantCode(), readerId);
 }
 
-/** Merchant code for the authenticated API key (`GET /v0.1/me`). */
-export async function fetchSumUpApiKeyMerchantCode(): Promise<string | null> {
-  const apiKey = process.env.SUMUP_API_KEY?.trim();
-  if (!apiKey) {
-    return null;
-  }
-  const response = await fetch("https://api.sumup.com/v0.1/me", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!response.ok) {
-    return null;
-  }
-  const body = (await response.json()) as { merchant_profile?: { merchant_code?: string } };
-  return body.merchant_profile?.merchant_code?.trim() ?? null;
-}
-
-export type SumUpCredentialsDiagnostic = {
+export type SumUpPosConfig = {
   configuredMerchantCode: string;
-  /** Merchant from `GET /v0.1/me` — often the live profile even when using a sandbox key. */
-  apiKeyMerchantCode: string | null;
-  /**
-   * True only when /me merchant equals SUMUP_MERCHANT_CODE.
-   * False for typical sandbox setups (expected — readers use configuredMerchantCode in API paths).
-   */
-  credentialsAligned: boolean;
-  note: string | null;
 };
 
-export async function resolveSumUpCredentialsDiagnostic(): Promise<SumUpCredentialsDiagnostic> {
-  const configuredMerchantCode = sumUpMerchantCode();
-  const apiKeyMerchantCode = await fetchSumUpApiKeyMerchantCode();
-  const credentialsAligned = Boolean(
-    apiKeyMerchantCode && apiKeyMerchantCode === configuredMerchantCode,
-  );
-  const note =
-    apiKeyMerchantCode && !credentialsAligned
-      ? "SumUp /me shows your live merchant profile; sandbox readers on SUMUP_MERCHANT_CODE are normal. ONLINE/OFFLINE comes from GET .../readers/{id}/status, not /me."
-      : null;
-  return {
-    configuredMerchantCode,
-    apiKeyMerchantCode,
-    credentialsAligned,
-    note,
-  };
+export function getSumUpPosConfig(): SumUpPosConfig {
+  return { configuredMerchantCode: sumUpMerchantCode() };
 }
 
 export type SumUpReaderPaymentStatus = "pending" | "successful" | "failed" | "unknown";

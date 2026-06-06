@@ -15,9 +15,9 @@ import {
 import { isSumUpConfigured } from "../../config/sumup";
 import {
   deleteSumUpReader,
+  getSumUpPosConfig,
   listSumUpReaders,
   pairSumUpReader,
-  resolveSumUpCredentialsDiagnostic,
 } from "../../helpers/sumup";
 import { getPosCatalog } from "./catalog";
 import { eventsService } from "../../services/events.service";
@@ -109,11 +109,8 @@ export function createPosRouter(): Hono<AppEnv> {
         return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
       }
       try {
-        const [readers, sumup] = await Promise.all([
-          listSumUpReaders(),
-          resolveSumUpCredentialsDiagnostic(),
-        ]);
-        return c.json({ readers, sumup });
+        const readers = await listSumUpReaders();
+        return c.json({ readers, sumup: getSumUpPosConfig() });
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Failed to list readers.";
         return c.json({ error: msg }, 502);

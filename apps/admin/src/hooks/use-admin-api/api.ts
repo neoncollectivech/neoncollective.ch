@@ -136,26 +136,6 @@ export const adminApi = {
         queryFn: () => listEventTiers(relatedListParams({ eventId })),
         enabled: Boolean(eventId),
       }),
-    capacityUsage: (eventId: string) =>
-      queryOptions({
-        queryKey: adminKeys.orders.list(
-          relatedListParams({
-            eventId,
-            status_in: "pending,paid",
-          }),
-        ),
-        queryFn: async () => {
-          const res = await listOrders(
-            relatedListParams({
-              eventId,
-              status_in: "pending,paid",
-            }),
-          );
-
-          return { used: res.meta.total };
-        },
-        enabled: Boolean(eventId),
-      }),
     salesAnalytics: (eventId: string) =>
       queryOptions({
         queryKey: adminKeys.events.salesAnalytics(eventId),
@@ -576,6 +556,67 @@ export const adminApi = {
             relatedListParams({ personId, sort: "-createdAt" }),
           ),
         enabled: Boolean(personId),
+      }),
+    hostedInvitees: (personId: string) =>
+      queryOptions({
+        queryKey: adminKeys.eventInvitees.list(
+          relatedListParams({ inviterId: personId, sort: "-createdAt" }),
+        ),
+        queryFn: () =>
+          listEventInvitees(
+            relatedListParams({ inviterId: personId, sort: "-createdAt" }),
+          ),
+        enabled: Boolean(personId),
+      }),
+    admissions: (personId: string) =>
+      queryOptions({
+        queryKey: adminKeys.admissions.list(
+          relatedListParams({ personId, sort: "-createdAt" }),
+        ),
+        queryFn: () =>
+          listAdmissions(relatedListParams({ personId, sort: "-createdAt" })),
+        enabled: Boolean(personId),
+      }),
+    inviteLinks: (personId: string) =>
+      queryOptions({
+        queryKey: adminKeys.inviteLinks.list(
+          relatedListParams({ inviterId: personId, sort: "-createdAt" }),
+        ),
+        queryFn: () =>
+          listInviteLinks(
+            relatedListParams({ inviterId: personId, sort: "-createdAt" }),
+          ),
+        enabled: Boolean(personId),
+      }),
+    inviteRedemptionsForOrders: (orderIds: string[]) =>
+      queryOptions({
+        queryKey: [
+          ...adminKeys.inviteRedemptions.all,
+          "by-orders",
+          [...orderIds].sort().join(","),
+        ] as const,
+        queryFn: async () => {
+          if (orderIds.length === 0) {
+            return { items: [], meta: { total: 0, limit: "0", skip: "0" } };
+          }
+
+          const pages = await Promise.all(
+            orderIds.map((orderId) =>
+              listInviteRedemptions(relatedListParams({ orderId })),
+            ),
+          );
+          const items = pages.flatMap((page) => page.items);
+
+          return {
+            items,
+            meta: {
+              total: items.length,
+              limit: String(items.length),
+              skip: "0",
+            },
+          };
+        },
+        enabled: orderIds.length > 0,
       }),
     update: (personId: string) =>
       mutationOptions({

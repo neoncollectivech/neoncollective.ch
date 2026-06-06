@@ -57,18 +57,11 @@ export function ReaderSelect({ onSelected }: ReaderSelectProps) {
   }
 
   const readers = readersQuery.data?.readers ?? [];
-  const sumupDiag = readersQuery.data?.sumup;
-  const merchantCode = sumupDiag?.configuredMerchantCode ?? "…";
+  const merchantCode =
+    readersQuery.data?.sumup.configuredMerchantCode ?? "…";
 
   return (
     <div className="space-y-4">
-      {sumupDiag?.note ? (
-        <Card className="border-muted-foreground/30">
-          <CardContent className="pt-6 text-sm text-muted-foreground">
-            {sumupDiag.note}
-          </CardContent>
-        </Card>
-      ) : null}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Pair Virtual Solo (dev)</CardTitle>

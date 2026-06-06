@@ -70,16 +70,13 @@ export type PosSaleStatus = {
   signedCredential: string | null;
 };
 
-export type SumUpCredentialsDiagnostic = {
+export type SumUpPosConfig = {
   configuredMerchantCode: string;
-  apiKeyMerchantCode: string | null;
-  credentialsAligned: boolean;
-  note: string | null;
 };
 
 export type PosReadersResponse = {
   readers: PosReader[];
-  sumup: SumUpCredentialsDiagnostic;
+  sumup: SumUpPosConfig;
 };
 
 export async function listPosReaders(): Promise<PosReadersResponse> {

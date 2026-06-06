@@ -49,6 +49,20 @@ export type TierRow = {
   placesRemaining?: number | null;
 };
 
+/** Event quota usage = exclusive tier lines sold (add-on-only orders excluded). */
+export function computeEventCapacityFromTiers(
+  tiers: Pick<TierRow, "selectionMode" | "sold">[],
+  eventQuota: number | null,
+): EventCapacitySnapshot {
+  const used = tiers
+    .filter((tier) => tier.selectionMode === "exclusive")
+    .reduce((sum, tier) => sum + (tier.sold ?? 0), 0);
+  const remaining =
+    eventQuota != null ? Math.max(0, eventQuota - used) : null;
+
+  return { used, remaining };
+}
+
 export type TierFormRow = {
   id: string | null;
   name: string;

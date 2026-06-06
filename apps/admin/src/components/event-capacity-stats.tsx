@@ -56,7 +56,8 @@ export function EventCapacityStats({
       <div>
         <h3 className="text-sm font-medium">Capacity</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Counts include pending and paid orders.
+          Pending and paid line items. Event total counts exclusive admissions
+          only; add-on-only orders do not use event capacity.
         </p>
       </div>
 
