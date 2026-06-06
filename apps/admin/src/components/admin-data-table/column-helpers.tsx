@@ -12,10 +12,12 @@ import { AdminFkCell } from "@/components/admin-fk/admin-fk-cell";
 import { DataTableColumnHeader } from "@/components/admin-data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  adminTableLinkClass,
+  adminTableLinkClassName,
+} from "@/lib/admin-table-link";
 
-/** Primary navigation link styling for list → detail rows. */
-export const adminDetailLinkClassName =
-  "text-primary underline-offset-4 hover:underline";
+export { adminTableLinkClassName as adminDetailLinkClassName };
 
 export function AdminDetailLink({
   href,
@@ -27,7 +29,7 @@ export function AdminDetailLink({
   className?: string;
 }) {
   return (
-    <Link className={className ?? adminDetailLinkClassName} to={href}>
+    <Link className={adminTableLinkClass(className)} to={href}>
       {children}
     </Link>
   );

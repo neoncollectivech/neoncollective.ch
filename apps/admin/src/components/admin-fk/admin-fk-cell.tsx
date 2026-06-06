@@ -10,6 +10,7 @@ import {
   type ForeignKeyLookupRow,
   type ForeignKeyPresentation,
 } from "@/lib/admin-fk-services";
+import { adminTableLinkClass } from "@/lib/admin-table-link";
 import { isUuid } from "@/lib/uuid";
 
 type AdminFkCellProps = {
@@ -90,7 +91,7 @@ export function AdminFkCell({
       return (
         <span className="inline-flex items-center font-mono text-xs">
           {spinner}
-          <Link className="hover:opacity-90" to={href}>
+          <Link className="inline-flex rounded-md hover:opacity-90" to={href}>
             {badge}
           </Link>
           {trailingSpinner}
@@ -110,10 +111,7 @@ export function AdminFkCell({
   const href = resolveHref();
   const content =
     href && isUuid(foreignId) ? (
-      <Link
-        className="text-primary underline-offset-4 hover:underline"
-        to={href}
-      >
+      <Link className={adminTableLinkClass()} to={href}>
         {label}
       </Link>
     ) : (
@@ -121,7 +119,9 @@ export function AdminFkCell({
     );
 
   return (
-    <span className="font-mono text-xs">
+    <span
+      className={href && isUuid(foreignId) ? undefined : "font-mono text-xs"}
+    >
       {spinner}
       {content}
       {trailingSpinner}
