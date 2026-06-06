@@ -10,3 +10,5 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare const __ADMIN_BUILD_LABEL__: string;

@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { AuthGuard } from "@/components/auth-guard";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { EventWorkspaceOutlet } from "@/components/layout/event-workspace-outlet";
+import { PwaUpdateNotifier } from "@/components/pwa-update-notifier";
 import { adminBasename } from "@/lib/admin-base";
 import { EventFormPage } from "@/pages/event-form-page";
 import { EventInviteesPage } from "@/pages/event-invitees-page";
@@ -64,6 +65,7 @@ export function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      <PwaUpdateNotifier />
       <Toaster richColors theme="dark" />
     </QueryClientProvider>
   );

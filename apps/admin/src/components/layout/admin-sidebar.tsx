@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { EventSwitcher } from "@/components/event-switcher";
 import { AdminBrand } from "@/components/layout/admin-brand";
+import { PwaUpdateActions } from "@/components/pwa-update-actions";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -88,6 +89,7 @@ export function AdminSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        <PwaUpdateActions />
         <p className="truncate px-2 text-xs text-muted-foreground">
           {displayEmail}
           {devBypass ? " (dev bypass)" : null}

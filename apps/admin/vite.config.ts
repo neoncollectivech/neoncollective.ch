@@ -53,11 +53,18 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: adminBase,
+    define: {
+      __ADMIN_BUILD_LABEL__: JSON.stringify(
+        process.env.VITE_ADMIN_BUILD_LABEL ??
+          env.VITE_ADMIN_BUILD_LABEL ??
+          new Date().toISOString().slice(0, 10),
+      ),
+    },
     plugins: [
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: "autoUpdate",
+        registerType: "prompt",
         // Immediate registration in index.html (plugin injectRegister waits for `load`).
         injectRegister: false,
         scope: adminBase,
