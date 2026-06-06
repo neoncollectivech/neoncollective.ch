@@ -70,10 +70,6 @@ export function EventInviteesPage() {
           return (
             <div className="space-y-4">
               <h2 className="text-2xl font-semibold">Invitees</h2>
-              <p className="text-sm text-muted-foreground">
-                Public events do not use an invite list. Switch to invite-only
-                access in settings if you need invitees.
-              </p>
               <Button asChild size="sm" variant="outline">
                 <Link to={eventOverviewPath(eventId)}>Back to overview</Link>
               </Button>

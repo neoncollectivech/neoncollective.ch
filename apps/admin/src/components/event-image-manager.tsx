@@ -161,9 +161,6 @@ export function EventImageManager({ eventId }: EventImageManagerProps) {
           type="file"
           onChange={(e) => void handleFileChange(e)}
         />
-        <p className="text-xs text-muted-foreground">
-          First image is the hero. Max 8 MB; JPEG, PNG, WebP, or AVIF.
-        </p>
       </div>
 
       {imagesQuery.isError ? (

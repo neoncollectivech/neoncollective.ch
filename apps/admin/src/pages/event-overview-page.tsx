@@ -38,11 +38,6 @@ export function EventOverviewPage() {
                 <span className="text-muted-foreground">Access:</span>{" "}
                 {event.accessMode}
               </p>
-              {event.accessMode === "public" ? (
-                <p className="text-muted-foreground">
-                  Event invites are not used for public events.
-                </p>
-              ) : null}
               {event.location ? (
                 <p>
                   <span className="text-muted-foreground">Location:</span>{" "}

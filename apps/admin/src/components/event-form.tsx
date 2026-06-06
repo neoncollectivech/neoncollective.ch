@@ -55,9 +55,6 @@ export function EventForm({
           value={values.slug}
           onChange={(e) => set("slug", e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">
-          Lowercase; normalized on save.
-        </p>
       </FormField>
 
       <FormField htmlFor="title" label="Title">
@@ -74,7 +71,6 @@ export function EventForm({
           value={values.summary}
           onChange={(v) => set("summary", v)}
         />
-        <p className="text-xs text-muted-foreground">Markdown supported.</p>
       </FormField>
 
       <FormField htmlFor="location" label="Location">

@@ -27,10 +27,7 @@ import {
   personToEditForm,
   type PersonEditForm,
 } from "@/lib/person-form-utils";
-import {
-  personNeedsVerification,
-  personVerificationSummary,
-} from "@/lib/person-verification";
+import { personNeedsVerification } from "@/lib/person-verification";
 
 function personDeletionBlockers(links: PersonLinkCounts): string | null {
   const parts: string[] = [];
@@ -57,23 +54,14 @@ function personDeletionBlockers(links: PersonLinkCounts): string | null {
 type PersonSectionProps = {
   id: string;
   title: string;
-  description?: string;
   children: ReactNode;
 };
 
-function PersonSection({
-  id,
-  title,
-  description,
-  children,
-}: PersonSectionProps) {
+function PersonSection({ id, title, children }: PersonSectionProps) {
   return (
     <Card id={`person-${id}`}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        ) : null}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
@@ -290,9 +278,6 @@ export function PersonDetailPage() {
                       </Badge>
                     ) : null}
                   </p>
-                  <p className="text-muted-foreground">
-                    {personVerificationSummary(person)}
-                  </p>
                   <p>
                     <span className="text-muted-foreground">Created:</span>{" "}
                     {new Date(person.createdAt).toLocaleString()}
@@ -309,51 +294,27 @@ export function PersonDetailPage() {
             <PersonOrdersTable orders={orders} />
           </PersonSection>
 
-          <PersonSection
-            description="Confirmed enrollment per event (created when an exclusive order is paid)."
-            id="registrations"
-            title="Registrations"
-          >
+          <PersonSection id="registrations" title="Registrations">
             <PersonRegistrationsTable registrations={registrations} />
           </PersonSection>
 
-          <PersonSection
-            description="One admission per registration; add-on orders refresh the same credential."
-            id="admissions"
-            title="Admissions"
-          >
+          <PersonSection id="admissions" title="Admissions">
             <PersonAdmissionsTable admissions={admissions} />
           </PersonSection>
 
-          <PersonSection
-            description="Events this person is invited to as a guest."
-            id="event-invites"
-            title="Event invites"
-          >
+          <PersonSection id="event-invites" title="Event invites">
             <PersonInviteesTable invitees={invitees} />
           </PersonSection>
 
-          <PersonSection
-            description="Share links this person can send as a first-degree host."
-            id="guest-invite-links"
-            title="Guest invite links"
-          >
+          <PersonSection id="guest-invite-links" title="Guest invite links">
             <PersonInviteLinksTable links={inviteLinks} />
           </PersonSection>
 
-          <PersonSection
-            description="Second-degree guests invited through this person's link."
-            id="guests-invited"
-            title="Guests invited"
-          >
+          <PersonSection id="guests-invited" title="Guests invited">
             <PersonHostedInviteesTable invitees={hostedInvitees} />
           </PersonSection>
 
-          <PersonSection
-            description="Invite links redeemed on this person's checkout orders."
-            id="invite-redemptions"
-            title="Invite redemptions"
-          >
+          <PersonSection id="invite-redemptions" title="Invite redemptions">
             <PersonInviteRedemptionsTable redemptions={inviteRedemptions} />
           </PersonSection>
         </>

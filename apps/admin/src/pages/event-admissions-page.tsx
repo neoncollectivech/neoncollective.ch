@@ -134,16 +134,11 @@ function EventAdmissionsContent({ eventId }: EventAdmissionsContentProps) {
               </span>
               {" · "}
               Created {new Date(summary.signingKey.createdAt).toLocaleString()}
-              <br />
-              <span className="text-xs">
-                Created automatically with new events.
-              </span>
             </p>
           ) : (
             <>
               <p className="text-amber-600 dark:text-amber-400">
-                Missing signing key — usually created when the event was
-                created.
+                Missing signing key.
               </p>
               <Button
                 disabled={provisionMutation.isPending}

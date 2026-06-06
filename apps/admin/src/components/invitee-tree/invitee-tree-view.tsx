@@ -155,10 +155,6 @@ export function InviteeTreeView({
     return (
       <div className="space-y-3">
         {stats ? <InviteeTreeSummary orphanCount={0} stats={stats} /> : null}
-        <p className="text-sm text-muted-foreground">
-          No invite chains yet. Hosts appear here once someone joins through
-          their invite link.
-        </p>
         <Button
           size="sm"
           type="button"
@@ -197,13 +193,6 @@ export function InviteeTreeView({
         onSearchChange={setSearch}
         onShowRevokedChange={setShowRevoked}
       />
-
-      {forest.orphans.length > 0 ? (
-        <p className="text-xs text-yellow-500/90">
-          Unlinked chains: invitees whose inviter is not on this event&apos;s
-          invite list.
-        </p>
-      ) : null}
 
       {layout ? (
         <InviteeTreeCanvas

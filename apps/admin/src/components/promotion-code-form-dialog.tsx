@@ -184,9 +184,6 @@ export function PromotionCodeFormDialog({
           ) : null}
           {kind === "tier_prices" ? (
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Set checkout price per tier (CHF). Leave blank to skip a tier.
-              </p>
               {tiers
                 .filter((tier): tier is TierRow & { id: string } =>
                   Boolean(tier.id),

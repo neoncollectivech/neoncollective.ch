@@ -183,9 +183,6 @@ export function InviteeLinkActions({
               onChange={(e) => setMaxRedemptionsInput(e.target.value)}
             />
           </FormField>
-          <p className="text-xs text-muted-foreground">
-            Cannot be below {link.usedRedemptions} (already used or pending).
-          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
@@ -242,9 +239,6 @@ export function InviteeLinkActions({
               onChange={(e) => setRegenerateMaxInput(e.target.value)}
             />
           </FormField>
-          <p className="text-xs text-muted-foreground">
-            Leave blank to use event default ({defaultMaxRedemptions}).
-          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegenerateOpen(false)}>
               Cancel

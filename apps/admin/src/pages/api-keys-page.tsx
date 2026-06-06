@@ -42,10 +42,6 @@ export function ApiKeysPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">API keys</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Bearer tokens for check-in, admissions export, and invite-only
-            catalog access. Prefer scoped keys over global when possible.
-          </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>Create API key</Button>
       </div>

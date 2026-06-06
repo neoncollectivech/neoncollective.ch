@@ -12,10 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { buildPublicLoginUrl, personLoginContact } from "@/lib/invite-url";
-import {
-  personNeedsVerification,
-  personVerificationSummary,
-} from "@/lib/person-verification";
+import { personNeedsVerification } from "@/lib/person-verification";
 import { isUuid } from "@/lib/uuid";
 
 async function copyPersonLoginLink(person: {
@@ -67,19 +64,12 @@ export function peopleColumns(): AdminColumnDef<PersonRow>[] {
           !personNeedsVerification(p) &&
           Boolean(p.email?.trim() || p.phone?.trim());
 
-        return (
-          <>
-            {verified ? (
-              <Badge>Verified</Badge>
-            ) : personNeedsVerification(p) ? (
-              <Badge variant="secondary">Pending</Badge>
-            ) : (
-              <span className="text-muted-foreground text-xs">—</span>
-            )}
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {personVerificationSummary(p)}
-            </p>
-          </>
+        return verified ? (
+          <Badge>Verified</Badge>
+        ) : personNeedsVerification(p) ? (
+          <Badge variant="secondary">Pending</Badge>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
         );
       },
     },

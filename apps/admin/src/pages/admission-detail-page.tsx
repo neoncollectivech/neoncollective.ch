@@ -159,9 +159,6 @@ function AdmissionDetailContent({
               value={admission.signedCredential}
             />
           </div>
-          <p className="text-sm text-muted-foreground">
-            High-contrast code for door scanners (same JWT as Copy JWT).
-          </p>
           <Button
             variant="outline"
             onClick={() => {

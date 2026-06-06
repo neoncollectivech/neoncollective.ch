@@ -35,13 +35,7 @@ export function EventSalesAnalytics({ eventId }: EventSalesAnalyticsProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Sales analytics</h3>
-          <p className="text-sm text-muted-foreground">
-            Paid orders only. One order = one person. Capacity below includes
-            pending checkout.
-          </p>
-        </div>
+        <h3 className="text-lg font-semibold">Sales analytics</h3>
         <ToggleGroup
           type="single"
           value={metric}

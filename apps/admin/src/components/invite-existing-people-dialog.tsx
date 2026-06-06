@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -182,10 +181,6 @@ export function InviteExistingPeopleDialog({
       <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col gap-4">
         <DialogHeader>
           <DialogTitle>Add invitee</DialogTitle>
-          <DialogDescription>
-            Search people in the directory, select who to invite, then confirm.
-            Each person needs an email or phone on file.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-wrap gap-2">

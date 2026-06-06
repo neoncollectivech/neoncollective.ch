@@ -358,6 +358,7 @@ Admin table behavior has **one source of truth per table**. Do not define parall
 - **New primitives:** add via Shadcn CLI (`apps/admin/components.json`); output lands in `components/ui/`.
 - **No other UI libs** in admin (no HeroUI, MUI, etc. — web uses HeroUI; admin uses Shadcn).
 - Prefer `Button`, `Input`, `Dialog`, etc. over raw HTML form controls.
+- **No clutter copy:** Do not add page subtitles, section descriptions, or helper paragraphs that explain domain rules or restate what the UI already shows. Challenge every string for usability impact before adding it. Prefer labels, table columns, empty states, and dialog confirmations over prose under headings. Omit explanatory muted text like “Paid orders only…” or “One order = one person”.
 
 **Layers:** `lib/admin-api.ts` (HTTP + row types), `lib/admin-list-services/` (paginated list pages), `hooks/use-admin-api/` (detail/mutations only — not duplicate list factories for list pages).
 

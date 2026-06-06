@@ -54,9 +54,6 @@ export function InviteeBulkImport({
         Bulk import (CSV)
       </summary>
       <div className="mt-2 space-y-2">
-        <p className="text-xs text-muted-foreground">
-          Header row required. Each row needs email or phoneE164.
-        </p>
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground">Example</p>
           <pre className="overflow-x-auto rounded-md border border-input bg-muted/30 p-2 text-xs font-mono text-foreground/80 whitespace-pre">

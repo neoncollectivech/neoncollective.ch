@@ -56,10 +56,6 @@ export function PersonEditFormFields({
           onChange={(e) => set("phoneE164", e.target.value)}
         />
       </FormField>
-      <p className="text-xs text-muted-foreground">
-        Email or phone required. Changing contact clears verification until you
-        verify again.
-      </p>
       <div className="flex gap-2">
         <Button variant="outline" onClick={onCancel}>
           Cancel
