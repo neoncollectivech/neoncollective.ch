@@ -134,6 +134,13 @@
       "when": 1780837010352,
       "tag": "0019_rainy_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780838511030,
+      "tag": "0020_api_keys_scopes_repair",
+      "breakpoints": true
     }
   ]
 }
