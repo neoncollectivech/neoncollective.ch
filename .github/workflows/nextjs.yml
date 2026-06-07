@@ -52,14 +52,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       - name: Build public site
-        run: pnpm --filter @neon/web build
+        run: pnpm turbo build --filter=@neon/web
       - name: Build admin for GitHub Pages
-        run: pnpm --filter @neon/admin build
+        run: pnpm turbo build --filter=@neon/admin
         env:
           VITE_ADMIN_BASE: /admin/
           VITE_PUBLIC_SITE_URL: https://neoncollective.ch
       - name: Build door for GitHub Pages
-        run: pnpm --filter @neon/door build
+        run: pnpm turbo build --filter=@neon/door
         env:
           VITE_DOOR_BASE: /door/
           VITE_PUBLIC_SITE_URL: https://neoncollective.ch
