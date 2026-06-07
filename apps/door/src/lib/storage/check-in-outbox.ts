@@ -92,11 +92,3 @@ export async function updateOutboxRow(
 
   await db.put(STORE, { ...existing, ...patch });
 }
-
-export async function findOutboxByCredential(
-  credential: string,
-): Promise<CheckInOutboxRow | undefined> {
-  const rows = await listOutboxRows();
-
-  return rows.find((r) => r.credential === credential);
-}

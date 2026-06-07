@@ -1,5 +1,6 @@
-import { pruneLocalizedText } from "@neon/site-locales";
 import type { EventDetail, EventFormValues } from "@/lib/admin-types";
+
+import { pruneLocalizedText } from "@neon/site-locales";
 
 export const emptyEventFormValues = (): EventFormValues => ({
   slug: "",

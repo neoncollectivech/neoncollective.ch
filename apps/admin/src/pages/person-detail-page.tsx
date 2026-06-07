@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
@@ -156,14 +156,9 @@ export function PersonDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button asChild size="sm" variant="ghost">
-          <Link to="/people">← People</Link>
-        </Button>
-        <h2 className="text-2xl font-semibold">
-          {person ? `${person.givenName} ${person.familyName}` : "Person"}
-        </h2>
-      </div>
+      <h2 className="text-2xl font-semibold">
+        {person ? `${person.givenName} ${person.familyName}` : "Person"}
+      </h2>
 
       {isLoading && !person ? (
         <p className="text-muted-foreground">Loading…</p>

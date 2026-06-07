@@ -64,7 +64,3 @@ export function sumUpWebhookSecret(): string | undefined {
 export function isSumUpWebhookVerificationRequired(): boolean {
   return process.env.NODE_ENV === "production";
 }
-
-export function isSumUpWebhookReturnUrlConfigured(): boolean {
-  return Boolean(sumUpWebhookReturnUrl());
-}

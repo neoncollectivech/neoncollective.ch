@@ -115,9 +115,6 @@ export function OrderDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button asChild size="sm" variant="ghost">
-          <Link to={eventOrdersPath(routeEventId)}>← Orders</Link>
-        </Button>
         <h2 className="text-2xl font-semibold">Order</h2>
         {order && <Badge>{order.status}</Badge>}
       </div>

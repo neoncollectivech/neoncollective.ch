@@ -2,12 +2,9 @@ import type { CSSProperties } from "react";
 
 import { Outlet } from "react-router-dom";
 
+import { AdminHeader } from "@/components/layout/admin-header";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 const sidebarWidthStyle = {
   "--sidebar-width": "14rem",
@@ -19,9 +16,7 @@ export function AdminLayout() {
     <SidebarProvider style={sidebarWidthStyle}>
       <AdminSidebar />
       <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
-          <SidebarTrigger />
-        </header>
+        <AdminHeader />
         <div className="flex-1 overflow-auto p-8">
           <Outlet />
         </div>

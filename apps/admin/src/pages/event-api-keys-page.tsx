@@ -38,7 +38,7 @@ function EventApiKeysContent({ eventId }: EventApiKeysContentProps) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <h2 className="text-2xl font-semibold">API keys</h2>
+        <h2 className="text-2xl font-semibold">Event API keys</h2>
         <Button onClick={() => setCreateOpen(true)}>Create API key</Button>
       </div>
 

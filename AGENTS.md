@@ -52,7 +52,7 @@ neo-neoncollective.ch/
         └── package.json
 ```
 
-- Root scripts run via **Turborepo** (`turbo.json`): `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm typecheck`.
+- Root scripts run via **Turborepo** (`turbo.json`): `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm check`.
 - `apps/web` is fully static (`output: "export"`): no API routes/middleware; server logic lives in functions.
 - `.npmrc` at root configures `public-hoist-pattern` for HeroUI packages.
 
@@ -575,7 +575,6 @@ Apps should add `"@neon/eslint-config": "workspace:*"` plus required React ESLin
 
 ## Before Completing a Task
 
-- Run `pnpm build` (all workspaces).
-- Run `pnpm lint` (all workspaces).
+- Run `pnpm check` (typecheck, lint, build, test, knip across all workspaces).
 - Check build output for page-size/static-optimization regressions.
 - Verify `generateMetadata` outputs correct titles/descriptions/Open Graph tags.

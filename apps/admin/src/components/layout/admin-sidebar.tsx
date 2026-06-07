@@ -1,10 +1,10 @@
-import { ArrowLeft } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 import { EventSwitcher } from "@/components/event-switcher";
 import { AdminBrand } from "@/components/layout/admin-brand";
 import { PwaUpdateActions } from "@/components/pwa-update-actions";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
@@ -17,12 +17,54 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useAdminSidebarModel } from "@/hooks/use-admin-sidebar-model";
+import {
+  useAdminSidebarModel,
+  type AdminNavSection,
+} from "@/hooks/use-admin-sidebar-model";
 import {
   devAdminDisplayEmail,
   isAdminAuthDisabled,
 } from "@/lib/admin-auth-dev";
 import { signOut, useSession } from "@/lib/auth-client";
+
+function SidebarNavSections({
+  sections,
+  pathname,
+}: {
+  sections: AdminNavSection[];
+  pathname: string;
+}) {
+  return (
+    <>
+      {sections.map((section) => (
+        <SidebarGroup key={section.id}>
+          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {section.links.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={item.isActive(pathname)}
+                    >
+                      <Link to={item.href}>
+                        <Icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </>
+  );
+}
 
 export function AdminSidebar() {
   const { pathname } = useLocation();
@@ -38,23 +80,6 @@ export function AdminSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {model.back ? (
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link to={model.back.href}>
-                      <ArrowLeft />
-                      <span>{model.back.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : null}
-
         {model.mode === "event" && model.eventId ? (
           <SidebarGroup>
             <SidebarGroupLabel>Event</SidebarGroupLabel>
@@ -73,19 +98,17 @@ export function AdminSidebar() {
           </SidebarGroup>
         ) : null}
 
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {model.links.map((item) => (
-                <SidebarMenuItem key={item.key}>
-                  <SidebarMenuButton asChild isActive={item.isActive(pathname)}>
-                    <Link to={item.href}>{item.label}</Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <SidebarNavSections pathname={pathname} sections={model.sections} />
+
+        {model.secondarySections && model.secondarySections.length > 0 ? (
+          <>
+            <Separator className="my-2" />
+            <SidebarNavSections
+              pathname={pathname}
+              sections={model.secondarySections}
+            />
+          </>
+        ) : null}
       </SidebarContent>
 
       <SidebarFooter>

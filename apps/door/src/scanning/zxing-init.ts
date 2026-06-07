@@ -1,6 +1,5 @@
 import {
   prepareZXingModule,
-  ZXING_WASM_VERSION,
   type PrepareZXingModuleOptions,
 } from "zxing-wasm/reader";
 
@@ -42,5 +41,3 @@ export function initZxingReader(wasmBaseUrl: string): Promise<void> {
 
   return initPromise;
 }
-
-export { ZXING_WASM_VERSION };

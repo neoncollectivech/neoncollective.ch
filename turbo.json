@@ -19,6 +19,10 @@
     "knip": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/knip.json"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": true
     }
   }
 }

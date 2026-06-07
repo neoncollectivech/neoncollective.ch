@@ -41,7 +41,9 @@ export function ApiKeysPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">API keys</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Global API keys
+          </h2>
         </div>
         <Button onClick={() => setCreateOpen(true)}>Create API key</Button>
       </div>

@@ -63,16 +63,7 @@ function AdmissionDetailContent({
   }
 
   if (admissionQuery.isError || !admission) {
-    return (
-      <div className="space-y-4">
-        <p className="text-destructive">Admission not found.</p>
-        <Button asChild variant="outline">
-          <Link to={eventWorkspaceSectionPath(eventId, "admissions")}>
-            Back to admissions
-          </Link>
-        </Button>
-      </div>
-    );
+    return <p className="text-destructive">Admission not found.</p>;
   }
 
   if (admission.eventId !== eventId) {
@@ -83,14 +74,6 @@ function AdmissionDetailContent({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button asChild size="sm" variant="outline">
-          <Link to={eventWorkspaceSectionPath(eventId, "admissions")}>
-            ← Admissions
-          </Link>
-        </Button>
-      </div>
-
       <h2 className="text-2xl font-semibold">{guestLabel || "Admission"}</h2>
 
       <Card>

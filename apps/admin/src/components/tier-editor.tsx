@@ -1,6 +1,6 @@
-import { pruneLocalizedText } from "@neon/site-locales";
 import type { TierFormRow, TierRow } from "@/lib/admin-types";
 
+import { pruneLocalizedText } from "@neon/site-locales";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";

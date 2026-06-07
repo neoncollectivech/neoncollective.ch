@@ -67,7 +67,6 @@ export function NeonOtpInput({
       ) : null}
       <InputOTP
         ref={inputRef}
-        autoFocus
         autoComplete="one-time-code"
         data-testid={dataTestId}
         disabled={disabled}

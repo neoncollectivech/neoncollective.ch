@@ -13,18 +13,3 @@ export function personNeedsVerification(
 
   return needsEmail || needsPhone;
 }
-
-export function personVerificationSummary(
-  person: PersonVerificationFields,
-): string {
-  const parts: string[] = [];
-
-  if (person.email?.trim()) {
-    parts.push(person.emailVerifiedAt ? "Email verified" : "Email pending");
-  }
-  if (person.phone?.trim()) {
-    parts.push(person.phoneVerifiedAt ? "Phone verified" : "Phone pending");
-  }
-
-  return parts.length > 0 ? parts.join(" · ") : "No contact";
-}

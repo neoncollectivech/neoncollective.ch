@@ -1,9 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { EventForm } from "@/components/event-form";
-import { Button } from "@/components/ui/button";
 import { adminApi } from "@/hooks/use-admin-api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { eventOverviewPath } from "@/lib/event-workspace-paths";
@@ -18,12 +17,7 @@ export function EventFormPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button asChild size="sm" variant="ghost">
-          <Link to="/events">← Events</Link>
-        </Button>
-        <h2 className="text-2xl font-semibold">New event</h2>
-      </div>
+      <h2 className="text-2xl font-semibold">New event</h2>
 
       <EventForm
         initialValues={emptyEventFormValues()}

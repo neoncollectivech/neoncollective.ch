@@ -170,6 +170,8 @@ pnpm dev:apps
 | `pnpm build` | Build all workspaces (via Turbo) |
 | `pnpm lint` | ESLint across the monorepo |
 | `pnpm typecheck` | `tsc --noEmit` everywhere |
+| `pnpm test` | Unit tests (`events-api`, `site-locales`) |
+| `pnpm check` | All quality gates: typecheck, lint, build, test, knip |
 | `pnpm test:e2e` | Playwright checkout flows (starts web + API) |
 | `pnpm e2e:free-ports` | Kill stuck processes on :3000 / :8082 |
 | `pnpm stripe:listen` | Forward Stripe webhooks to local events-api |
@@ -242,7 +244,7 @@ See **[test/README.md](test/README.md)** for env vars, ports, seed behavior, and
 ## Contributing
 
 1. Match existing patterns (Server Components by default on web; `"use client"` only when needed).
-2. Run `pnpm build`, `pnpm lint`, and `pnpm typecheck` before opening a PR.
+2. Run `pnpm check` before opening a PR (typecheck, lint, build, test, knip).
 3. For agent-oriented conventions (admin bridge, idempotency, Drizzle rules), see **[AGENTS.md](AGENTS.md)**.
 
 ---
