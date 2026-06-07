@@ -1,3 +1,5 @@
+import type { LocalizedText } from "@neon/site-locales";
+
 import { api } from "@/lib/api-client";
 
 export type PosReader = {
@@ -12,7 +14,7 @@ export type PosReader = {
 export type PosTier = {
   id: string;
   name: string;
-  description: string;
+  description: LocalizedText;
   priceCents: number;
   currency: string;
   placesRemaining: number | null;
@@ -31,7 +33,7 @@ export type PosCatalog = {
 export type PosRegisteredTier = {
   id: string;
   name: string;
-  description: string;
+  description: LocalizedText;
   selectionMode: "exclusive" | "addon";
   priceCents: number;
   currency: string;

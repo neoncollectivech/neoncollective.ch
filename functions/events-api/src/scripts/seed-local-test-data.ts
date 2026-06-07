@@ -11,6 +11,7 @@
  */
 
 import { and, eq, sql } from "drizzle-orm";
+import type { LocalizedText } from "@neon/site-locales";
 
 import { phoneToStoredDigits } from "../helpers/contact";
 import { closeDb, getDb } from "../db/index";
@@ -159,14 +160,14 @@ async function ensurePublishedPublicEvent(db: Db, startsAt: Date): Promise<strin
       existing.id,
       "Standard",
       2500,
-      "Entry and access for the full night — bar not included.",
+      { en: "Entry and access for the full night — bar not included." },
     );
     await ensureAddonTier(
       db,
       existing.id,
       "Bar package",
       800,
-      "One drink token at the bar.",
+      { en: "One drink token at the bar." },
       50,
     );
     return existing.id;
@@ -176,7 +177,7 @@ async function ensurePublishedPublicEvent(db: Db, startsAt: Date): Promise<strin
     .values({
       slug: SLUG_PUBLIC,
       title: "[Seed] Public night",
-      summary: "Local seed — public access, visible in catalog.",
+      summary: { en: "Local seed — public access, visible in catalog." },
       location: "Zürich",
       startsAt,
       status: "published",
@@ -191,14 +192,14 @@ async function ensurePublishedPublicEvent(db: Db, startsAt: Date): Promise<strin
     id,
     "Standard",
     2500,
-    "Entry and access for the full night — bar not included.",
+    { en: "Entry and access for the full night — bar not included." },
   );
   await ensureAddonTier(
     db,
     id,
     "Bar package",
     800,
-    "One drink token at the bar.",
+    { en: "One drink token at the bar." },
     50,
   );
   return id;
@@ -216,7 +217,7 @@ async function ensurePublishedInviteOnlyEvent(db: Db, startsAt: Date): Promise<s
       existing.id,
       "Guest",
       1500,
-      "Guest-list admission — one drink token at the bar.",
+      { en: "Guest-list admission — one drink token at the bar." },
     );
     return existing.id;
   }
@@ -225,7 +226,7 @@ async function ensurePublishedInviteOnlyEvent(db: Db, startsAt: Date): Promise<s
     .values({
       slug: SLUG_INVITE_ONLY,
       title: "[Seed] Invite-only salon",
-      summary: "Local seed — invite link or invited email/phone only.",
+      summary: { en: "Local seed — invite link or invited email/phone only." },
       location: "Private",
       startsAt,
       status: "published",
@@ -240,7 +241,7 @@ async function ensurePublishedInviteOnlyEvent(db: Db, startsAt: Date): Promise<s
     id,
     "Guest",
     1500,
-    "Guest-list admission — one drink token at the bar.",
+    { en: "Guest-list admission — one drink token at the bar." },
   );
   return id;
 }
@@ -250,7 +251,7 @@ async function ensureTier(
   eventId: string,
   name: string,
   priceCents: number,
-  description: string,
+  description: LocalizedText,
 ): Promise<void> {
   const rows = await db.select({ id: eventTiers.id }).from(eventTiers).where(eq(eventTiers.eventId, eventId));
   if (rows.length > 0) {
@@ -274,7 +275,7 @@ async function ensureAddonTier(
   eventId: string,
   name: string,
   priceCents: number,
-  description: string,
+  description: LocalizedText,
   quota: number,
 ): Promise<void> {
   const [existing] = await db

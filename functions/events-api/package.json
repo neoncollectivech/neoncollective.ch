@@ -29,6 +29,7 @@
     "@hono/node-server": "^1.13.0",
     "@neon/resource-api": "workspace:*",
     "@neon/server-kit": "workspace:*",
+    "@neon/site-locales": "workspace:*",
     "@neondatabase/serverless": "^0.10.4",
     "@sumup/sdk": "^0.1.6",
     "arktype": "^2.1.0",

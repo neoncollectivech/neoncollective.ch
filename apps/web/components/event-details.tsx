@@ -12,6 +12,7 @@ import {
   Suspense,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { pickLocalizedText } from "@neon/site-locales";
 
 import { PageSpinner } from "@/components/page-spinner";
 import { ContributionPanel } from "@/components/event/contribution-panel";
@@ -512,8 +513,10 @@ function EventDetailsInner({ slug }: { slug: string }) {
   const images = ev.images ?? [];
   const heroImage = images[0]?.url;
   const donateHref = `/${locale}/donate`;
-  const hasAboutContent = hasEventAboutContent(ev.summary ?? null, images);
-  const heroSummary = heroSummaryDisplay(ev.summary ?? null, hasAboutContent);
+  const resolvedSummary =
+    ev.summary == null ? null : pickLocalizedText(ev.summary, locale);
+  const hasAboutContent = hasEventAboutContent(resolvedSummary, images);
+  const heroSummary = heroSummaryDisplay(resolvedSummary, hasAboutContent);
 
   const checkoutPanelTitle = hasUpsellOptions
     ? t.upsellPanelTitle
@@ -704,7 +707,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       showContributionAnchor={showActiveCheckout && hasAboutContent}
       showTrustDisclaimer={!showActiveCheckout}
       startsAt={ev.startsAt}
-      summary={ev.summary ?? null}
+      summary={resolvedSummary}
       summaryDisplay={heroSummary}
       title={ev.title}
       onContributionAnchorClick={
@@ -720,7 +723,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
       className="mb-10 md:mb-12"
       imageAlt={t.detailImageAlt}
       images={images}
-      summary={ev.summary ?? null}
+      summary={resolvedSummary}
     />
   );
 

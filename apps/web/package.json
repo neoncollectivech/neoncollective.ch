@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@neon/site-locales": "workspace:*",
     "@heroui/alert": "2.2.31",
     "@heroui/button": "2.2.31",
     "@heroui/card": "2.2.27",

@@ -1,9 +1,10 @@
+import { pruneLocalizedText } from "@neon/site-locales";
 import type { EventDetail, EventFormValues } from "@/lib/admin-types";
 
 export const emptyEventFormValues = (): EventFormValues => ({
   slug: "",
   title: "",
-  summary: "",
+  summary: {},
   location: "",
   startsAt: "",
   accessMode: "public",
@@ -15,7 +16,7 @@ export function eventToFormValues(event: EventDetail): EventFormValues {
   return {
     slug: event.slug,
     title: event.title,
-    summary: event.summary ?? "",
+    summary: event.summary ?? {},
     location: event.location ?? "",
     startsAt: event.startsAt ? toDatetimeLocal(event.startsAt) : "",
     accessMode: event.accessMode,
@@ -31,7 +32,7 @@ export function formValuesToCreatePayload(values: EventFormValues) {
   return {
     slug: values.slug.trim(),
     title: values.title.trim(),
-    summary: values.summary.trim() || null,
+    summary: pruneLocalizedText(values.summary),
     location: values.location.trim() || null,
     startsAt: values.startsAt ? new Date(values.startsAt).toISOString() : null,
     accessMode: values.accessMode,

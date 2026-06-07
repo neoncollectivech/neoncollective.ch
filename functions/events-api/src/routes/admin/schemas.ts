@@ -48,11 +48,17 @@ export const adminPromotionCodePatchSchema = type({
   "amountOffCents?": "number.integer>=0",
 });
 
+const localizedTextSchema = type({
+  "de?": "string",
+  "en?": "string",
+  "it?": "string",
+});
+
 export const adminEventTiersPutSchema = type({
   tiers: type({
     id: "string | null",
     name: "string>0",
-    description: "string",
+    description: localizedTextSchema,
     priceCents: "number.integer>0",
     currency: "string",
     quota: "number | null",

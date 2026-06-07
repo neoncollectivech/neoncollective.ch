@@ -10,6 +10,7 @@ import clsx from "clsx";
 import { useCallback, useRef } from "react";
 import { Checkbox } from "@heroui/react";
 import { Radio, RadioGroup } from "@heroui/radio";
+import { pickLocalizedText } from "@neon/site-locales";
 
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { neonPanelInsetPaddingClass } from "@/config/modal-chrome";
@@ -27,6 +28,7 @@ import {
   formatTierPrice,
   isSelectableTier,
 } from "@/helpers/event-tier-utils";
+import { useLocale } from "@/hooks/use-locale";
 
 type ContributionPanelLabels = {
   registerTitle: string;
@@ -153,6 +155,7 @@ export function ContributionPanel({
   onChangeLevel,
   onPaymentSucceeded,
 }: ContributionPanelProps) {
+  const locale = useLocale();
   const paymentRef = useRef<HTMLDivElement>(null);
   const step: 1 | 2 = clientSecret ? 2 : 1;
 
@@ -232,7 +235,8 @@ export function ContributionPanel({
                   onValueChange={onExclusiveChange}
                 >
                   {exclusiveTiers.map((tier) => {
-                    const tierDescription = tier.description.trim();
+                    const tierDescription =
+                      pickLocalizedText(tier.description, locale) ?? "";
                     const isSelected = selectedExclusiveId === tier.id;
                     const priceLabel = formatTierPrice(tier);
                     const placesLabel = formatPlacesRemaining(
@@ -297,7 +301,8 @@ export function ContributionPanel({
                 </div>
                 <div className="space-y-3">
                   {addonTiers.map((tier) => {
-                    const tierDescription = tier.description.trim();
+                    const tierDescription =
+                      pickLocalizedText(tier.description, locale) ?? "";
                     const priceLabel = formatTierPrice(tier);
                     const placesLabel = formatPlacesRemaining(
                       tier,

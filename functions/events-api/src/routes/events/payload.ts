@@ -3,6 +3,7 @@ import { eventsService } from "../../services/events.service";
 import { eventImagesService } from "../../services/event-images.service";
 import { eventTiersService } from "../../services/event-tiers.service";
 import { enrichTiersWithCapacityStats } from "../../helpers/tier-capacity";
+import { pruneLocalizedText } from "@neon/site-locales";
 
 export async function buildEventPayload(
   slug: string,
@@ -36,7 +37,7 @@ export async function buildEventPayload(
   const tierPayload = tiersWithSold.map((t) => ({
     id: t.id,
     name: t.name,
-    description: t.description,
+    description: pruneLocalizedText(t.description),
     priceCents: t.priceCents,
     currency: t.currency,
     placesRemaining: t.placesRemaining,
@@ -47,7 +48,7 @@ export async function buildEventPayload(
   return {
     slug: ev.slug,
     title: ev.title,
-    summary: ev.summary ?? null,
+    summary: ev.summary ?? {},
     location: ev.location ?? null,
     images,
     startsAt: ev.startsAt?.toISOString() ?? null,

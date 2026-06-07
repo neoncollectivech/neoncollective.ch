@@ -1,4 +1,5 @@
 import type { CheckInResponse } from "@/lib/check-in-display";
+import type { LocalizedText } from "@neon/site-locales";
 
 import { api } from "@/lib/api-client";
 
@@ -6,7 +7,7 @@ export type DoorEventCatalogRow = {
   id?: string;
   slug: string;
   title: string;
-  summary: string | null;
+  summary: LocalizedText | null;
   location: string | null;
   startsAt: string | null;
   inviteOnly: boolean;

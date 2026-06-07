@@ -1,7 +1,19 @@
+import { pruneLocalizedText, type LocalizedText } from "@neon/site-locales";
+
 import { createPublicApiClient } from "./createPublicApiClient";
 import { parsePublicEventImages, type EventImage } from "./event-image-focal";
 
+export type { LocalizedText };
+
 const EVENTS_API_URL = process.env.NEXT_PUBLIC_EVENTS_API_URL;
+
+function normalizeLocalizedText(value: unknown): LocalizedText {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  return pruneLocalizedText(value as LocalizedText);
+}
 
 export const eventsClient = createPublicApiClient({
   envUrl: EVENTS_API_URL,
@@ -15,8 +27,8 @@ export type TierSelectionMode = "exclusive" | "addon";
 export type EventTier = {
   id: string;
   name: string;
-  /** What this contribution tier includes. */
-  description: string;
+  /** What this contribution tier includes (per locale). */
+  description: LocalizedText;
   priceCents: number;
   currency: string;
   /** `null` = no tier cap (only event-level quota applies). */
@@ -29,7 +41,7 @@ export type EventTier = {
 export type EventPayload = {
   slug: string;
   title: string;
-  summary: string | null;
+  summary: LocalizedText | null;
   location: string | null;
   images: EventImage[];
   startsAt: string | null;
@@ -58,7 +70,7 @@ export type EventPayload = {
 export type RegisteredOrderTier = {
   id: string;
   name: string;
-  description: string;
+  description: LocalizedText;
   selectionMode: TierSelectionMode;
   priceCents: number;
   currency: string;
@@ -76,7 +88,7 @@ export type InviteLinkConversion = {
 export type EventCatalogItem = {
   slug: string;
   title: string;
-  summary: string | null;
+  summary: LocalizedText | null;
   location: string | null;
   images: EventImage[];
   startsAt: string | null;
@@ -116,7 +128,7 @@ export async function fetchEventsCatalog(opts?: {
       ? data.events.map((e) => ({
           slug: e.slug,
           title: e.title,
-          summary: e.summary ?? null,
+          summary: normalizeLocalizedText(e.summary),
           location: e.location ?? null,
           images: parsePublicEventImages(e.images),
           startsAt: e.startsAt ?? null,
@@ -144,6 +156,7 @@ export async function fetchEvent(
   const tiers = Array.isArray(data.tiers)
     ? data.tiers.map((tier) => ({
         ...tier,
+        description: normalizeLocalizedText(tier.description),
         selectionMode:
           tier.selectionMode === "addon"
             ? ("addon" as const)
@@ -153,6 +166,7 @@ export async function fetchEvent(
   const availableUpsellTiers = Array.isArray(data.availableUpsellTiers)
     ? data.availableUpsellTiers.map((tier) => ({
         ...tier,
+        description: normalizeLocalizedText(tier.description),
         selectionMode:
           tier.selectionMode === "addon"
             ? ("addon" as const)
@@ -162,7 +176,10 @@ export async function fetchEvent(
 
   return {
     ...eventFields,
-    summary: eventFields.summary ?? null,
+    summary:
+      eventFields.summary == null
+        ? null
+        : normalizeLocalizedText(eventFields.summary),
     location: eventFields.location ?? null,
     images,
     tiers,
@@ -181,7 +198,7 @@ export async function fetchEvent(
               typeof tier === "object" &&
               typeof (tier as RegisteredOrderTier).id === "string" &&
               typeof (tier as RegisteredOrderTier).name === "string" &&
-              typeof (tier as RegisteredOrderTier).description === "string" &&
+              typeof (tier as RegisteredOrderTier).description === "object" &&
               typeof (tier as RegisteredOrderTier).priceCents === "number" &&
               typeof (tier as RegisteredOrderTier).currency === "string" &&
               ((tier as RegisteredOrderTier).selectionMode === "exclusive" ||
@@ -190,7 +207,7 @@ export async function fetchEvent(
           .map((tier) => ({
             id: tier.id,
             name: tier.name.trim(),
-            description: tier.description.trim(),
+            description: normalizeLocalizedText(tier.description),
             selectionMode: tier.selectionMode,
             priceCents: tier.priceCents,
             currency: tier.currency,

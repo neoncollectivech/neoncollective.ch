@@ -2,6 +2,7 @@ import {
   type CatalogListParams,
   type CatalogListRow,
 } from "../../services/events.service";
+import type { LocalizedText } from "@neon/site-locales";
 import { eventInviteesService } from "../../services/event-invitees.service";
 import {
   eventImagesService,
@@ -14,7 +15,7 @@ type CatalogSourceRow = {
   id: string;
   slug: string;
   title: string;
-  summary: string | null;
+  summary: LocalizedText;
   location: string | null;
   startsAt: Date | null;
 };
@@ -30,7 +31,7 @@ function catalogRow(
     ...(includeEventId ? { id: row.id } : {}),
     slug: row.slug,
     title: row.title,
-    summary: row.summary ?? null,
+    summary: row.summary ?? {},
     location: row.location ?? null,
     images,
     startsAt: row.startsAt,

@@ -1,3 +1,4 @@
+import type { LocalizedText } from "@neon/site-locales";
 import { eventsService } from "../../services/events.service";
 import {
   formatOrderTierNames,
@@ -78,7 +79,7 @@ async function resolveAvailableUpsellTiers(params: {
     | {
         id: string;
         name: string;
-        description: string;
+        description: LocalizedText;
         priceCents: number;
         currency: string;
         placesRemaining: number | null;
@@ -91,7 +92,7 @@ async function resolveAvailableUpsellTiers(params: {
   | {
       id: string;
       name: string;
-      description: string;
+      description: LocalizedText;
       priceCents: number;
       currency: string;
       placesRemaining: number | null;

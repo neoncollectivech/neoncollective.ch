@@ -1,3 +1,4 @@
+import { pruneLocalizedText } from "@neon/site-locales";
 import { eventTiersService } from "../../services/event-tiers.service";
 import { eventsService } from "../../services/events.service";
 import { enrichTiersWithCapacityStats } from "../../helpers/tier-capacity";
@@ -22,7 +23,7 @@ export async function getPosCatalog(eventId: string) {
     tiers: tiersWithSold.map((t) => ({
       id: t.id,
       name: t.name,
-      description: t.description,
+      description: pruneLocalizedText(t.description),
       priceCents: t.priceCents,
       currency: t.currency,
       placesRemaining: t.placesRemaining,

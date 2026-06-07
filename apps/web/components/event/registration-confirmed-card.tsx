@@ -3,6 +3,8 @@
 import type { Locale } from "@/i18n/config";
 import type { EventPayload, RegisteredOrderTier } from "@/helpers/eventsApi";
 
+import { pickLocalizedText } from "@neon/site-locales";
+
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
 import { HostInviteShareBlock } from "@/components/event/host-invite-share-block";
 import { NeonLink } from "@/components/neon-link";
@@ -54,7 +56,7 @@ function RegistrationConfirmedSummary({
       <p className="text-base text-neon/80 leading-relaxed">{intro}</p>
       <ul className="space-y-4" data-testid="registration-confirmed-tiers">
         {tiers.map((tier) => {
-          const description = tier.description.trim();
+          const description = pickLocalizedText(tier.description, locale) ?? "";
           const metaParts = [
             when,
             tier.priceCents > 0 ? formatRegisteredTierPrice(tier) : null,
@@ -124,13 +126,15 @@ export function RegistrationConfirmedCard({
   showUpsellCta = false,
   onUpsellPress,
 }: RegistrationConfirmedCardProps) {
+  const calendarSummary =
+    ev.summary == null ? null : pickLocalizedText(ev.summary, locale);
   const calendarUrl =
     ev.startsAt != null
       ? buildGoogleCalendarUrl({
           title: ev.title,
           startsAt: ev.startsAt,
           location: ev.location,
-          summary: ev.summary,
+          summary: calendarSummary,
         })
       : "";
   const tierLabels = {
@@ -148,7 +152,7 @@ export function RegistrationConfirmedCard({
             {
               id: "legacy",
               name: ev.registeredTierName,
-              description: "",
+              description: {},
               selectionMode: "exclusive" as const,
               priceCents: 0,
               currency: "chf",

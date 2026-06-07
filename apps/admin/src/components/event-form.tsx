@@ -2,8 +2,8 @@ import type { EventFormValues } from "@/lib/admin-types";
 
 import { useState } from "react";
 
+import { LocalizedFieldsEditor } from "@/components/localized-fields-editor";
 import { FormField } from "@/components/form-field";
-import { MarkdownField } from "@/components/markdown-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -66,9 +66,10 @@ export function EventForm({
       </FormField>
 
       <FormField htmlFor="summary" label="Summary">
-        <MarkdownField
+        <LocalizedFieldsEditor
           id="summary"
           value={values.summary}
+          variant="markdown"
           onChange={(v) => set("summary", v)}
         />
       </FormField>

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import NextLink from "next/link";
 import { useMemo, useState } from "react";
 import { Suspense } from "react";
+import { pickLocalizedText } from "@neon/site-locales";
 
 import { NeonButton } from "@/components/neon-button";
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
@@ -186,8 +187,9 @@ function EventsIndexInner() {
             <ul className="space-y-6">
               {rows.map((ev) => {
                 const thumb = ev.images[0];
-                const summaryLine = ev.summary?.trim()
-                  ? markdownPlainText(ev.summary)
+                const summaryText = pickLocalizedText(ev.summary, locale);
+                const summaryLine = summaryText
+                  ? markdownPlainText(summaryText)
                   : null;
                 const locationLine = ev.location?.trim();
                 const detailHref = appendToHref(

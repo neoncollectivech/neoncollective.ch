@@ -1,10 +1,12 @@
+import type { LocalizedText } from "@neon/site-locales";
+
 export type AccessMode = "public" | "invite_only";
 export type EventStatus = "draft" | "published";
 
 export type EventFormValues = {
   slug: string;
   title: string;
-  summary: string;
+  summary: LocalizedText;
   location: string;
   startsAt: string;
   accessMode: AccessMode;
@@ -23,7 +25,7 @@ export type EventDetail = {
   id: string;
   slug: string;
   title: string;
-  summary: string | null;
+  summary: LocalizedText;
   location: string | null;
   startsAt: string | null;
   status: EventStatus;
@@ -38,7 +40,7 @@ export type TierSelectionMode = "exclusive" | "addon";
 export type TierRow = {
   id: string | null;
   name: string;
-  description: string;
+  description: LocalizedText;
   priceCents: number;
   currency: string;
   quota: number | null;
@@ -65,7 +67,7 @@ export function computeEventCapacityFromTiers(
 export type TierFormRow = {
   id: string | null;
   name: string;
-  description: string;
+  description: LocalizedText;
   priceChf: string;
   quota: string;
   active: boolean;

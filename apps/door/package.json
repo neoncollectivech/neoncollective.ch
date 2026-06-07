@@ -12,6 +12,7 @@
     "typecheck": "tsc --project tsconfig.app.json --noEmit"
   },
   "dependencies": {
+    "@neon/site-locales": "workspace:*",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-query": "^5.47.0",

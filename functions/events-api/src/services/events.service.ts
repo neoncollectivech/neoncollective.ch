@@ -4,6 +4,8 @@ import {
   type FilterParams,
   type ListQuery,
 } from "@neon/resource-api";
+import type { LocalizedText } from "@neon/site-locales";
+import { pruneLocalizedText } from "@neon/site-locales";
 import { and, eq, ilike, inArray } from "drizzle-orm";
 
 import { events } from "../db/schema";
@@ -32,7 +34,7 @@ export type CatalogListRow = {
   id?: string;
   slug: string;
   title: string;
-  summary: string | null;
+  summary: LocalizedText;
   location: string | null;
   images: PublicEventImage[];
   startsAt: Date | null;
@@ -264,6 +266,9 @@ export class EventsService extends TableService<
       slug: String(data.slug).trim().toLowerCase(),
       startsAt: parseStartsAt(data.startsAt as string | null | undefined),
       status: "draft",
+      ...(data.summary !== undefined
+        ? { summary: pruneLocalizedText(data.summary as LocalizedText) }
+        : {}),
     };
   }
 
@@ -279,6 +284,9 @@ export class EventsService extends TableService<
         : {}),
       ...(data.startsAt !== undefined
         ? { startsAt: parseStartsAt(data.startsAt as string | null | undefined) }
+        : {}),
+      ...(data.summary !== undefined
+        ? { summary: pruneLocalizedText(data.summary as LocalizedText) }
         : {}),
     };
   }

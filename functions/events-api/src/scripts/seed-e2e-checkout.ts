@@ -13,6 +13,7 @@
  */
 
 import { and, eq, sql } from "drizzle-orm";
+import type { LocalizedText } from "@neon/site-locales";
 
 import { phoneToStoredDigits } from "../helpers/contact";
 import { closeDb, getDb } from "../db/index";
@@ -89,7 +90,7 @@ async function ensureTier(
   eventId: string,
   params: {
     name: string;
-    description: string;
+    description: LocalizedText;
     priceCents: number;
     selectionMode: "exclusive" | "addon";
     sortOrder: number;
@@ -183,7 +184,7 @@ async function ensureTierPricesPromo(
 async function ensureE2eEventTiers(db: Db, eventId: string): Promise<E2eTierIds> {
   await ensureTier(db, eventId, {
     name: ROOT_TIER_NAME,
-    description: "E2E mandatory root tier.",
+    description: { en: "E2E mandatory root tier." },
     priceCents: ROOT_TIER_CENTS,
     selectionMode: "exclusive",
     sortOrder: 0,
@@ -191,7 +192,7 @@ async function ensureE2eEventTiers(db: Db, eventId: string): Promise<E2eTierIds>
   });
   await ensureTier(db, eventId, {
     name: ADDON_1_TIER_NAME,
-    description: "E2E first add-on.",
+    description: { en: "E2E first add-on." },
     priceCents: ADDON_1_TIER_CENTS,
     selectionMode: "addon",
     sortOrder: 1,
@@ -199,7 +200,7 @@ async function ensureE2eEventTiers(db: Db, eventId: string): Promise<E2eTierIds>
   });
   await ensureTier(db, eventId, {
     name: ADDON_2_TIER_NAME,
-    description: "E2E second add-on.",
+    description: { en: "E2E second add-on." },
     priceCents: ADDON_2_TIER_CENTS,
     selectionMode: "addon",
     sortOrder: 2,
@@ -231,7 +232,7 @@ async function ensureInviteOnlyEvent(
     .values({
       slug: SLUG,
       title: "[E2E] Invite-only checkout",
-      summary: "Playwright checkout flow seed.",
+      summary: { en: "Playwright checkout flow seed." },
       location: "Test",
       startsAt,
       status: "published",

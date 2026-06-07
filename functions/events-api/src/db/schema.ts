@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { LocalizedText } from "@neon/site-locales";
 import {
   boolean,
   check,
@@ -69,8 +70,11 @@ export const events = pgTable("events", {
   id: uuid("id").defaultRandom().primaryKey(),
   slug: text("slug").notNull().unique(),
   title: text("title").notNull(),
-  /** Markdown description for listings and the event page (plain text is valid markdown). */
-  summary: text("summary"),
+  /** Markdown description per locale for listings and the event page. */
+  summary: jsonb("summary")
+    .$type<LocalizedText>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
   /** Venue / city line (plain text). */
   location: text("location"),
   startsAt: timestamp("starts_at", { withTimezone: true }),
@@ -115,8 +119,11 @@ export const eventTiers = pgTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    /** Plain text: what this contribution tier includes. */
-    description: text("description").notNull().default(""),
+    /** Plain text per locale: what this contribution tier includes. */
+    description: jsonb("description")
+      .$type<LocalizedText>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     priceCents: integer("price_cents").notNull(),
     currency: text("currency").notNull().default("chf"),
     /** Null = unlimited at tier level; event `event_quota` still caps total headcount. */

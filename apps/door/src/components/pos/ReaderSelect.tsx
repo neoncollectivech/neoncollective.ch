@@ -23,7 +23,10 @@ type ReaderSelectProps = {
   onReaderRemoved?: () => void;
 };
 
-export function ReaderSelect({ onSelected, onReaderRemoved }: ReaderSelectProps) {
+export function ReaderSelect({
+  onSelected,
+  onReaderRemoved,
+}: ReaderSelectProps) {
   const session = getDoorSessionConfig();
   const queryClient = useQueryClient();
   const [pairingCode, setPairingCode] = useState("");

@@ -1,3 +1,11 @@
+import {
+  defaultLocale,
+  localeLabels,
+  locales,
+  pickLocalizedText,
+  type Locale,
+} from "@neon/site-locales";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { MarkdownContent } from "@/components/markdown-field";
@@ -11,10 +19,14 @@ import { eventSettingsPath } from "@/lib/event-workspace-paths";
 
 export function EventOverviewPage() {
   const { eventId } = useEventIdParam();
+  const [previewLocale, setPreviewLocale] = useState<Locale>(defaultLocale);
 
   return (
     <EventWorkspaceGate eventId={eventId}>
-      {({ event, tiers, capacity }) => (
+      {({ event, tiers, capacity }) => {
+        const summaryPreview = pickLocalizedText(event.summary, previewLocale);
+
+        return (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Overview</h2>
@@ -50,11 +62,28 @@ export function EventOverviewPage() {
                   {new Date(event.startsAt).toLocaleString()}
                 </p>
               ) : null}
-              {event.summary ? (
-                <MarkdownContent
-                  className="text-foreground/90"
-                  source={event.summary}
-                />
+              {summaryPreview ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {locales.map((locale) => (
+                      <Button
+                        key={locale}
+                        size="sm"
+                        type="button"
+                        variant={
+                          previewLocale === locale ? "default" : "outline"
+                        }
+                        onClick={() => setPreviewLocale(locale)}
+                      >
+                        {localeLabels[locale]}
+                      </Button>
+                    ))}
+                  </div>
+                  <MarkdownContent
+                    className="text-foreground/90"
+                    source={summaryPreview}
+                  />
+                </>
               ) : null}
             </CardContent>
           </Card>
@@ -69,7 +98,8 @@ export function EventOverviewPage() {
             </CardContent>
           </Card>
         </div>
-      )}
+        );
+      }}
     </EventWorkspaceGate>
   );
 }

@@ -5,6 +5,8 @@ import {
 import { eventTiersService } from "../../services/event-tiers.service";
 import { orderTiersService } from "../../services/order-tiers.service";
 import type { EntityTx } from "../../services/transaction";
+import type { LocalizedText } from "@neon/site-locales";
+import { pruneLocalizedText } from "@neon/site-locales";
 
 export type { AdminOrderTierLine };
 
@@ -51,7 +53,7 @@ export async function formatOrderTierNames(orderId: string, tx?: EntityTx): Prom
 export type RegisteredOrderTierPayload = {
   id: string;
   name: string;
-  description: string;
+  description: LocalizedText;
   selectionMode: "exclusive" | "addon";
   priceCents: number;
   currency: string;
@@ -82,7 +84,7 @@ export async function listRegisteredOrderTiersForOrders(
     out.push({
       id: tier.id,
       name: tier.name,
-      description: tier.description.trim(),
+      description: pruneLocalizedText(tier.description),
       selectionMode: tier.selectionMode,
       priceCents: line.unitPriceCents,
       currency: tier.currency,

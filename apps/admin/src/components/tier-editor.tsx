@@ -1,3 +1,4 @@
+import { pruneLocalizedText } from "@neon/site-locales";
 import type { TierFormRow, TierRow } from "@/lib/admin-types";
 
 import { useMutation } from "@tanstack/react-query";
@@ -11,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { LocalizedFieldsEditor } from "@/components/localized-fields-editor";
 import { adminApi } from "@/hooks/use-admin-api";
 
 type TierEditorProps = {
@@ -23,7 +24,7 @@ function tierToFormRow(tier: TierRow): TierFormRow {
   return {
     id: tier.id,
     name: tier.name,
-    description: tier.description ?? "",
+    description: tier.description ?? {},
     priceChf: (tier.priceCents / 100).toFixed(2),
     quota: tier.quota != null ? String(tier.quota) : "",
     active: tier.active,
@@ -35,7 +36,7 @@ function emptyTierRow(): TierFormRow {
   return {
     id: null,
     name: "",
-    description: "",
+    description: {},
     priceChf: "",
     quota: "",
     active: true,
@@ -90,7 +91,7 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
       tiers: rows.map((row, index) => ({
         id: row.id,
         name: row.name.trim(),
-        description: row.description.trim(),
+        description: pruneLocalizedText(row.description),
         priceCents: Math.round(Number(row.priceChf) * 100),
         currency: "chf",
         quota: row.quota.trim() ? Number(row.quota) : null,
@@ -146,12 +147,10 @@ export function TierEditor({ eventId, tiers }: TierEditorProps) {
           </FormField>
 
           <FormField label="Description">
-            <Textarea
-              rows={2}
+            <LocalizedFieldsEditor
               value={row.description}
-              onChange={(e) =>
-                updateRow(index, { description: e.target.value })
-              }
+              variant="plain"
+              onChange={(description) => updateRow(index, { description })}
             />
           </FormField>
 

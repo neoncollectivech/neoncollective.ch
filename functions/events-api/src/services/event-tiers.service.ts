@@ -5,6 +5,8 @@ import {
   type ListQuery,
   type ListResult,
 } from "@neon/resource-api";
+import type { LocalizedText } from "@neon/site-locales";
+import { pruneLocalizedText } from "@neon/site-locales";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "../db/index";
@@ -43,7 +45,7 @@ export type TierTx = EntityTx;
 export type TierInput = {
   id: string | null;
   name: string;
-  description: string;
+  description: LocalizedText;
   priceCents: number;
   currency: string;
   quota: number | null;
@@ -75,6 +77,13 @@ function parseSelectionMode(value: unknown): EventTierRow["selectionMode"] {
   return value === "addon" ? "addon" : "exclusive";
 }
 
+function projectLocalizedText(value: unknown): LocalizedText {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  return pruneLocalizedText(value as LocalizedText);
+}
+
 function projectEventTierListRow(row: Record<string, unknown>): EventTierListRow {
   const quotaRaw = row.quota;
 
@@ -82,7 +91,7 @@ function projectEventTierListRow(row: Record<string, unknown>): EventTierListRow
     id: String(row.id),
     eventId: String(row.eventId),
     name: String(row.name),
-    description: String(row.description ?? ""),
+    description: projectLocalizedText(row.description),
     priceCents: Number(row.priceCents),
     currency: String(row.currency),
     quota:
@@ -307,7 +316,7 @@ export class EventTiersService extends TableService<
       for (const tier of tiers) {
         const values = {
           name: tier.name,
-          description: tier.description,
+          description: pruneLocalizedText(tier.description),
           priceCents: tier.priceCents,
           currency: tier.currency.toLowerCase(),
           quota: tier.quota,

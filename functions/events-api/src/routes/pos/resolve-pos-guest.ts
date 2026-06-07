@@ -1,3 +1,4 @@
+import { pruneLocalizedText, type LocalizedText } from "@neon/site-locales";
 import { decodeJwt } from "jose";
 
 import { normalizeOptionalPhoneE164 } from "../../helpers/contact";
@@ -19,7 +20,7 @@ import { runTransaction } from "../../services/transaction";
 export type PosGuestTier = {
   id: string;
   name: string;
-  description: string;
+  description: LocalizedText;
   priceCents: number;
   currency: string;
   placesRemaining: number | null;
@@ -186,7 +187,7 @@ export async function resolvePosGuest(params: {
     const tierPayload: PosGuestTier[] = tiersWithSold.map((t) => ({
       id: t.id,
       name: t.name,
-      description: t.description,
+      description: pruneLocalizedText(t.description),
       priceCents: t.priceCents,
       currency: t.currency,
       placesRemaining: t.placesRemaining,
