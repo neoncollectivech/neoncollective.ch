@@ -10,7 +10,6 @@ import { Link } from "react-router-dom";
 
 import { MarkdownContent } from "@/components/markdown-field";
 import { EventCapacityStats } from "@/components/event-capacity-stats";
-import { EventOverviewQuickLinks } from "@/components/event-overview-quick-links";
 import { EventSalesAnalytics } from "@/components/event-sales-analytics/event-sales-analytics";
 import { EventWorkspaceGate } from "@/components/layout/event-workspace-gate";
 import { Badge } from "@/components/ui/badge";
@@ -36,11 +35,6 @@ export function EventOverviewPage() {
                 <Link to={eventSettingsPath(eventId)}>Edit settings</Link>
               </Button>
             </div>
-
-            <EventOverviewQuickLinks
-              accessMode={event.accessMode}
-              eventId={eventId}
-            />
 
             <EventSalesAnalytics eventId={eventId} />
 
