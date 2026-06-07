@@ -4,6 +4,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { AppEnv } from "../auth/env";
 import { authFactory } from "../auth/factory";
 import { eventApiKeyBearerAuth } from "../auth/middleware/event-api-key";
+import { requireEventApiKeyScopes } from "../auth/middleware/api-key-scopes";
 import { admissionSigningKeysService } from "../services/admission-signing-keys.service";
 import { jsonReasonFailure } from "./shared/respond";
 
@@ -23,7 +24,10 @@ export function createAdmissionJwksRouter(): Hono<AppEnv> {
 
   router.get(
     "/admission/jwks",
-    ...authFactory.createHandlers(eventApiKeyBearerAuth, async (c) => {
+    ...authFactory.createHandlers(
+      eventApiKeyBearerAuth,
+      requireEventApiKeyScopes("check_in"),
+      async (c) => {
       const apiKey = c.var.eventApiKey!;
       const queryEventId = c.req.query("eventId")?.trim() || null;
       const eventId = apiKey.eventId ?? queryEventId;

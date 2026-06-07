@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { adminApi } from "@/hooks/use-admin-api";
 import { buildPublicInviteUrl } from "@/lib/invite-url";
+import { getInviteLinkToken } from "@/lib/admin-api";
 
 type InviteeLinkActionsProps = {
   eventId: string;
@@ -63,7 +64,6 @@ export function InviteeLinkActions({
 
     return {
       id: row.id,
-      token: row.token,
       maxRedemptions: row.maxRedemptions,
       usedRedemptions,
       remainingRedemptions: Math.max(0, row.maxRedemptions - usedRedemptions),
@@ -105,9 +105,13 @@ export function InviteeLinkActions({
         variant="outline"
         onClick={() =>
           ensureMutation.mutate(inviteeId, {
-            onSuccess: async (token) => {
-              toast.success("Invite link created");
-              await copyInviteUrl(eventSlug, token);
+            onSuccess: async (result) => {
+              if (result.inviteToken) {
+                toast.success("Invite link created");
+                await copyInviteUrl(eventSlug, result.inviteToken);
+              } else {
+                toast.success("Invite link ready");
+              }
             },
           })
         }
@@ -139,7 +143,19 @@ export function InviteeLinkActions({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => void copyInviteUrl(eventSlug, link.token)}
+          onClick={() => {
+            void (async () => {
+              try {
+                const token =
+                  linkQuery.data?.token ??
+                  (await getInviteLinkToken(eventId, link.id));
+
+                await copyInviteUrl(eventSlug, token);
+              } catch {
+                toast.error("Could not copy invite link");
+              }
+            })();
+          }}
         >
           Copy link
         </Button>

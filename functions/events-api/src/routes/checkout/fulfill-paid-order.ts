@@ -319,6 +319,7 @@ export async function fulfillPaidOrderInTx(
     stripeEventId?: string;
     sumupEventId?: string;
     paymentIntentStatus?: Stripe.PaymentIntent.Status;
+    stripePaymentIntentAmountCents?: number;
   },
 ): Promise<FulfillPaidOrderResult> {
   if (params.source === "webhook" && params.stripeEventId) {
@@ -356,6 +357,22 @@ export async function fulfillPaidOrderInTx(
     return { kind: "failed", reason: `Order status ${order.status} is not fulfillable.` };
   }
 
+  if (
+    params.stripePaymentIntentAmountCents != null &&
+    order.amountCents > 0 &&
+    params.stripePaymentIntentAmountCents !== order.amountCents
+  ) {
+    log.error(
+      {
+        orderId: order.id,
+        expectedAmountCents: order.amountCents,
+        paymentIntentAmountCents: params.stripePaymentIntentAmountCents,
+      },
+      "Stripe payment intent amount mismatch",
+    );
+    return { kind: "failed", reason: "Payment amount mismatch." };
+  }
+
   const sideEffectsOk = await applyCheckoutFulfillmentSideEffectsInTx(tx, order);
   if (!sideEffectsOk) {
     return { kind: "failed", reason: "Admission signing key missing or issuance failed." };
@@ -384,6 +401,7 @@ export async function fulfillPaidOrder(params: {
   stripeEventId?: string;
   sumupEventId?: string;
   paymentIntentStatus?: Stripe.PaymentIntent.Status;
+  stripePaymentIntentAmountCents?: number;
 }): Promise<FulfillPaidOrderResult> {
   return runTransaction((tx) => fulfillPaidOrderInTx(tx, params));
 }

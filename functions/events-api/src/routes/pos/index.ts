@@ -5,7 +5,8 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { AppEnv } from "../../auth/env";
 import { authFactory } from "../../auth/factory";
 import { eventApiKeyBearerAuth } from "../../auth/middleware/event-api-key";
-import { apiKeyGrantsEvent } from "../../auth/resolvers/event-api-key";
+import { apiKeyGrantsEvent, isGlobalApiKey } from "../../auth/resolvers/event-api-key";
+import { apiKeyHasScope } from "../../config/api-keys";
 import {
   posGuestResolveSchema,
   posPricingPreviewSchema,
@@ -95,7 +96,15 @@ function assertPosEventAccess(
   if (!apiKey) {
     return false;
   }
-  return apiKeyGrantsEvent(apiKey, eventId);
+  return apiKeyGrantsEvent(apiKey, eventId) && apiKeyHasScope(apiKey, "pos");
+}
+
+function assertGlobalPosAdminKey(c: { var: AppEnv["Variables"] }): boolean {
+  const apiKey = c.var.eventApiKey;
+  if (!apiKey) {
+    return false;
+  }
+  return isGlobalApiKey(apiKey) && apiKeyHasScope(apiKey, "pos_admin");
 }
 
 export function createPosRouter(): Hono<AppEnv> {
@@ -104,6 +113,9 @@ export function createPosRouter(): Hono<AppEnv> {
   router.get(
     "/pos/readers",
     ...authFactory.createHandlers(eventApiKeyBearerAuth, async (c) => {
+      if (!assertGlobalPosAdminKey(c)) {
+        return c.json({ error: POS_ERRORS.event_not_found.error }, 404);
+      }
       if (!isSumUpConfigured()) {
         return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
       }
@@ -123,6 +135,9 @@ export function createPosRouter(): Hono<AppEnv> {
       eventApiKeyBearerAuth,
       arktypeValidator("json", posReaderPairSchema),
       async (c) => {
+        if (!assertGlobalPosAdminKey(c)) {
+          return c.json({ error: POS_ERRORS.event_not_found.error }, 404);
+        }
         if (!isSumUpConfigured()) {
           return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
         }
@@ -153,6 +168,9 @@ export function createPosRouter(): Hono<AppEnv> {
   router.delete(
     "/pos/readers/:readerId",
     ...authFactory.createHandlers(eventApiKeyBearerAuth, async (c) => {
+      if (!assertGlobalPosAdminKey(c)) {
+        return c.json({ error: POS_ERRORS.event_not_found.error }, 404);
+      }
       if (!isSumUpConfigured()) {
         return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
       }

@@ -127,7 +127,12 @@ describe("some() on asserts", () => {
   it("accepts participant session OR event API key", async () => {
     const app = testApp();
     app.use("*", async (c, next) => {
-      c.set("eventApiKey", { eventId: "ev1", keyId: "key1", label: "Door" });
+      c.set("eventApiKey", {
+        eventId: "ev1",
+        keyId: "key1",
+        label: "Door",
+        scopes: ["check_in", "pos"],
+      });
       await next();
     });
     app.use("*", some(requireAuth("participantSession"), requireAuth("eventApiKey")));

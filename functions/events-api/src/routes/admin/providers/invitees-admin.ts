@@ -3,6 +3,7 @@ import { e164FromStoredDigits, hasMinimumPersonIdentity } from "../../../helpers
 import { runTransaction, type EntityTx } from "../../../services/transaction";
 import { eventsService } from "../../../services/events.service";
 import { eventInviteesService } from "../../../services/event-invitees.service";
+import { inviteLinksService } from "../../../services/invite-links.service";
 import {
   ensureHostInviteLinkForPersonInTx,
   mintOrRotateHostInviteLinkForPersonInTx,
@@ -58,14 +59,19 @@ export class InviteeUpsertError extends Error {
   }
 }
 
+export type EnsureInviteLinkResult =
+  | { ok: true; inviteToken: string | null; created: boolean }
+  | {
+      ok: false;
+      reason: "invitee_not_found" | "profile_pending" | "not_eligible_host";
+    };
+
 export type RegenerateInviteLinkResult =
   | { ok: true; inviteToken: string }
   | {
       ok: false;
       reason: "invitee_not_found" | "profile_pending" | "not_eligible_host";
     };
-
-export type EnsureInviteLinkResult = RegenerateInviteLinkResult;
 
 function shouldMaterializeInvitee(inv: {
   givenName: string;
@@ -292,11 +298,23 @@ export async function ensureInviteeHostLink(
       return { ok: false, reason: "not_eligible_host" };
     }
 
-    const raw = await ensureHostInviteLinkForPersonInTx(tx, eventId, inv.personId);
-    if (!raw) {
+    const ensured = await ensureHostInviteLinkForPersonInTx(tx, eventId, inv.personId);
+    if (!ensured) {
+      return { ok: false, reason: "not_eligible_host" };
+    }
+    const link = await inviteLinksService.findHostLinkByEventAndPersonInTx(
+      tx,
+      eventId,
+      inv.personId,
+    );
+    if (!link) {
       return { ok: false, reason: "invitee_not_found" };
     }
-    return { ok: true, inviteToken: raw };
+    return {
+      ok: true,
+      inviteToken: ensured.token,
+      created: ensured.created,
+    };
   });
 }
 

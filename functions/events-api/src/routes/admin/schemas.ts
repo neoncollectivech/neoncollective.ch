@@ -93,4 +93,5 @@ export const adminEventImageFocalSchema = type({
 export const adminApiKeyCreateSchema = type({
   label: "string>0",
   "eventId?": "string.uuid | null",
+  "scopes?": "string[]",
 });

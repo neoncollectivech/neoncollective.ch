@@ -742,6 +742,7 @@ function EventDetailsInner({ slug }: { slug: string }) {
         hostInviteLinkLabel: t.hostInviteLinkLabel,
         hostInviteShare: t.hostInviteShare,
         hostInvitesLeft: t.hostInvitesLeft,
+        hostInviteRegenerate: t.hostInviteRegenerate,
         registrationConfirmedBodyNoTier: t.registrationConfirmedBodyNoTier,
         registrationConfirmedIntro: t.registrationConfirmedIntro,
         registrationConfirmedIntroNoName: t.registrationConfirmedIntroNoName,

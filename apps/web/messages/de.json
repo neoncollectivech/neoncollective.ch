@@ -110,6 +110,8 @@
     "hostInviteCopy": "Link kopieren",
     "hostInviteCopied": "Kopiert",
     "hostInviteShare": "Teilen",
+    "hostInviteReveal": "Einladungslink anzeigen",
+    "hostInviteRegenerate": "Link erneuern",
     "hostInvitesLeft": "{count} Einladungen übrig",
     "hostInviteConversionsTitle": "Über deinen Link angemeldet",
     "hostInviteConversionsEmpty": "Noch hat sich niemand über diesen Link angemeldet.",

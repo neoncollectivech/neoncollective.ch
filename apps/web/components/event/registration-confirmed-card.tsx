@@ -6,7 +6,7 @@ import type { EventPayload, RegisteredOrderTier } from "@/helpers/eventsApi";
 import { pickLocalizedText } from "@neon/site-locales";
 
 import { NeonCard, NeonCardBody } from "@/components/neon-card";
-import { HostInviteShareBlock } from "@/components/event/host-invite-share-block";
+import { HostInvitePanel } from "@/components/event/host-invite-panel";
 import { NeonLink } from "@/components/neon-link";
 import { NeonTextButton } from "@/components/neon-text-button";
 import { buildGoogleCalendarUrl } from "@/helpers/calendar-links";
@@ -108,6 +108,7 @@ type RegistrationConfirmedCardProps = {
     hostInvitesLeft: string;
     hostInviteConversionsTitle: string;
     hostInviteConversionsEmpty: string;
+    hostInviteRegenerate: string;
     addToCalendar: string;
     upsellScrollCta: string;
     supportNeonBeyondEvent: string;
@@ -203,28 +204,23 @@ export function RegistrationConfirmedCard({
         ) : null}
 
         {ev.inviteOnly && ev.hostInvite ? (
-          <div className="mt-8 pt-6 border-t border-foreground/10">
-            <h3 className="neon-title-card mb-4 text-foreground/70">
-              {labels.hostInviteGuestsTitle}
-            </h3>
-            <HostInviteShareBlock
-              conversions={ev.hostInvite.conversions}
-              eventTitle={ev.title}
-              labels={{
-                copied: labels.hostInviteCopied,
-                conversionsEmpty: labels.hostInviteConversionsEmpty,
-                conversionsTitle: labels.hostInviteConversionsTitle,
-                copy: labels.hostInviteCopy,
-                invitesLeft: labels.hostInvitesLeft,
-                linkLabel: labels.hostInviteLinkLabel,
-                share: labels.hostInviteShare,
-              }}
-              locale={locale}
-              remaining={ev.hostInvite.remaining}
-              slug={slug}
-              token={ev.hostInvite.token}
-            />
-          </div>
+          <HostInvitePanel
+            eventTitle={ev.title}
+            hostInvite={ev.hostInvite}
+            labels={{
+              hostInviteConversionsEmpty: labels.hostInviteConversionsEmpty,
+              hostInviteConversionsTitle: labels.hostInviteConversionsTitle,
+              hostInviteCopied: labels.hostInviteCopied,
+              hostInviteCopy: labels.hostInviteCopy,
+              hostInviteGuestsTitle: labels.hostInviteGuestsTitle,
+              hostInviteLinkLabel: labels.hostInviteLinkLabel,
+              hostInviteRegenerate: labels.hostInviteRegenerate,
+              hostInviteShare: labels.hostInviteShare,
+              hostInvitesLeft: labels.hostInvitesLeft,
+            }}
+            locale={locale}
+            slug={slug}
+          />
         ) : null}
 
         <p className="mt-8 pt-6 border-t border-foreground/10 text-sm text-foreground/45 leading-relaxed">

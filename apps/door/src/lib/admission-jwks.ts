@@ -7,6 +7,7 @@ import {
 } from "@/lib/storage/persisted-storage";
 
 const JWKS_CACHE_PREFIX = "neon:door:jwks:";
+const ADMISSION_JWT_CLOCK_TOLERANCE_SEC = 60;
 
 export type CachedAdmissionJwks = {
   eventId: string;
@@ -79,6 +80,7 @@ export async function verifyAdmissionCredentialOffline(params: {
       issuer: "neon-admissions",
       audience: "neon-door",
       algorithms: ["EdDSA"],
+      clockTolerance: ADMISSION_JWT_CLOCK_TOLERANCE_SEC,
     });
 
     const admissionId = typeof payload.sub === "string" ? payload.sub : "";

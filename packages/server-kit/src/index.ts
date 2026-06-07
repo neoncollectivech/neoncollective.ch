@@ -18,4 +18,5 @@ export {
   type ResendMailer,
 } from "./email";
 export { createHttpJsonErrorHandler, createHttpRequestLogger } from "./hono-middleware";
+export { createSecurityHeaders } from "./security-headers";
 export { createLogger, logger } from "./logger";

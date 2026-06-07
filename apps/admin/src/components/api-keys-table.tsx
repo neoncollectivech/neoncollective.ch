@@ -104,6 +104,7 @@ export function ApiKeysTable({
             <TableHead>Label</TableHead>
             <TableHead>Prefix</TableHead>
             {showEventColumn ? <TableHead>Scope</TableHead> : null}
+            <TableHead>Capabilities</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
             <TableHead>Last used</TableHead>
@@ -131,6 +132,15 @@ export function ApiKeysTable({
                   )}
                 </TableCell>
               ) : null}
+              <TableCell>
+                <div className="flex flex-wrap gap-1">
+                  {row.scopes.map((scope) => (
+                    <Badge key={scope} variant="outline">
+                      {scope}
+                    </Badge>
+                  ))}
+                </div>
+              </TableCell>
               <TableCell>
                 {row.revokedAt ? (
                   <Badge variant="secondary">Revoked</Badge>

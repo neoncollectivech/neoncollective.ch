@@ -32,10 +32,12 @@ export async function confirmPaidCheckout(params: {
 
   if (order.status === "paid") {
     let paymentIntentStatus: Stripe.PaymentIntent.Status | undefined;
+    let paymentIntentAmountCents: number | undefined;
     if (order.stripePaymentIntentId) {
       try {
         const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
         paymentIntentStatus = pi.status;
+        paymentIntentAmountCents = pi.amount;
       } catch {
         return { ok: false, reason: "stripe_unavailable" };
       }
@@ -45,6 +47,7 @@ export async function confirmPaidCheckout(params: {
       orderId: order.id,
       source: "client",
       paymentIntentStatus,
+      stripePaymentIntentAmountCents: paymentIntentAmountCents,
     });
     if (result.kind === "failed") {
       return { ok: false, reason: "checkout_fulfillment_failed" };
@@ -84,11 +87,15 @@ export async function confirmPaidCheckout(params: {
   if (pi.metadata?.orderId !== order.id) {
     return { ok: false, reason: "payment_mismatch" };
   }
+  if (pi.amount !== order.amountCents) {
+    return { ok: false, reason: "payment_mismatch" };
+  }
 
   const result = await fulfillPaidOrder({
     orderId: order.id,
     source: "client",
     paymentIntentStatus: pi.status,
+    stripePaymentIntentAmountCents: pi.amount,
   });
 
   if (result.kind === "failed") {

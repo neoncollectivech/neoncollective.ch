@@ -35,9 +35,12 @@ import {
   resolveParticipantSessionCookieCrossSite,
 } from "./registrations/session";
 import { peopleService } from "../services/people.service";
+import { parseContactInput } from "../helpers/contact";
 import {
   clientIpForRateLimit,
   consumeExchangeRateLimit,
+  consumeRegistrationRequestRateLimit,
+  hashContactForRateLimit,
 } from "./shared/rate-limit";
 import { databaseUnavailableResponse, requireDatabase } from "./shared/guards";
 import { jsonReasonFailure } from "./shared/respond";
@@ -53,7 +56,6 @@ const SESSION_REQUEST_ERRORS: Record<
     error:
       "Email is not configured. Set RESEND_API_KEY and FROM_EMAIL (address on a domain verified in Resend).",
   },
-  registration_not_found: { status: 404, error: "No registration found for this contact." },
   delivery_failed: { status: 503, error: "Could not deliver verification message." },
   sms_not_configured: {
     status: 503,
@@ -143,6 +145,16 @@ export function createRegistrationsRouter(): Hono<AppEnv> {
     arktypeValidator("json", sessionRequestSchema),
     async (c) => {
       const body = c.req.valid("json");
+      const parsed = parseContactInput(body.contact);
+      if (parsed.kind !== "invalid") {
+        const contactKey =
+          parsed.kind === "email" ? parsed.email : parsed.e164;
+        const ip = clientIpForRateLimit(c);
+        const contactHash = await hashContactForRateLimit(contactKey);
+        if (!(await consumeRegistrationRequestRateLimit(ip, contactHash))) {
+          return c.json({ error: "Too many attempts. Try again later." }, 429);
+        }
+      }
       const res = await requestRegistrationSession({
         contact: body.contact,
         locale: body.locale,

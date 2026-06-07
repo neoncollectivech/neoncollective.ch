@@ -137,9 +137,10 @@ export type EventDetailForViewerBody = NonNullable<
   >;
   viewerGivenName?: string;
   hostInvite?: {
-    token: string;
     remaining: number;
     conversions: InviteLinkConversion[];
+    linkExists: boolean;
+    token: string | null;
   };
 };
 
@@ -216,9 +217,10 @@ export async function getPublishedEventDetailForViewer(params: {
       if (share) {
         viewerGivenName = share.givenName;
         hostInvite = {
-          token: share.inviteToken,
           remaining: share.inviteRemaining,
           conversions: share.conversions,
+          linkExists: share.linkExists,
+          token: share.token,
         };
       }
     }

@@ -4,11 +4,13 @@ import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { admissions, eventRegistrations, people } from "../db/schema";
+import { admissionCredentialExpiresAt } from "../config/admission";
 import { signAdmissionCredential, verifyAdmissionCredential } from "../helpers/admission-jwt";
 import { formatOrderTierNamesFromLines } from "../helpers/order-tier-labels";
 import { admissionSigningKeysService } from "./admission-signing-keys.service";
 import { eventRegistrationsService } from "./event-registrations.service";
 import { eventTiersService } from "./event-tiers.service";
+import { eventsService } from "./events.service";
 import { orderTiersService } from "./order-tiers.service";
 import { ordersService } from "./orders.service";
 import type { EntityTx } from "./transaction";
@@ -43,6 +45,16 @@ export type PublicAdmissionsListScope = {
   limit: number;
   skip: number;
   checkedIn?: boolean;
+};
+
+/** Public door list row — no signed credential (check-in uses QR scan only). */
+export type PublicAdmissionListItem = {
+  id: string;
+  givenName: string;
+  familyName: string;
+  tierName: string;
+  checkedInAt: string | null;
+  revokedAt: string | null;
 };
 
 export type IssueAdmissionResult =
@@ -95,6 +107,14 @@ export class AdmissionsService extends TableService<typeof admissions> {
     return Boolean(await eventTiersService.findExclusiveTierIdAmong(tierIds, tx));
   }
 
+  private async resolveCredentialExpiresAtInTx(
+    tx: AdmissionTx,
+    eventId: string,
+  ): Promise<Date> {
+    const ev = await eventsService.getInTx(tx, eventId);
+    return admissionCredentialExpiresAt({ eventStartsAt: ev?.startsAt ?? null });
+  }
+
   async refreshSignedCredentialInTx(
     tx: AdmissionTx,
     admission: typeof admissions.$inferSelect,
@@ -114,10 +134,12 @@ export class AdmissionsService extends TableService<typeof admissions> {
       return false;
     }
 
+    const expiresAt = await this.resolveCredentialExpiresAtInTx(tx, admission.eventId);
     const credential = await signAdmissionCredential({
       admissionId: admission.id,
       kid: signingKey.kid,
       privateJwk: signingKey.privateJwk,
+      expiresAt,
     });
 
     await tx
@@ -174,10 +196,12 @@ export class AdmissionsService extends TableService<typeof admissions> {
 
       if (!admission) {
         const admissionId = crypto.randomUUID();
+        const expiresAt = await this.resolveCredentialExpiresAtInTx(tx, order.eventId);
         const credential = await signAdmissionCredential({
           admissionId,
           kid: signingKey.kid,
           privateJwk: signingKey.privateJwk,
+          expiresAt,
         });
         let inserted: typeof admissions.$inferSelect | undefined;
         try {
@@ -428,15 +452,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
     eventId: string,
     scope: PublicAdmissionsListScope,
   ): Promise<{
-    admissions: {
-      id: string;
-      credential: string;
-      givenName: string;
-      familyName: string;
-      tierName: string;
-      checkedInAt: string | null;
-      revokedAt: string | null;
-    }[];
+    admissions: PublicAdmissionListItem[];
     meta: { total: number; limit: number; skip: number };
   }> {
     const db = getDb();
@@ -464,7 +480,6 @@ export class AdmissionsService extends TableService<typeof admissions> {
     const rows = await db
       .select({
         id: admissions.id,
-        credential: admissions.signedCredential,
         givenName: people.givenName,
         familyName: people.familyName,
         registrationId: admissions.registrationId,
@@ -482,15 +497,7 @@ export class AdmissionsService extends TableService<typeof admissions> {
       .limit(scope.limit)
       .offset(scope.skip);
 
-    const admissionsOut: {
-      id: string;
-      credential: string;
-      givenName: string;
-      familyName: string;
-      tierName: string;
-      checkedInAt: string | null;
-      revokedAt: string | null;
-    }[] = [];
+    const admissionsOut: PublicAdmissionListItem[] = [];
 
     for (const row of rows) {
       if (!row.registrationId) {
@@ -513,7 +520,6 @@ export class AdmissionsService extends TableService<typeof admissions> {
 
       admissionsOut.push({
         id: row.id,
-        credential: row.credential,
         givenName: row.givenName,
         familyName: row.familyName,
         tierName,

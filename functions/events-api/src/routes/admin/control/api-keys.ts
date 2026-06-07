@@ -4,6 +4,7 @@ import { Hono } from "hono";
 
 import type { AppEnv } from "../../../auth/env";
 import { apiKeysService } from "../../../services/api-keys.service";
+import { normalizeApiKeyScopes } from "../../../config/api-keys";
 import { eventsService } from "../../../services/events.service";
 import { adminApiKeyCreateSchema } from "../schemas";
 import { jsonReasonFailure } from "../../shared/respond";
@@ -22,6 +23,7 @@ function serializeApiKey(row: Awaited<ReturnType<typeof apiKeysService.listAll>>
     eventId: row.eventId,
     label: row.label,
     keyPrefix: row.keyPrefix,
+    scopes: row.scopes,
     createdAt: row.createdAt.toISOString(),
     revokedAt: row.revokedAt?.toISOString() ?? null,
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
@@ -56,6 +58,7 @@ export async function createApiKeyHandler(c: Context<AppEnv>): Promise<Response>
     label: body.label,
     eventId: body.eventId ?? null,
     createdByEmail: adminEmail(c),
+    scopes: body.scopes ? normalizeApiKeyScopes(body.scopes) : undefined,
   });
   return c.json(
     {
@@ -87,6 +90,7 @@ export async function createEventApiKeyHandler(c: Context<AppEnv>): Promise<Resp
     label: body.label,
     eventId,
     createdByEmail: adminEmail(c),
+    scopes: body.scopes ? normalizeApiKeyScopes(body.scopes) : undefined,
   });
   return c.json(
     {

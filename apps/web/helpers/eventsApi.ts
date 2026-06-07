@@ -60,9 +60,11 @@ export type EventPayload = {
   viewerGivenName?: string;
   /** Guest invite link for first-degree hosts (session + paid registration). */
   hostInvite?: {
-    token: string;
     remaining: number;
     conversions: InviteLinkConversion[];
+    linkExists: boolean;
+    /** Persisted guest invite token (same URL until explicit regenerate). */
+    token?: string | null;
   };
 };
 
@@ -219,13 +221,15 @@ export async function fetchEvent(
         ? eventFields.viewerGivenName.trim()
         : undefined,
     hostInvite:
-      rawHostInvite &&
-      typeof rawHostInvite.token === "string" &&
-      rawHostInvite.token.length > 0 &&
-      typeof rawHostInvite.remaining === "number"
+      rawHostInvite && typeof rawHostInvite.remaining === "number"
         ? {
-            token: rawHostInvite.token,
             remaining: Math.max(0, rawHostInvite.remaining),
+            linkExists: Boolean(rawHostInvite.linkExists),
+            token:
+              typeof rawHostInvite.token === "string" &&
+              rawHostInvite.token.trim().length > 0
+                ? rawHostInvite.token.trim()
+                : null,
             conversions: Array.isArray(rawHostInvite.conversions)
               ? rawHostInvite.conversions
                   .filter(
@@ -433,6 +437,43 @@ export async function confirmProfileVerification(body: {
     "/registrations/profile/verification/confirm",
     body,
   );
+
+  return data;
+}
+
+export type HostInviteState = {
+  remaining: number;
+  conversions: InviteLinkConversion[];
+  token?: string | null;
+  linkExists?: boolean;
+};
+
+export async function ensureHostInvite(slug: string): Promise<{
+  token: string | null;
+  created: boolean;
+  remaining: number;
+  conversions: InviteLinkConversion[];
+}> {
+  const { data } = await eventsClient.post<{
+    token: string | null;
+    created: boolean;
+    remaining: number;
+    conversions: InviteLinkConversion[];
+  }>(`/events/${slug}/host-invite/ensure`);
+
+  return data;
+}
+
+export async function regenerateHostInvite(slug: string): Promise<{
+  token: string;
+  remaining: number;
+  conversions: InviteLinkConversion[];
+}> {
+  const { data } = await eventsClient.post<{
+    token: string;
+    remaining: number;
+    conversions: InviteLinkConversion[];
+  }>(`/events/${slug}/host-invite/regenerate`);
 
   return data;
 }

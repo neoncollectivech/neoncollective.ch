@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { apiKeyGrantsEvent } from "./event-api-key";
+import { apiKeyGrantsEvent, isGlobalApiKey } from "./event-api-key";
 import { isApiKeyTokenFormat } from "../../services/api-keys.service";
 
 describe("apiKeyGrantsEvent", () => {
@@ -25,6 +25,13 @@ describe("apiKeyGrantsEvent", () => {
       apiKeyGrantsEvent({ eventId: "ev-1" }, "ev-2"),
       false,
     );
+  });
+});
+
+describe("isGlobalApiKey", () => {
+  it("is true only when eventId is null", () => {
+    assert.equal(isGlobalApiKey({ eventId: null }), true);
+    assert.equal(isGlobalApiKey({ eventId: "ev-1" }), false);
   });
 });
 

@@ -186,7 +186,7 @@ export const inviteLinks = pgTable(
     /** Null = admin-issued link; otherwise the host person who may share guests. */
     inviterId: uuid("inviter_id").references(() => people.id, { onDelete: "restrict" }),
     maxRedemptions: integer("max_redemptions").notNull(),
-    /** Raw secret in invite URLs (hash used for lookup). */
+    /** Raw invite URL token; persisted for copy/share (rotate only on explicit regenerate). */
     token: text("token").notNull().unique(),
     tokenHash: text("token_hash").notNull().unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -420,6 +420,11 @@ export const apiKeys = pgTable(
     label: text("label").notNull(),
     tokenHash: text("token_hash").notNull().unique(),
     keyPrefix: text("key_prefix").notNull(),
+    /** Route capabilities granted to this key (see config/api-keys.ts). */
+    scopes: text("scopes")
+      .array()
+      .notNull()
+      .default(sql`ARRAY['check_in','pos']::text[]`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),

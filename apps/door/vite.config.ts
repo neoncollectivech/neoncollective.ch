@@ -125,15 +125,6 @@ export default defineConfig(({ mode }) => {
                 networkTimeoutSeconds: 4,
               },
             },
-            {
-              urlPattern: ({ url }) =>
-                /\/events\/[^/]+\/admissions/.test(url.pathname),
-              handler: "NetworkFirst",
-              options: {
-                cacheName: "door-admissions",
-                networkTimeoutSeconds: 10,
-              },
-            },
           ],
         },
         devOptions: { enabled: false },

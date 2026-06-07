@@ -5,6 +5,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { AppEnv } from "../auth/env";
 import { authFactory } from "../auth/factory";
 import { eventApiKeyBearerAuth } from "../auth/middleware/event-api-key";
+import { requireEventApiKeyScopes } from "../auth/middleware/api-key-scopes";
 import { checkInSchema } from "../schemas";
 import { admissionsService } from "../services/admissions.service";
 import { jsonReasonFailure } from "./shared/respond";
@@ -27,6 +28,7 @@ export function createCheckInRouter(): Hono<AppEnv> {
     "/check-in",
     ...authFactory.createHandlers(
       eventApiKeyBearerAuth,
+      requireEventApiKeyScopes("check_in"),
       arktypeValidator("json", checkInSchema),
       async (c) => {
         const body = c.req.valid("json");

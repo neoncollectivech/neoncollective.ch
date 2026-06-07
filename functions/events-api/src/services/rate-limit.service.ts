@@ -7,8 +7,6 @@ import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
 import type { EntityTx } from "./transaction";
 import { getDb } from "../db/index";
 
-export const REGISTRATION_EXCHANGE_RATE_SCOPE = "registration_exchange";
-
 export async function consumeRateLimitInTx(
   tx: EntityTx,
   params: {

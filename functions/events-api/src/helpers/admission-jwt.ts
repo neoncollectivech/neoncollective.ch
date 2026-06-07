@@ -8,7 +8,11 @@ import {
   type JWK,
 } from "jose";
 
-import { ADMISSION_JWT_AUD, ADMISSION_JWT_ISS } from "../config/admission";
+import {
+  ADMISSION_JWT_AUD,
+  ADMISSION_JWT_CLOCK_TOLERANCE_SEC,
+  ADMISSION_JWT_ISS,
+} from "../config/admission";
 
 /** Compact JWT payload: only `sub` (admission id); event/order/tiers live in DB. */
 export type AdmissionJwtClaims = {
@@ -16,6 +20,7 @@ export type AdmissionJwtClaims = {
   iss: string;
   aud: string;
   iat?: number;
+  exp?: number;
 };
 
 export type AdmissionSigningMaterial = {
@@ -72,6 +77,7 @@ export async function signAdmissionCredential(params: {
   admissionId: string;
   kid: string;
   privateJwk: JWK;
+  expiresAt: Date;
 }): Promise<string> {
   const privateKey = await importPrivateKey(params.privateJwk);
 
@@ -81,6 +87,7 @@ export async function signAdmissionCredential(params: {
     .setIssuer(ADMISSION_JWT_ISS)
     .setAudience(ADMISSION_JWT_AUD)
     .setIssuedAt()
+    .setExpirationTime(Math.floor(params.expiresAt.getTime() / 1000))
     .sign(privateKey);
 }
 
@@ -99,6 +106,7 @@ export async function verifyAdmissionCredential(params: {
       issuer: ADMISSION_JWT_ISS,
       audience: ADMISSION_JWT_AUD,
       algorithms: ["EdDSA"],
+      clockTolerance: ADMISSION_JWT_CLOCK_TOLERANCE_SEC,
     });
 
     if (protectedHeader.kid !== params.kid) {

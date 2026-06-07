@@ -540,13 +540,23 @@ export function PersonInviteLinksTable({ links }: PersonInviteLinksTableProps) {
               <TableCell>
                 {slug ? (
                   <Button
+                    disabled={!link.token}
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      void navigator.clipboard.writeText(
-                        buildPublicInviteUrl(slug, link.token),
-                      );
-                      toast.success("Invite link copied");
+                      if (!link.token) {
+                        return;
+                      }
+                      void (async () => {
+                        try {
+                          await navigator.clipboard.writeText(
+                            buildPublicInviteUrl(slug, link.token!),
+                          );
+                          toast.success("Invite link copied");
+                        } catch {
+                          toast.error("Could not copy invite link");
+                        }
+                      })();
                     }}
                   >
                     Copy link

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { FormField } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -16,10 +17,21 @@ import {
 } from "@/components/ui/dialog";
 import { InlineSpinner } from "@/components/ui/inline-spinner";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { adminApi } from "@/hooks/use-admin-api";
 
 type ApiKeyScopeMode = "global" | "event";
+
+const SCOPE_OPTIONS = [
+  { id: "check_in", label: "Check-in" },
+  { id: "pos", label: "POS sales" },
+  { id: "pos_admin", label: "SumUp reader setup" },
+  { id: "admissions_list", label: "Admissions list" },
+] as const;
+
+const DEFAULT_EVENT_SCOPES = ["check_in", "pos"];
+const DEFAULT_GLOBAL_SCOPES = SCOPE_OPTIONS.map((option) => option.id);
 
 type ApiKeyFormDialogProps = {
   open: boolean;
@@ -40,6 +52,9 @@ export function ApiKeyFormDialog({
   const [label, setLabel] = useState("");
   const [scopeMode, setScopeMode] = useState<ApiKeyScopeMode>("global");
   const [eventId, setEventId] = useState("");
+  const [selectedScopes, setSelectedScopes] = useState<string[]>([
+    ...DEFAULT_GLOBAL_SCOPES,
+  ]);
 
   const createMutation = useMutation(
     fixedEventId
@@ -51,6 +66,17 @@ export function ApiKeyFormDialog({
     setLabel("");
     setScopeMode("global");
     setEventId("");
+    setSelectedScopes([...DEFAULT_GLOBAL_SCOPES]);
+  }
+
+  function toggleScope(scopeId: string, checked: boolean) {
+    setSelectedScopes((current) => {
+      if (checked) {
+        return current.includes(scopeId) ? current : [...current, scopeId];
+      }
+
+      return current.filter((scope) => scope !== scopeId);
+    });
   }
 
   async function handleSubmit() {
@@ -81,9 +107,19 @@ export function ApiKeyFormDialog({
       return;
     }
 
+    const scopes =
+      scopeMode === "global" ? selectedScopes : DEFAULT_EVENT_SCOPES;
+
+    if (scopes.length === 0) {
+      toast.error("Select at least one capability");
+
+      return;
+    }
+
     const result = await createMutation.mutateAsync({
       label: trimmed,
       eventId: scopedEventId,
+      scopes,
     });
 
     resetForm();
@@ -121,9 +157,16 @@ export function ApiKeyFormDialog({
                 <Select
                   id="api-key-scope"
                   value={scopeMode}
-                  onChange={(e) =>
-                    setScopeMode(e.target.value as ApiKeyScopeMode)
-                  }
+                  onChange={(e) => {
+                    const mode = e.target.value as ApiKeyScopeMode;
+
+                    setScopeMode(mode);
+                    setSelectedScopes(
+                      mode === "global"
+                        ? [...DEFAULT_GLOBAL_SCOPES]
+                        : [...DEFAULT_EVENT_SCOPES],
+                    );
+                  }}
                 >
                   <option value="global">All events</option>
                   <option value="event">Single event</option>
@@ -145,7 +188,25 @@ export function ApiKeyFormDialog({
                     ))}
                   </Select>
                 </FormField>
-              ) : null}
+              ) : (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium">Capabilities</legend>
+                  {SCOPE_OPTIONS.map((option) => (
+                    <div key={option.id} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedScopes.includes(option.id)}
+                        id={`api-key-scope-${option.id}`}
+                        onCheckedChange={(checked) =>
+                          toggleScope(option.id, checked === true)
+                        }
+                      />
+                      <Label htmlFor={`api-key-scope-${option.id}`}>
+                        {option.label}
+                      </Label>
+                    </div>
+                  ))}
+                </fieldset>
+              )}
             </>
           ) : null}
         </div>

@@ -5,6 +5,7 @@ import { createAdmissionJwksRouter } from "./admission-jwks";
 import { createCheckInRouter } from "./check-in";
 import { createCheckoutRouter } from "./checkout";
 import { createEventsRouter } from "./events";
+import { createHostInviteRouter } from "./events/host-invite";
 import { createHealthRouter } from "./health";
 import { createInvitesRouter } from "./invites";
 import { createRegistrationsRouter } from "./registrations";
@@ -22,6 +23,7 @@ export function createAppRouter() {
   eventsShell.use("*", loadParticipantSession);
   eventsShell.use("*", loadEventApiKey);
   eventsShell.route("/", createEventsRouter());
+  eventsShell.route("/", createHostInviteRouter());
   app.route("/", eventsShell);
 
   const checkoutShell = authFactory.createApp();

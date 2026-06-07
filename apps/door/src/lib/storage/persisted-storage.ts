@@ -1,37 +1,37 @@
 /**
- * Door PWA persistence via localStorage (survives app restarts).
- * Migrates one-time from legacy sessionStorage keys.
+ * Door PWA persistence via sessionStorage (survives refresh, cleared when tab closes).
+ * Migrates one-time from legacy localStorage keys.
  */
 
-function migrateFromSession(key: string): string | null {
-  const legacy = sessionStorage.getItem(key);
+function migrateFromLocalStorage(key: string): string | null {
+  const legacy = localStorage.getItem(key);
 
   if (legacy === null) {
     return null;
   }
 
-  localStorage.setItem(key, legacy);
-  sessionStorage.removeItem(key);
+  sessionStorage.setItem(key, legacy);
+  localStorage.removeItem(key);
 
   return legacy;
 }
 
 export function readPersistedItem(key: string): string | null {
-  const local = localStorage.getItem(key);
+  const session = sessionStorage.getItem(key);
 
-  if (local !== null) {
-    return local;
+  if (session !== null) {
+    return session;
   }
 
-  return migrateFromSession(key);
+  return migrateFromLocalStorage(key);
 }
 
 export function writePersistedItem(key: string, value: string): void {
-  localStorage.setItem(key, value);
-  sessionStorage.removeItem(key);
+  sessionStorage.setItem(key, value);
+  localStorage.removeItem(key);
 }
 
 export function removePersistedItem(key: string): void {
-  localStorage.removeItem(key);
   sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
 }

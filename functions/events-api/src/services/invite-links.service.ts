@@ -21,8 +21,8 @@ export const inviteLinksResourceMeta = introspectTable(inviteLinks, {
       "id",
       "eventId",
       "inviterId",
-      "maxRedemptions",
       "token",
+      "maxRedemptions",
       "createdAt",
       "rotatedAt",
     ],
@@ -30,8 +30,8 @@ export const inviteLinksResourceMeta = introspectTable(inviteLinks, {
       "id",
       "eventId",
       "inviterId",
-      "maxRedemptions",
       "token",
+      "maxRedemptions",
       "createdAt",
       "rotatedAt",
     ],
@@ -101,13 +101,13 @@ export class InviteLinksService extends TableService<typeof inviteLinks> {
   async findHostLinkByEventAndPerson(
     eventId: string,
     personId: string,
-  ): Promise<{ id: string; token: string; maxRedemptions: number } | null> {
+  ): Promise<{ id: string; maxRedemptions: number; token: string } | null> {
     const db = getDb();
     const [row] = await db
       .select({
         id: inviteLinks.id,
-        token: inviteLinks.token,
         maxRedemptions: inviteLinks.maxRedemptions,
+        token: inviteLinks.token,
       })
       .from(inviteLinks)
       .where(and(eq(inviteLinks.eventId, eventId), eq(inviteLinks.inviterId, personId)))
@@ -119,12 +119,12 @@ export class InviteLinksService extends TableService<typeof inviteLinks> {
     tx: InviteLinkTx,
     eventId: string,
     personId: string,
-  ): Promise<{ id: string; token: string; maxRedemptions: number } | null> {
+  ): Promise<{ id: string; maxRedemptions: number; token: string } | null> {
     const [row] = await tx
       .select({
         id: inviteLinks.id,
-        token: inviteLinks.token,
         maxRedemptions: inviteLinks.maxRedemptions,
+        token: inviteLinks.token,
       })
       .from(inviteLinks)
       .where(and(eq(inviteLinks.eventId, eventId), eq(inviteLinks.inviterId, personId)))
@@ -138,7 +138,6 @@ export class InviteLinksService extends TableService<typeof inviteLinks> {
       .select({
         id: inviteLinks.id,
         inviterId: inviteLinks.inviterId,
-        token: inviteLinks.token,
         maxRedemptions: inviteLinks.maxRedemptions,
         rotatedAt: inviteLinks.rotatedAt,
       })
@@ -153,7 +152,6 @@ export class InviteLinksService extends TableService<typeof inviteLinks> {
     {
       id: string;
       inviterId: string | null;
-      token: string;
       maxRedemptions: number;
       rotatedAt: Date | null;
     }[]
@@ -162,7 +160,6 @@ export class InviteLinksService extends TableService<typeof inviteLinks> {
       .select({
         id: inviteLinks.id,
         inviterId: inviteLinks.inviterId,
-        token: inviteLinks.token,
         maxRedemptions: inviteLinks.maxRedemptions,
         rotatedAt: inviteLinks.rotatedAt,
       })
@@ -209,6 +206,26 @@ export class InviteLinksService extends TableService<typeof inviteLinks> {
       .where(eq(inviteLinks.id, linkId));
   }
 
+  async rotateHostLinkTokenInTx(
+    tx: InviteLinkTx,
+    linkId: string,
+  ): Promise<string | null> {
+    const [row] = await tx
+      .select({ id: inviteLinks.id })
+      .from(inviteLinks)
+      .where(eq(inviteLinks.id, linkId))
+      .limit(1);
+    if (!row) {
+      return null;
+    }
+    const { raw, tokenHash } = await this.mintRawToken();
+    await tx
+      .update(inviteLinks)
+      .set({ token: raw, tokenHash, rotatedAt: new Date() })
+      .where(eq(inviteLinks.id, linkId));
+    return raw;
+  }
+
   async updateMaxRedemptionsForLink(
     linkId: string,
     maxRedemptions: number,
@@ -237,6 +254,16 @@ export class InviteLinksService extends TableService<typeof inviteLinks> {
       .where(and(eq(inviteLinks.id, linkId), eq(inviteLinks.eventId, eventId)))
       .limit(1);
     return link ?? null;
+  }
+
+  async getTokenForLink(eventId: string, linkId: string): Promise<string | null> {
+    const db = getDb();
+    const [row] = await db
+      .select({ token: inviteLinks.token })
+      .from(inviteLinks)
+      .where(and(eq(inviteLinks.id, linkId), eq(inviteLinks.eventId, eventId)))
+      .limit(1);
+    return row?.token ?? null;
   }
 
   async deleteById(linkId: string): Promise<void> {

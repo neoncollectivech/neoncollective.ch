@@ -47,6 +47,7 @@ async function handlePaymentIntentSucceeded(
       source: "webhook",
       stripeEventId: event.id,
       paymentIntentStatus: pi.status,
+      stripePaymentIntentAmountCents: pi.amount,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Webhook processing failed";

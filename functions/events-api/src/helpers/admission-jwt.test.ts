@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { admissionCredentialExpiresAt } from "../config/admission";
 import {
   admissionKidForEvent,
   generateEd25519AdmissionKeyPair,
@@ -9,14 +10,18 @@ import {
 } from "./admission-jwt";
 
 describe("admission-jwt", () => {
-  it("signs and verifies minimal payload without exp", async () => {
+  it("signs and verifies payload with exp", async () => {
     const material = await generateEd25519AdmissionKeyPair();
     const admissionId = "11111111-1111-4111-8111-111111111111";
+    const expiresAt = admissionCredentialExpiresAt({
+      eventStartsAt: new Date("2030-06-01T20:00:00.000Z"),
+    });
 
     const credential = await signAdmissionCredential({
       admissionId,
       kid: material.kid,
       privateJwk: material.privateJwk,
+      expiresAt,
     });
 
     assert.ok(credential.startsWith("eyJ"));
@@ -35,13 +40,36 @@ describe("admission-jwt", () => {
     assert.equal(verified?.admissionId, admissionId);
   });
 
+  it("rejects expired credentials", async () => {
+    const material = await generateEd25519AdmissionKeyPair();
+    const admissionId = "11111111-1111-4111-8111-111111111111";
+    const expiresAt = new Date(Date.now() - 60_000);
+
+    const credential = await signAdmissionCredential({
+      admissionId,
+      kid: material.kid,
+      privateJwk: material.privateJwk,
+      expiresAt,
+    });
+
+    const verified = await verifyAdmissionCredential({
+      credential,
+      kid: material.kid,
+      publicJwk: material.publicJwk,
+    });
+
+    assert.equal(verified, null);
+  });
+
   it("rejects wrong signing key", async () => {
     const material = await generateEd25519AdmissionKeyPair();
     const other = await generateEd25519AdmissionKeyPair();
+    const expiresAt = admissionCredentialExpiresAt({ eventStartsAt: null });
     const credential = await signAdmissionCredential({
       admissionId: "11111111-1111-4111-8111-111111111111",
       kid: material.kid,
       privateJwk: material.privateJwk,
+      expiresAt,
     });
 
     const verified = await verifyAdmissionCredential({

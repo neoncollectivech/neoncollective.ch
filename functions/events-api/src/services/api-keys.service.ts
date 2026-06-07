@@ -4,6 +4,11 @@ import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { getDb } from "../db/index";
 import { apiKeys } from "../db/schema";
+import {
+  defaultScopesForApiKey,
+  normalizeApiKeyScopes,
+  type ApiKeyScope,
+} from "../config/api-keys";
 import { randomTokenHex, sha256Hex } from "../helpers/token";
 import { TableService } from "./base/table-service";
 import { runTransaction } from "./transaction";
@@ -21,6 +26,7 @@ export type ApiKeyListItem = Pick<
   | "eventId"
   | "label"
   | "keyPrefix"
+  | "scopes"
   | "createdAt"
   | "revokedAt"
   | "lastUsedAt"
@@ -35,6 +41,7 @@ export const apiKeysResourceMeta = introspectTable(apiKeys, {
       "eventId",
       "label",
       "keyPrefix",
+      "scopes",
       "createdAt",
       "revokedAt",
       "lastUsedAt",
@@ -55,10 +62,14 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
     label: string;
     eventId: string | null;
     createdByEmail: string | null;
+    scopes?: readonly ApiKeyScope[];
   }): Promise<{ row: ApiKeyListItem; rawToken: string }> {
     const rawToken = `${API_KEY_PREFIX}${randomTokenHex(24)}`;
     const tokenHash = await sha256Hex(rawToken);
     const keyPrefix = rawToken.slice(0, KEY_PREFIX_DISPLAY_LEN);
+    const scopes = normalizeApiKeyScopes(
+      params.scopes ?? defaultScopesForApiKey(params.eventId),
+    );
     const db = getDb();
     const [row] = await db
       .insert(apiKeys)
@@ -67,6 +78,7 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
         eventId: params.eventId,
         tokenHash,
         keyPrefix,
+        scopes,
         createdByEmail: params.createdByEmail,
       })
       .returning({
@@ -74,6 +86,7 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
         eventId: apiKeys.eventId,
         label: apiKeys.label,
         keyPrefix: apiKeys.keyPrefix,
+        scopes: apiKeys.scopes,
         createdAt: apiKeys.createdAt,
         revokedAt: apiKeys.revokedAt,
         lastUsedAt: apiKeys.lastUsedAt,
@@ -87,13 +100,14 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
 
   async findActiveByTokenHash(
     tokenHash: string,
-  ): Promise<{ id: string; eventId: string | null; label: string } | null> {
+  ): Promise<{ id: string; eventId: string | null; label: string; scopes: string[] } | null> {
     const db = getDb();
     const [row] = await db
       .select({
         id: apiKeys.id,
         eventId: apiKeys.eventId,
         label: apiKeys.label,
+        scopes: apiKeys.scopes,
       })
       .from(apiKeys)
       .where(and(eq(apiKeys.tokenHash, tokenHash), isNull(apiKeys.revokedAt)))
@@ -131,6 +145,7 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
           id: apiKeys.id,
           eventId: apiKeys.eventId,
           label: apiKeys.label,
+          scopes: apiKeys.scopes,
           revokedAt: apiKeys.revokedAt,
         })
         .from(apiKeys)
@@ -158,6 +173,7 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
           eventId: existing.eventId,
           tokenHash,
           keyPrefix,
+          scopes: existing.scopes,
           createdByEmail,
         })
         .returning({
@@ -165,6 +181,7 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
           eventId: apiKeys.eventId,
           label: apiKeys.label,
           keyPrefix: apiKeys.keyPrefix,
+          scopes: apiKeys.scopes,
           createdAt: apiKeys.createdAt,
           revokedAt: apiKeys.revokedAt,
           lastUsedAt: apiKeys.lastUsedAt,
@@ -201,6 +218,7 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
           eventId: apiKeys.eventId,
           label: apiKeys.label,
           keyPrefix: apiKeys.keyPrefix,
+          scopes: apiKeys.scopes,
           createdAt: apiKeys.createdAt,
           revokedAt: apiKeys.revokedAt,
           lastUsedAt: apiKeys.lastUsedAt,
@@ -216,6 +234,7 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
           eventId: apiKeys.eventId,
           label: apiKeys.label,
           keyPrefix: apiKeys.keyPrefix,
+          scopes: apiKeys.scopes,
           createdAt: apiKeys.createdAt,
           revokedAt: apiKeys.revokedAt,
           lastUsedAt: apiKeys.lastUsedAt,
@@ -237,6 +256,7 @@ export class ApiKeysService extends TableService<typeof apiKeys> {
         eventId: apiKeys.eventId,
         label: apiKeys.label,
         keyPrefix: apiKeys.keyPrefix,
+        scopes: apiKeys.scopes,
         createdAt: apiKeys.createdAt,
         revokedAt: apiKeys.revokedAt,
         lastUsedAt: apiKeys.lastUsedAt,

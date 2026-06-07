@@ -54,7 +54,6 @@ export type RequestRegistrationSessionFailureReason =
   | "invalid_contact"
   | "invalid_return_url"
   | "email_not_configured"
-  | "registration_not_found"
   | "delivery_failed"
   | "sms_not_configured";
 
@@ -327,7 +326,7 @@ export async function requestRegistrationSession(params: {
     const email = parsed.email;
     const target = await resolveRegistrationTarget({ kind: "email", email });
     if (!target) {
-      return registrationFail("registration_not_found");
+      return { ok: true, channel: "email" };
     }
     const rawCode = issueRawOtpCode();
     let codeHash: string;
@@ -366,12 +365,12 @@ export async function requestRegistrationSession(params: {
           }
         }
         const msg = e instanceof Error ? e.message : "Email send failed.";
-        log.error({ err: e, email }, msg);
+        log.error({ err: e, channel: "email" }, msg);
         return registrationFail("delivery_failed", msg);
       }
-      log.info({ email }, "Registration access email sent");
+      log.info({ channel: "email", delivery: "ok" }, "Registration access email sent");
     } else {
-      log.info({ email }, "Registration access code issued (E2E test mode, email not sent)");
+      log.info({ channel: "email", delivery: "e2e" }, "Registration access code issued (E2E test mode, email not sent)");
     }
     return { ok: true, channel: "email" };
   }
@@ -386,7 +385,7 @@ export async function requestRegistrationSession(params: {
     e164: phoneE164,
   });
   if (!target) {
-    return registrationFail("registration_not_found");
+    return { ok: true, channel: "sms" };
   }
 
   const rawCode = issueRawOtpCode();
@@ -425,9 +424,9 @@ export async function requestRegistrationSession(params: {
       }
       return registrationFail("delivery_failed", sms.error);
     }
-    log.info({ phoneE164 }, "Registration SMS code sent");
+    log.info({ channel: "sms", delivery: "ok" }, "Registration SMS code sent");
   } else {
-    log.info({ phoneE164 }, "Registration SMS code issued (E2E test mode, SMS not sent)");
+    log.info({ channel: "sms", delivery: "e2e" }, "Registration SMS code issued (E2E test mode, SMS not sent)");
   }
   return { ok: true, channel: "sms" };
 }

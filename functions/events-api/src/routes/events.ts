@@ -5,6 +5,7 @@ import { authFactory } from "../auth/factory";
 import type { EventApiKeyAuth } from "../auth/resolvers/event-api-key";
 import { apiKeyGrantsEvent } from "../auth/resolvers/event-api-key";
 import { eventApiKeyBearerAuth } from "../auth/middleware/event-api-key";
+import { requireEventApiKeyScopes } from "../auth/middleware/api-key-scopes";
 import { getPublishedEventAvailability } from "./events/availability";
 import {
   getPublishedEventDetailForViewer,
@@ -83,7 +84,10 @@ export function createEventsRouter(): Hono<AppEnv> {
 
   router.get(
     "/events/:slug/admissions",
-    ...authFactory.createHandlers(eventApiKeyBearerAuth, async (c) => {
+    ...authFactory.createHandlers(
+      eventApiKeyBearerAuth,
+      requireEventApiKeyScopes("admissions_list"),
+      async (c) => {
       if (!requireDatabase(c)) {
         return databaseUnavailableResponse(c);
       }

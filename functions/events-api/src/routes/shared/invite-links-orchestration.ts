@@ -1,4 +1,5 @@
 import type { EntityTx } from "../../services/transaction";
+import { runTransaction } from "../../services/transaction";
 import { formatOrderTierNames } from "./format-order-tiers";
 import { sha256Hex } from "../../helpers/token";
 import { eventInviteesService } from "../../services/event-invitees.service";
@@ -137,29 +138,136 @@ export async function getHostInviteShareForViewer(
   personId: string,
 ): Promise<{
   givenName: string;
-  inviteToken: string;
   inviteRemaining: number;
   conversions: InviteLinkConversion[];
+  linkExists: boolean;
+  token: string | null;
 } | null> {
   const hostRow = await eventInviteesService.findFirstDegreeHostOnEvent(eventId, personId);
   if (!hostRow) {
     return null;
   }
 
-  const hostLink = await inviteLinksService.findHostLinkByEventAndPerson(eventId, personId);
-  if (!hostLink) {
-    return null;
-  }
   const host = await peopleService.get(personId);
   if (!host) {
     return null;
+  }
+
+  const hostLink = await inviteLinksService.findHostLinkByEventAndPerson(eventId, personId);
+  if (!hostLink) {
+    const ev = await eventsService.get(eventId);
+    return {
+      givenName: host.givenName.trim(),
+      inviteRemaining: ev?.defaultInviteLinkMaxRedemptions ?? 0,
+      conversions: [],
+      linkExists: false,
+      token: null,
+    };
   }
   const used = await ordersService.countPendingOrPaidForInviteLink(hostLink.id);
   const conversions = await listInviteLinkConversions(hostLink.id);
   return {
     givenName: host.givenName.trim(),
-    inviteToken: hostLink.token,
     inviteRemaining: Math.max(0, hostLink.maxRedemptions - used),
+    conversions,
+    linkExists: true,
+    token: hostLink.token,
+  };
+}
+
+export async function rotateHostInviteLinkToken(
+  eventId: string,
+  linkId: string,
+): Promise<string | null> {
+  await eventsService.requireInviteOnly(eventId);
+  const link = await inviteLinksService.getHostLinkRow(eventId, linkId);
+  if (!link) {
+    return null;
+  }
+  return runTransaction((tx) => inviteLinksService.rotateHostLinkTokenInTx(tx, linkId));
+}
+
+export async function ensureHostInviteForParticipant(params: {
+  eventId: string;
+  personId: string;
+}): Promise<
+  | {
+      ok: true;
+      token: string | null;
+      created: boolean;
+      remaining: number;
+      conversions: InviteLinkConversion[];
+    }
+  | { ok: false; reason: "not_host" }
+> {
+  const hostRow = await eventInviteesService.findFirstDegreeHostOnEvent(
+    params.eventId,
+    params.personId,
+  );
+  if (!hostRow) {
+    return { ok: false, reason: "not_host" };
+  }
+
+  const ensured = await runTransaction((tx) =>
+    ensureHostInviteLinkForPersonInTx(tx, params.eventId, params.personId),
+  );
+  if (!ensured) {
+    return { ok: false, reason: "not_host" };
+  }
+  const hostLink = await inviteLinksService.findHostLinkByEventAndPerson(
+    params.eventId,
+    params.personId,
+  );
+  if (!hostLink) {
+    return { ok: false, reason: "not_host" };
+  }
+
+  const used = await ordersService.countPendingOrPaidForInviteLink(hostLink.id);
+  const conversions = await listInviteLinkConversions(hostLink.id);
+
+  return {
+    ok: true,
+    token: ensured.token,
+    created: ensured.created,
+    remaining: Math.max(0, hostLink.maxRedemptions - used),
+    conversions,
+  };
+}
+
+export async function regenerateHostInviteForParticipant(params: {
+  eventId: string;
+  personId: string;
+}): Promise<
+  | {
+      ok: true;
+      token: string;
+      remaining: number;
+      conversions: InviteLinkConversion[];
+    }
+  | { ok: false; reason: "not_host" }
+> {
+  const raw = await runTransaction((tx) =>
+    mintOrRotateHostInviteLinkForPersonInTx(tx, params.eventId, params.personId),
+  );
+  if (!raw) {
+    return { ok: false, reason: "not_host" };
+  }
+
+  const hostLink = await inviteLinksService.findHostLinkByEventAndPerson(
+    params.eventId,
+    params.personId,
+  );
+  if (!hostLink) {
+    return { ok: false, reason: "not_host" };
+  }
+
+  const used = await ordersService.countPendingOrPaidForInviteLink(hostLink.id);
+  const conversions = await listInviteLinkConversions(hostLink.id);
+
+  return {
+    ok: true,
+    token: raw,
+    remaining: Math.max(0, hostLink.maxRedemptions - used),
     conversions,
   };
 }
@@ -168,7 +276,7 @@ export async function ensureHostInviteLinkForPersonInTx(
   tx: InviteLinkLookupTx,
   eventId: string,
   personId: string,
-): Promise<string | null> {
+): Promise<{ token: string; created: boolean } | null> {
   const ev = await eventsService.getInTx(tx, eventId);
   if (!ev || ev.accessMode !== "invite_only") {
     return null;
@@ -189,7 +297,7 @@ export async function ensureHostInviteLinkForPersonInTx(
     personId,
   );
   if (existing) {
-    return existing.token;
+    return { token: existing.token, created: false };
   }
 
   const { raw, tokenHash } = await inviteLinksService.mintRawToken();
@@ -200,7 +308,7 @@ export async function ensureHostInviteLinkForPersonInTx(
     token: raw,
     tokenHash,
   });
-  return raw;
+  return { token: raw, created: true };
 }
 
 export async function mintOrRotateHostInviteLinkForPersonInTx(

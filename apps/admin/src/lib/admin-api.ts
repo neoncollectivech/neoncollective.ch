@@ -233,8 +233,8 @@ export type InviteLinkRow = {
   id: string;
   eventId: string;
   inviterId: string | null;
+  token: string | null;
   maxRedemptions: number;
-  token: string;
   createdAt: string;
   rotatedAt: string | null;
 };
@@ -407,8 +407,17 @@ export async function deleteEventInvitee(eventId: string, inviteeId: string) {
 }
 
 export async function ensureInviteeLink(eventId: string, inviteeId: string) {
-  const res = await api.post<{ inviteToken: string }>(
+  const res = await api.post<{ inviteToken: string | null; created: boolean }>(
     `/admin/events/${eventId}/invitees/${inviteeId}/ensure-link`,
+  );
+
+  return res.data;
+}
+
+/** Returns the persisted invite token without rotating (copy/share). */
+export async function getInviteLinkToken(eventId: string, linkId: string) {
+  const res = await api.get<{ inviteToken: string }>(
+    `/admin/events/${eventId}/invite-links/${linkId}/token`,
   );
 
   return res.data.inviteToken;
@@ -795,6 +804,7 @@ export type ApiKeyRow = {
   eventId: string | null;
   label: string;
   keyPrefix: string;
+  scopes: string[];
   createdAt: string;
   revokedAt: string | null;
   lastUsedAt: string | null;
@@ -804,6 +814,7 @@ export type ApiKeyRow = {
 export type ApiKeyCreatePayload = {
   label: string;
   eventId?: string | null;
+  scopes?: string[];
 };
 
 export type ApiKeyCreateResult = {

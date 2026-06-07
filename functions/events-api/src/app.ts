@@ -3,6 +3,7 @@ import {
   createHttpJsonErrorHandler,
   createHttpRequestLogger,
   createLogger,
+  createSecurityHeaders,
 } from "@neon/server-kit";
 
 import { configureAuth, createAuth } from "./auth/auth";
@@ -24,6 +25,7 @@ configureAuth(auth);
 const app = authFactory.createApp();
 
 app.use("*", createCorsFromEnv("credentials"));
+app.use("*", createSecurityHeaders());
 app.use("*", createHttpRequestLogger(log));
 app.onError(createHttpJsonErrorHandler(log));
 

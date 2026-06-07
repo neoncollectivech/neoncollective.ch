@@ -1,0 +1,2 @@
+ALTER TABLE "api_keys" ADD COLUMN "scopes" text[] DEFAULT ARRAY['check_in','pos']::text[] NOT NULL;--> statement-breakpoint
+UPDATE "api_keys" SET "scopes" = ARRAY['check_in','pos','pos_admin','admissions_list']::text[] WHERE "event_id" IS NULL;

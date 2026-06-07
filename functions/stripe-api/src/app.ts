@@ -4,6 +4,7 @@ import {
   createHttpJsonErrorHandler,
   createHttpRequestLogger,
   createLogger,
+  createSecurityHeaders,
 } from "@neon/server-kit";
 import { Hono } from "hono";
 import type Stripe from "stripe";
@@ -13,12 +14,14 @@ import { sendMagicLinkEmail, isEmailEnabled } from "./email";
 import { checkoutSchema, portalRequestSchema } from "./schemas";
 import { getStripe } from "./stripe";
 import { createToken, verifyToken } from "./token";
+import { validatePublicSiteReturnUrl } from "./validate-return-url";
 
 const log = createLogger("http");
 
 const app = new Hono();
 
 app.use("*", createCorsFromEnv("simple"));
+app.use("*", createSecurityHeaders());
 app.use("*", createHttpRequestLogger(log));
 app.onError(createHttpJsonErrorHandler(log));
 
@@ -34,6 +37,12 @@ app.post(
     const { priceId, mode, locale, successUrl, cancelUrl } =
       c.req.valid("json");
 
+    const safeSuccessUrl = validatePublicSiteReturnUrl(successUrl);
+    const safeCancelUrl = validatePublicSiteReturnUrl(cancelUrl);
+    if (!safeSuccessUrl || !safeCancelUrl) {
+      return c.json({ error: "Invalid return URL." }, 400);
+    }
+
     log.debug({ priceId, mode, locale }, "Creating checkout session");
 
     // TWINT only supports one-time payments, not subscriptions.
@@ -48,8 +57,8 @@ app.post(
       payment_method_types: paymentMethodTypes,
       line_items: [{ price: priceId, quantity: 1 }],
       locale: locale === "de" ? "de" : locale === "it" ? "it" : "en",
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      success_url: safeSuccessUrl,
+      cancel_url: safeCancelUrl,
     });
 
     log.debug({ sessionId: session.id, url: session.url }, "Checkout session created");
@@ -78,6 +87,11 @@ app.post(
 
     const { email, locale, returnUrl } = c.req.valid("json");
 
+    const safeReturnUrl = validatePublicSiteReturnUrl(returnUrl);
+    if (!safeReturnUrl) {
+      return c.json({ error: "Invalid return URL." }, 400);
+    }
+
     log.debug({ email }, "Looking up customer for portal request");
 
     const customers = await getStripe().customers.list({ email, limit: 1 });
@@ -100,7 +114,7 @@ app.post(
       token,
       email,
       exp,
-      returnUrl,
+      returnUrl: safeReturnUrl,
     });
     const magicLink = `${apiBaseUrl}/portal/verify?${params.toString()}`;
 
@@ -136,6 +150,11 @@ app.get("/portal/verify", async (c) => {
     return c.text("This link has expired or is invalid.", 403);
   }
 
+  const safeReturnUrl = validatePublicSiteReturnUrl(returnUrl);
+  if (!safeReturnUrl) {
+    return c.text("Invalid link.", 400);
+  }
+
   const customers = await getStripe().customers.list({ email, limit: 1 });
 
   if (customers.data.length === 0) {
@@ -148,7 +167,7 @@ app.get("/portal/verify", async (c) => {
 
   const portalSession = await getStripe().billingPortal.sessions.create({
     customer: customerId,
-    return_url: returnUrl,
+    return_url: safeReturnUrl,
   });
 
   log.debug({ customerId }, "Redirecting to portal after verify");

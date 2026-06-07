@@ -36,13 +36,14 @@ export function normalizeRegistrationExchangeCodeInput(raw: string): string | nu
   return upper;
 }
 
-/** Human-readable OTP (e.g. `4K8-H9M`) for email, SMS, and UI. */
+/** Human-readable OTP (e.g. `4K8H-9M2P`) for email, SMS, and UI. */
 export function formatOtpDisplayCode(raw: string): string {
   const normalized = normalizeRegistrationExchangeCodeInput(raw);
   if (!normalized) {
     return raw;
   }
-  return `${normalized.slice(0, 3)}-${normalized.slice(3)}`;
+  const half = Math.floor(normalized.length / 2);
+  return `${normalized.slice(0, half)}-${normalized.slice(half)}`;
 }
 
 export function issueRawOtpCode(): string {

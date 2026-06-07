@@ -14,9 +14,11 @@ import {
   InviteLinkDeleteError,
   InviteLinkUpdateError,
   deleteHostInviteLink,
+  rotateHostInviteLinkToken,
   updateHostInviteLinkMaxRedemptions,
 } from "../../shared/invite-links-orchestration";
 import { exportEventInviteesCsv } from "./invitees-export";
+import { inviteLinksService } from "../../../services/invite-links.service";
 import { adminInviteesUpsertSchema } from "../../../schemas";
 import {
   adminInviteLinkMaxRedemptionsSchema,
@@ -122,7 +124,10 @@ export function createInviteesProvider(): Hono {
               }
               return c.json({ error: "Invitee not found." }, 404);
             }
-            return c.json({ inviteToken: result.inviteToken });
+            return c.json({
+              inviteToken: result.inviteToken,
+              created: result.created,
+            });
           },
         },
         {
@@ -211,6 +216,34 @@ export function createInviteesProvider(): Hono {
               }
               throw e;
             }
+          },
+        },
+        {
+          method: "get",
+          path: "/:linkId/token",
+          handler: async (c) => {
+            const token = await inviteLinksService.getTokenForLink(
+              c.req.param("eventId"),
+              c.req.param("linkId"),
+            );
+            if (!token) {
+              return c.json({ error: "Invite link not found." }, 404);
+            }
+            return c.json({ inviteToken: token });
+          },
+        },
+        {
+          method: "post",
+          path: "/:linkId/rotate-token",
+          handler: async (c) => {
+            const token = await rotateHostInviteLinkToken(
+              c.req.param("eventId"),
+              c.req.param("linkId"),
+            );
+            if (!token) {
+              return c.json({ error: "Invite link not found." }, 404);
+            }
+            return c.json({ inviteToken: token });
           },
         },
       ],
