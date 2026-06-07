@@ -67,22 +67,6 @@ function admissionColumns(eventId: string): ColumnDef<AdmissionRow>[] {
           ? new Date(row.original.checkedInAt).toLocaleString()
           : "—",
     },
-    {
-      id: "credential",
-      header: "Credential",
-      cell: ({ row }) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            void navigator.clipboard.writeText(row.original.signedCredential);
-            toast.success("Credential copied");
-          }}
-        >
-          Copy JWT
-        </Button>
-      ),
-    },
   ];
 }
 
