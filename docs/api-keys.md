@@ -16,7 +16,7 @@ Create keys in admin: **Event → API keys** (scoped) or **Admin → API keys** 
 1. **Never put global keys on shared tablets** — they can pair/delete SumUp readers for the whole merchant account.
 2. **Revoke keys after each event** — use admin revoke; monitor `lastUsedAt`.
 3. **One key per device** where possible — simplifies rotation if a tablet is lost.
-4. **Physical security** — door app stores the API key in `sessionStorage` (cleared when the browser tab closes); use dedicated devices with screen lock.
+4. **Physical security** — door app stores the API key in **localStorage** on the device (use dedicated tablets with screen lock; **Change API key** in the app clears it after an event).
 
 ## What keys can access
 
