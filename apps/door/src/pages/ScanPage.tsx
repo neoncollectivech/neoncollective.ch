@@ -262,7 +262,7 @@ export function ScanPage() {
 
       <footer
         className={cn(
-          "relative z-10 flex shrink-0 items-center justify-between gap-2 border-t border-border px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3",
+          "relative z-10 flex shrink-0 items-center justify-between gap-2 border-t border-border px-3 pb-3 pt-3",
         )}
       >
         <BrightScreenFallback
