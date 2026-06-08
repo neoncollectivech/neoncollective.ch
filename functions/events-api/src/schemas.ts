@@ -66,12 +66,12 @@ export const checkInSchema = type({
 });
 
 export const posGuestResolveSchema = type({
-  personId: "string | null",
-  credential: "string | null",
-  email: "string.email | null",
-  phoneE164: "string | null",
-  givenName: "string | null",
-  familyName: "string | null",
+  "personId?": "string | null",
+  "credential?": "string | null",
+  "email?": "string.email | null",
+  "phoneE164?": "string | null",
+  "givenName?": "string | null",
+  "familyName?": "string | null",
 });
 
 export const posPricingPreviewSchema = type({
@@ -84,12 +84,12 @@ export const posSaleCreateSchema = type({
   locale: "'de' | 'en' | 'it'",
   exclusiveTierId: "string",
   addonTierIds: "string[]",
-  personId: "string | null",
-  credential: "string | null",
-  email: "string.email | null",
-  phoneE164: "string | null",
-  givenName: "string | null",
-  familyName: "string | null",
+  "personId?": "string | null",
+  "credential?": "string | null",
+  "email?": "string.email | null",
+  "phoneE164?": "string | null",
+  "givenName?": "string | null",
+  "familyName?": "string | null",
 });
 
 export const posReaderPairSchema = type({
