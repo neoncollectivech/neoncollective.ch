@@ -1,4 +1,5 @@
 import { devAdminSession, isAdminAuthDisabled } from "../../helpers/admin-auth-dev";
+import { extractEventApiKeyToken } from "../event-api-key-token";
 import { authFactory } from "../factory";
 import { resolveAdminSession } from "../resolvers/admin-session";
 import { resolveEventApiKey } from "../resolvers/event-api-key";
@@ -13,14 +14,11 @@ export const loadParticipantSession = authFactory.createMiddleware(async (c, nex
 });
 
 export const loadEventApiKey = authFactory.createMiddleware(async (c, next) => {
-  const header = c.req.header("Authorization");
-  if (header?.startsWith("Bearer ")) {
-    const token = header.slice("Bearer ".length).trim();
-    if (token) {
-      const auth = await resolveEventApiKey(token);
-      if (auth) {
-        c.set("eventApiKey", auth);
-      }
+  const token = extractEventApiKeyToken(c);
+  if (token) {
+    const auth = await resolveEventApiKey(token);
+    if (auth) {
+      c.set("eventApiKey", auth);
     }
   }
   await next();

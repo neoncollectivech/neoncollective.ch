@@ -2,6 +2,15 @@
 
 Bearer tokens (`neon_…`) authenticate the door PWA, POS, and check-in integrations.
 
+## Passing a key
+
+| Method | When |
+|--------|------|
+| `Authorization: Bearer neon_…` | All routes (preferred) |
+| `?apiKey=neon_…` | **GET only** — same auth as Bearer; header wins if both are sent |
+
+Use the query param only when a client cannot set headers (e.g. simple GET links). Prefer Bearer everywhere else — query strings may appear in logs and referrer headers.
+
 ## Issuing keys
 
 | Key type | `eventId` | Use for |
