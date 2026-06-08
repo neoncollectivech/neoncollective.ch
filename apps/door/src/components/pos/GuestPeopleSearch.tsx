@@ -74,6 +74,7 @@ export function GuestPeopleSearch({
           />
           <Button
             aria-label="Search people"
+            className="size-10 shrink-0"
             disabled={disabled}
             size="icon"
             type="button"
