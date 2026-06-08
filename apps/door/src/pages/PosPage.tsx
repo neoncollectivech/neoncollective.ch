@@ -31,9 +31,7 @@ import {
   getDoorSessionConfig,
 } from "@/lib/storage/session-config";
 
-type SaleMode = "new" | "addon";
-
-type PosStep = "reader" | "mode" | "guest" | "tiers" | "payment" | "success";
+type PosStep = "reader" | "guest" | "tiers" | "payment" | "success";
 
 function formatPrice(cents: number, currency: string): string {
   return new Intl.NumberFormat(undefined, {
@@ -61,9 +59,8 @@ export function PosPage() {
   const session = getDoorSessionConfig();
 
   const [step, setStep] = useState<PosStep>(
-    session?.readerId ? "mode" : "reader",
+    session?.readerId ? "guest" : "reader",
   );
-  const [saleMode, setSaleMode] = useState<SaleMode>("new");
   const [guest, setGuest] = useState<PosResolvedGuest | null>(null);
   const [guestContact, setGuestContact] = useState<GuestContactValues | null>(
     null,
@@ -98,20 +95,32 @@ export function PosPage() {
       step === "tiers" && (Boolean(exclusiveTierId) || addonTierIds.length > 0),
   });
 
+  const addonOnly = guest?.hasPaidExclusive ?? false;
+
   const pickerTiers: PosTier[] = useMemo(() => {
-    if (!catalogQuery.data) {
+    if (!guest) {
       return [];
     }
-    if (saleMode === "addon" && guest) {
+    if (guest.hasPaidExclusive) {
       return guest.availableUpsellTiers;
     }
 
-    return catalogQuery.data.tiers;
-  }, [catalogQuery.data, guest, saleMode]);
+    return catalogQuery.data?.tiers ?? [];
+  }, [catalogQuery.data, guest]);
+
+  const canCharge = useMemo(() => {
+    if (!guest || !online) {
+      return false;
+    }
+    if (guest.hasPaidExclusive) {
+      return addonTierIds.length > 0;
+    }
+
+    return Boolean(exclusiveTierId);
+  }, [guest, online, exclusiveTierId, addonTierIds]);
 
   const resetFlow = () => {
-    setStep(session?.readerId ? "mode" : "reader");
-    setSaleMode("new");
+    setStep(session?.readerId ? "guest" : "reader");
     setGuest(null);
     setGuestContact(null);
     setCredential(null);
@@ -131,29 +140,41 @@ export function PosPage() {
     navigate("/setup", { replace: true });
   };
 
+  const applyResolvedGuest = (
+    resolved: PosResolvedGuest,
+    contact: GuestContactValues | null,
+    scannedCredential: string | null,
+  ) => {
+    setGuest(resolved);
+    setGuestContact(contact);
+    setCredential(scannedCredential);
+    setExclusiveTierId("");
+    setAddonTierIds([]);
+    setStep("tiers");
+  };
+
   const selectPersonFromSearch = async (person: PosPersonSearchRow) => {
     try {
       const resolved = await guestMutation.mutateAsync({ personId: person.id });
 
-      if (saleMode === "addon" && !resolved.hasPaidExclusive) {
-        toast.error("Guest has no existing admission for this event.");
-
-        return;
-      }
-      if (saleMode === "new" && resolved.hasPaidExclusive) {
-        toast.error("Guest already has admission. Use add-ons instead.");
-
-        return;
-      }
-
-      setGuest(resolved);
-      setGuestContact(personToGuestContact(person));
-      setCredential(null);
-      setExclusiveTierId("");
-      setAddonTierIds([]);
-      setStep("tiers");
+      applyResolvedGuest(resolved, personToGuestContact(person), null);
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Could not load person."));
+    }
+  };
+
+  const resolveGuestFromContact = async (values: GuestContactValues) => {
+    try {
+      const resolved = await guestMutation.mutateAsync({
+        email: values.email || null,
+        phoneE164: values.phoneE164 || null,
+        givenName: values.givenName,
+        familyName: values.familyName,
+      });
+
+      applyResolvedGuest(resolved, values, null);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not resolve guest."));
     }
   };
 
@@ -167,7 +188,7 @@ export function PosPage() {
     const body = {
       readerId: session.readerId,
       locale: "en" as const,
-      exclusiveTierId: saleMode === "addon" ? "" : exclusiveTierId,
+      exclusiveTierId: addonOnly ? "" : exclusiveTierId,
       addonTierIds,
       personId: guest?.personId ?? null,
       credential,
@@ -240,42 +261,54 @@ export function PosPage() {
                   setStep("reader");
                 }}
                 onSelected={() => {
-                  setStep("mode");
+                  setStep("guest");
                 }}
               />
             ) : null}
 
-            {step === "mode" ? (
+            {step === "guest" ? (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Sale type</CardTitle>
+                  <CardTitle className="text-base">Guest</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button
-                    className="w-full"
-                    type="button"
-                    variant={saleMode === "new" ? "default" : "outline"}
-                    onClick={() => {
-                      setSaleMode("new");
-                      setGuest(null);
-                      setCredential(null);
-                      setStep("guest");
-                    }}
-                  >
-                    New admission
-                  </Button>
-                  <Button
-                    className="w-full"
-                    type="button"
-                    variant={saleMode === "addon" ? "default" : "outline"}
-                    onClick={() => {
-                      setSaleMode("addon");
-                      setGuestContact(null);
-                      setStep("guest");
-                    }}
-                  >
-                    Add-ons for existing guest
-                  </Button>
+                <CardContent className="space-y-4">
+                  <GuestPeopleSearch
+                    disabled={guestMutation.isPending}
+                    onSelect={(person) => void selectPersonFromSearch(person)}
+                  />
+                  {scanning ? (
+                    <GuestLookupScanner
+                      onClose={() => setScanning(false)}
+                      onCredential={async (value) => {
+                        setScanning(false);
+                        try {
+                          const resolved = await guestMutation.mutateAsync({
+                            credential: value,
+                          });
+
+                          applyResolvedGuest(resolved, null, value);
+                        } catch (error) {
+                          toast.error(
+                            getApiErrorMessage(error, "Guest not found."),
+                          );
+                        }
+                      }}
+                    />
+                  ) : (
+                    <Button
+                      className="w-full"
+                      type="button"
+                      variant="outline"
+                      onClick={() => setScanning(true)}
+                    >
+                      Scan admission QR
+                    </Button>
+                  )}
+                  <div aria-hidden className="border-border/60 border-t" />
+                  <GuestContactForm
+                    disabled={guestMutation.isPending}
+                    onSubmit={(values) => void resolveGuestFromContact(values)}
+                  />
                   <Button
                     className="w-full"
                     type="button"
@@ -283,112 +316,6 @@ export function PosPage() {
                     onClick={() => setStep("reader")}
                   >
                     Change Solo reader
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : null}
-
-            {step === "guest" ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    {saleMode === "new" ? "Guest details" : "Find guest"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <GuestPeopleSearch
-                    disabled={guestMutation.isPending}
-                    onSelect={(person) => void selectPersonFromSearch(person)}
-                  />
-                  {saleMode === "addon" ? (
-                    <>
-                      {scanning ? (
-                        <GuestLookupScanner
-                          onClose={() => setScanning(false)}
-                          onCredential={async (value) => {
-                            setScanning(false);
-                            setCredential(value);
-                            try {
-                              const resolved = await guestMutation.mutateAsync({
-                                credential: value,
-                              });
-
-                              setGuest(resolved);
-                              setExclusiveTierId("");
-                              setAddonTierIds([]);
-                              setStep("tiers");
-                            } catch (error) {
-                              toast.error(
-                                getApiErrorMessage(error, "Guest not found."),
-                              );
-                            }
-                          }}
-                        />
-                      ) : (
-                        <Button
-                          className="w-full"
-                          type="button"
-                          variant="outline"
-                          onClick={() => setScanning(true)}
-                        >
-                          Scan admission QR
-                        </Button>
-                      )}
-                      <GuestContactForm
-                        disabled={guestMutation.isPending}
-                        onSubmit={async (values) => {
-                          setGuestContact(values);
-                          try {
-                            const resolved = await guestMutation.mutateAsync({
-                              email: values.email || null,
-                              phoneE164: values.phoneE164 || null,
-                              givenName: values.givenName,
-                              familyName: values.familyName,
-                            });
-
-                            if (!resolved.hasPaidExclusive) {
-                              toast.error(
-                                "Guest has no existing admission for this event.",
-                              );
-
-                              return;
-                            }
-                            setGuest(resolved);
-                            setCredential(null);
-                            setExclusiveTierId("");
-                            setAddonTierIds([]);
-                            setStep("tiers");
-                          } catch (error) {
-                            toast.error(
-                              getApiErrorMessage(error, "Guest not found."),
-                            );
-                          }
-                        }}
-                      />
-                      <div aria-hidden className="border-border/60 border-t" />
-                    </>
-                  ) : (
-                    <>
-                      <div aria-hidden className="border-border/60 border-t" />
-                      <GuestContactForm
-                        disabled={guestMutation.isPending}
-                        onSubmit={(values) => {
-                          setGuestContact(values);
-                          setGuest(null);
-                          setCredential(null);
-                          setExclusiveTierId("");
-                          setAddonTierIds([]);
-                          setStep("tiers");
-                        }}
-                      />
-                    </>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setStep("mode")}
-                  >
-                    Back
                   </Button>
                 </CardContent>
               </Card>
@@ -406,13 +333,19 @@ export function PosPage() {
                       <span className="font-medium">{guest.guestName}</span>
                     </p>
                   ) : null}
-                  {catalogQuery.isLoading ? (
+                  {catalogQuery.isLoading && !addonOnly ? (
                     <p className="text-muted-foreground text-sm">
                       Loading tiers…
                     </p>
+                  ) : pickerTiers.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      {addonOnly
+                        ? "No add-ons available for this guest."
+                        : "No admission tiers available."}
+                    </p>
                   ) : (
                     <TierPicker
-                      addonOnly={saleMode === "addon"}
+                      addonOnly={addonOnly}
                       addonTierIds={addonTierIds}
                       exclusiveTierId={exclusiveTierId}
                       tiers={pickerTiers}
@@ -437,13 +370,7 @@ export function PosPage() {
                   ) : null}
                   <Button
                     className="w-full"
-                    disabled={
-                      saleMutation.isPending ||
-                      !online ||
-                      (saleMode === "new"
-                        ? !exclusiveTierId
-                        : addonTierIds.length === 0)
-                    }
+                    disabled={saleMutation.isPending || !canCharge}
                     type="button"
                     onClick={() => void startSale()}
                   >
