@@ -68,6 +68,8 @@ export type PosSaleCreateResult = {
   readerId: string;
   paymentStatus: "pending" | "paid";
   requiresPayment: boolean;
+  paymentMethod?: "solo_reader" | "app_switch";
+  handoffUrl?: string;
 };
 
 export type PosSaleStatus = {
@@ -77,7 +79,6 @@ export type PosSaleStatus = {
   amountCents: number;
   guestName: string | null;
   tiers: string | null;
-  signedCredential: string | null;
 };
 
 export type SumUpPosConfig = {
@@ -158,6 +159,7 @@ export async function createPosSale(body: {
   locale: "de" | "en" | "it";
   exclusiveTierId: string;
   addonTierIds: string[];
+  platform?: "ios" | "android";
   personId?: string | null;
   credential?: string | null;
   email?: string | null;
@@ -166,6 +168,21 @@ export async function createPosSale(body: {
   familyName?: string | null;
 }): Promise<PosSaleCreateResult> {
   const { data } = await api.post<PosSaleCreateResult>("/pos/sale", body);
+
+  return data;
+}
+
+export async function confirmPosAppSwitchSale(
+  orderId: string,
+  body: {
+    smpStatus?: "success" | "failed" | "invalidstate";
+    transactionCode?: string;
+  },
+): Promise<PosSaleStatus> {
+  const { data } = await api.post<PosSaleStatus>(
+    `/pos/sale/${orderId}/confirm-app-switch`,
+    body,
+  );
 
   return data;
 }

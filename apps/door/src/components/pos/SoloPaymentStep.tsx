@@ -20,11 +20,7 @@ type SoloPaymentStepProps = {
   amountCents: number;
   currency: string;
   readerName: string | null;
-  onPaid: (
-    signedCredential: string,
-    guestName: string | null,
-    tiers: string | null,
-  ) => void;
+  onPaid: (guestName: string | null, tiers: string | null) => void;
   onCancelled: () => void;
 };
 
@@ -46,28 +42,22 @@ export function SoloPaymentStep({
     status?.status === "failed" || status?.paymentStatus === "failed";
 
   useEffect(() => {
-    if (isPaid && status?.signedCredential) {
-      onPaid(status.signedCredential, status.guestName, status.tiers);
+    if (isPaid) {
+      onPaid(status?.guestName ?? null, status?.tiers ?? null);
     }
-  }, [
-    isPaid,
-    onPaid,
-    status?.guestName,
-    status?.signedCredential,
-    status?.tiers,
-  ]);
+  }, [isPaid, onPaid, status?.guestName, status?.tiers]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Present card on Solo</CardTitle>
+        <CardTitle className="text-base">Present card on reader</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-center">
         <p className="text-3xl font-semibold tabular-nums">
           {formatPrice(amountCents, currency)}
         </p>
         {readerName ? (
-          <p className="text-muted-foreground text-sm">Reader: {readerName}</p>
+          <p className="text-muted-foreground text-sm">Payment: {readerName}</p>
         ) : null}
         {!isFailed ? (
           <div className="text-muted-foreground flex items-center justify-center gap-2 text-sm">

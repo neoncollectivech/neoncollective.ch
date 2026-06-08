@@ -1,17 +1,38 @@
 # NEON Door (`@neon/door`)
 
-Field PWA for QR admission check-in (`POST /check-in`) and on-site POS sales (`/pos/*`) via SumUp Cloud API + Solo readers.
+Field PWA for QR admission check-in (`POST /check-in`) and on-site POS sales (`/pos/*`) via SumUp Cloud API + Solo readers, with **Tap to Pay** (SumUp Payment Switch) as a phone fallback.
 
-**Scan** and **POS** are separate views (bottom tab bar). API key, event, Solo reader, and scan feedback settings persist in **localStorage**. Offline check-ins use IndexedDB (`neon-door`); POS requires network.
+**Scan** and **POS** are separate views (bottom tab bar). API key, event, payment method (Solo reader or Tap to Pay), and scan feedback settings persist in **localStorage**. Offline check-ins use IndexedDB (`neon-door`); POS requires network.
 
-## POS (SumUp Solo)
+## POS (SumUp)
 
-1. Configure `events-api` with sandbox `SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_AFFILIATE_KEY`, `SUMUP_APP_ID` (see `functions/events-api/.env.example`). Create the API key under Developer Settings → Sandboxes for your test merchant (`SUMUP_MERCHANT_CODE`, e.g. `MADADSWC`). `/me` may still show your live merchant — that is normal; reader API calls use `SUMUP_MERCHANT_CODE`.
-2. Pair Virtual Solo in Door POS (pairing form) or via Cloud API. Open [Virtual Solo](https://virtual-solo.sumup.com/), copy the pairing code, pair, then **keep that tab open** until reader status is **ONLINE**.
-3. In Door **POS**, pick the paired reader, select a guest (search, scan admission QR, or enter contact details), then choose what to sell — admission + add-ons for new guests, or add-ons only when the guest already has admission.
-4. Tap **Charge on Solo** — guest pays on the WiFi/cellular terminal; Door polls until paid and shows the admission QR.
+### Solo reader (primary)
 
-Webhook: set SumUp checkout `return_url` to `{EVENTS_API_PUBLIC_URL}/pos/webhooks/sumup` (configured automatically when `EVENTS_API_PUBLIC_URL` is set). Optional `SUMUP_WEBHOOK_SECRET` verifies `x-payload-signature`.
+1. Configure `events-api` with `SUMUP_API_KEY`, `SUMUP_MERCHANT_CODE`, `SUMUP_AFFILIATE_KEY`, `SUMUP_APP_ID` (see `functions/events-api/.env.example`). Create the API key under Developer Settings → Sandboxes for your test merchant (`SUMUP_MERCHANT_CODE`, e.g. `MADADSWC`). `/me` may still show your live merchant — that is normal; reader API calls use `SUMUP_MERCHANT_CODE`.
+2. Pair a physical Solo in Door POS (**Pair new reader** → pairing code from the terminal).
+3. In Door **POS**, pick the reader (or **Use Tap to Pay**), select a guest (search, scan admission QR, or enter contact details), choose tiers, then **Charge on reader**.
+4. Guest pays on the terminal; Door polls until paid and shows **Sale complete** (admission is created/updated server-side — no QR on Door).
+
+Webhook: SumUp checkout `return_url` is `{EVENTS_API_PUBLIC_URL}/pos/webhooks/sumup` when `EVENTS_API_PUBLIC_URL` is set. Optional `SUMUP_WEBHOOK_SECRET` verifies `x-payload-signature`.
+
+### Tap to Pay (SumUp app handoff)
+
+Fallback when no Solo is available. Requires on `events-api`:
+
+- `SUMUP_APP_SWITCH_CALLBACK_BASE` — HTTPS URL without query string, e.g. `https://neoncollective.ch/door/pos`
+- Optional `SUMUP_APP_SWITCH_ANDROID_APP_ID` (defaults to `SUMUP_APP_ID`)
+
+SumUp merchant app must be installed and logged in on the door device.
+
+**SumUp dashboard** (Profile → Developers): whitelist app IDs for your affiliate key:
+
+- `com.apple.mobilesafari`
+- `com.sumup.appswitch`
+- PWA standalone bundle ID — contact `integration@sumup.com` if launching SumUp from the installed Door PWA fails
+
+**Staff workflow (iPhone PWA):** Select **Use Tap to Pay** → guest → tiers → **Continue to SumUp** → **Open SumUp** → pay in SumUp app → **switch back to the NEON Door home-screen icon** → wait for **Sale complete**. Do not rely on automatic return from SumUp on iOS installed PWA (Safari callback may lack Door session).
+
+Payment Switch is legacy; poll + `POST /pos/sale/:id/confirm-app-switch` are required for reliable confirmation.
 
 ## Local development
 
@@ -24,6 +45,8 @@ pnpm --filter @neon/door dev
 ```
 
 Open http://localhost:5174 (or your machine’s LAN IP on port 5174 — dev server binds `0.0.0.0`) — paste an event API key from [NEON Admin](http://localhost:5173) → API Keys.
+
+For Tap to Pay device testing, `SUMUP_APP_SWITCH_CALLBACK_BASE` can point at ngrok/LAN HTTPS; note iOS PWA vs Safari storage behavior.
 
 ## Environment
 

@@ -65,7 +65,7 @@ export function App() {
             </Routes>
           </DoorAppShell>
           <PwaUpdateNotifier />
-          <Toaster position="top-center" richColors theme="dark" />
+          <Toaster richColors position="top-center" theme="dark" />
         </BrowserRouter>
       </div>
     </QueryClientProvider>

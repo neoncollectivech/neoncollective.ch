@@ -2,6 +2,7 @@ import { mutationOptions, queryOptions } from "@tanstack/react-query";
 
 import {
   cancelPosSale,
+  confirmPosAppSwitchSale,
   createPosSale,
   deletePosReader,
   fetchPosCatalog,
@@ -91,6 +92,17 @@ export const posApi = {
       mutationOptions({
         mutationKey: [...posKeys.all, "sale-cancel"],
         mutationFn: (orderId: string) => cancelPosSale(orderId),
+      }),
+    confirmAppSwitch: () =>
+      mutationOptions({
+        mutationKey: [...posKeys.all, "sale-confirm-app-switch"],
+        mutationFn: (params: {
+          orderId: string;
+          body: {
+            smpStatus?: "success" | "failed" | "invalidstate";
+            transactionCode?: string;
+          };
+        }) => confirmPosAppSwitchSale(params.orderId, params.body),
       }),
     status: (orderId: string) =>
       queryOptions({

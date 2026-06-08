@@ -1,8 +1,10 @@
-import { admissionsService } from "../../services/admissions.service";
+import { isSumUpAppSwitchReader } from "../../config/sumup-app-switch";
 import { ordersService } from "../../services/orders.service";
 import { peopleService } from "../../services/people.service";
-import { runTransaction } from "../../services/transaction";
-import { getSumUpPaymentStatusByClientTransactionId } from "../../helpers/sumup";
+import {
+  getSumUpPaymentStatusByClientTransactionId,
+  getSumUpPaymentStatusByForeignTransactionId,
+} from "../../helpers/sumup";
 import { formatOrderTierNames } from "../shared/format-order-tiers";
 import { fulfillPaidOrderFromSumup } from "../checkout/fulfill-paid-order";
 import { handleFulfillmentResult } from "../checkout/handle-fulfillment-result";
@@ -14,8 +16,23 @@ export type PosSaleStatus = {
   amountCents: number;
   guestName: string | null;
   tiers: string | null;
-  signedCredential: string | null;
 };
+
+async function resolvePendingSumUpPaymentStatus(order: {
+  id: string;
+  sumupReaderId: string | null;
+  sumupClientTransactionId: string | null;
+}): Promise<"pending" | "successful" | "failed" | "unknown"> {
+  if (isSumUpAppSwitchReader(order.sumupReaderId)) {
+    return getSumUpPaymentStatusByForeignTransactionId(order.id);
+  }
+
+  if (!order.sumupClientTransactionId) {
+    return "pending";
+  }
+
+  return getSumUpPaymentStatusByClientTransactionId(order.sumupClientTransactionId);
+}
 
 export async function getPosSaleStatus(
   orderId: string,
@@ -31,10 +48,8 @@ export async function getPosSaleStatus(
     paymentStatus = "successful";
   } else if (order.status === "failed") {
     paymentStatus = "failed";
-  } else if (order.status === "pending" && order.sumupClientTransactionId) {
-    paymentStatus = await getSumUpPaymentStatusByClientTransactionId(
-      order.sumupClientTransactionId,
-    );
+  } else if (order.status === "pending") {
+    paymentStatus = await resolvePendingSumUpPaymentStatus(order);
     if (paymentStatus === "successful") {
       const result = await fulfillPaidOrderFromSumup({
         orderId: order.id,
@@ -54,18 +69,6 @@ export async function getPosSaleStatus(
       ? (await formatOrderTierNames(orderId)) || null
       : null;
 
-  let signedCredential: string | null = null;
-  if (refreshedOrder.status === "paid") {
-    signedCredential = await runTransaction(async (tx) => {
-      const admission = await admissionsService.findAdmissionForPersonOnEventInTx(
-        tx,
-        refreshedOrder.personId,
-        eventId,
-      );
-      return admission?.signedCredential ?? null;
-    });
-  }
-
   const resolvedPaymentStatus =
     refreshedOrder.status === "paid"
       ? "successful"
@@ -80,6 +83,5 @@ export async function getPosSaleStatus(
     amountCents: refreshedOrder.amountCents,
     guestName,
     tiers,
-    signedCredential,
   };
 }

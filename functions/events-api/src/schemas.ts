@@ -84,12 +84,18 @@ export const posSaleCreateSchema = type({
   locale: "'de' | 'en' | 'it'",
   exclusiveTierId: "string",
   addonTierIds: "string[]",
+  "platform?": "'ios' | 'android'",
   "personId?": "string | null",
   "credential?": "string | null",
   "email?": "string.email | null",
   "phoneE164?": "string | null",
   "givenName?": "string | null",
   "familyName?": "string | null",
+});
+
+export const posAppSwitchConfirmSchema = type({
+  "smpStatus?": "'success' | 'failed' | 'invalidstate'",
+  "transactionCode?": "string",
 });
 
 export const posReaderPairSchema = type({

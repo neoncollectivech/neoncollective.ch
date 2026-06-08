@@ -11,6 +11,7 @@ import {
   posGuestResolveSchema,
   posPricingPreviewSchema,
   posReaderPairSchema,
+  posAppSwitchConfirmSchema,
   posSaleCreateSchema,
 } from "../../schemas";
 import { isSumUpConfigured } from "../../config/sumup";
@@ -28,6 +29,7 @@ import { previewPosPricing } from "./pricing-preview";
 import { resolvePosGuest } from "./resolve-pos-guest";
 import { getPosSaleStatus } from "./sale-status";
 import { searchPosPeople } from "./search-people";
+import { confirmPosAppSwitchSale } from "./confirm-app-switch";
 
 const POS_ERRORS = {
   event_not_found: { status: 404 as ContentfulStatusCode, error: "Event not found." },
@@ -75,6 +77,10 @@ const POS_ERRORS = {
   reader_offline: {
     status: 503,
     error: "The Solo reader is offline.",
+  },
+  app_switch_not_configured: {
+    status: 503,
+    error: "Tap to Pay is not configured on the server.",
   },
   checkout_failed: { status: 500, error: "Checkout failed." },
   sale_not_found: { status: 404, error: "Sale not found." },
@@ -310,6 +316,7 @@ export function createPosRouter(): Hono<AppEnv> {
           locale: body.locale,
           exclusiveTierId: body.exclusiveTierId,
           addonTierIds: body.addonTierIds,
+          platform: body.platform,
           personId: body.personId,
           credential: body.credential,
           email: body.email,
@@ -350,6 +357,36 @@ export function createPosRouter(): Hono<AppEnv> {
       }
       return c.json({ ok: true });
     }),
+  );
+
+  router.post(
+    "/pos/sale/:orderId/confirm-app-switch",
+    ...authFactory.createHandlers(
+      eventApiKeyBearerAuth,
+      arktypeValidator("json", posAppSwitchConfirmSchema),
+      async (c) => {
+        const eventId = resolvePosEventId(c);
+        if (!eventId || !assertPosEventAccess(c, eventId)) {
+          return c.json({ error: POS_ERRORS.event_not_found.error }, 404);
+        }
+        const orderId = c.req.param("orderId")?.trim();
+        if (!orderId) {
+          return c.json({ error: POS_ERRORS.sale_not_found.error }, 404);
+        }
+        const body = c.req.valid("json");
+        const result = await confirmPosAppSwitchSale(orderId, eventId, body);
+        if (!result.ok) {
+          if (result.reason === "not_found") {
+            return c.json({ error: POS_ERRORS.sale_not_found.error }, 404);
+          }
+          if (result.reason === "invalid_order") {
+            return c.json({ error: POS_ERRORS.sale_not_cancellable.error }, 409);
+          }
+          return c.json({ error: "Payment failed or was cancelled." }, 402);
+        }
+        return c.json(result.status);
+      },
+    ),
   );
 
   router.get(
