@@ -50,22 +50,24 @@ function EventSelectRedirect() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={doorBasename || undefined}>
-        <DoorAppShell>
-          <Routes>
-            <Route element={<SetupRedirect />} path="/setup" />
-            <Route element={<EventSelectRedirect />} path="/setup/event" />
-            <Route element={<AuthGuard />}>
-              <Route index element={<ScanPage />} />
-              <Route element={<PosPage />} path="pos" />
-              <Route element={<QueuePage />} path="queue" />
-            </Route>
-            <Route element={<Navigate replace to="/" />} path="*" />
-          </Routes>
-        </DoorAppShell>
-        <PwaUpdateNotifier />
-        <Toaster position="top-center" richColors theme="dark" />
-      </BrowserRouter>
+      <div className="door-root flex min-h-0 flex-1 flex-col overflow-hidden">
+        <BrowserRouter basename={doorBasename || undefined}>
+          <DoorAppShell>
+            <Routes>
+              <Route element={<SetupRedirect />} path="/setup" />
+              <Route element={<EventSelectRedirect />} path="/setup/event" />
+              <Route element={<AuthGuard />}>
+                <Route index element={<ScanPage />} />
+                <Route element={<PosPage />} path="pos" />
+                <Route element={<QueuePage />} path="queue" />
+              </Route>
+              <Route element={<Navigate replace to="/" />} path="*" />
+            </Routes>
+          </DoorAppShell>
+          <PwaUpdateNotifier />
+          <Toaster position="top-center" richColors theme="dark" />
+        </BrowserRouter>
+      </div>
     </QueryClientProvider>
   );
 }

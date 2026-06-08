@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 
+import { doorRoutePath } from "@/lib/door-routes";
 import { cn } from "@/lib/utils";
 
 const modes = [
@@ -9,18 +10,19 @@ const modes = [
 
 export function DoorModeNav() {
   const { pathname } = useLocation();
+  const routePath = doorRoutePath(pathname);
 
   return (
     <nav
       aria-label="Door mode"
-      className="border-border/60 bg-background/95 relative z-20 flex shrink-0 border-t px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2"
+      className="border-border/60 bg-background/95 fixed inset-x-0 bottom-0 z-50 flex border-t px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2"
     >
       <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2">
         {modes.map((mode) => {
           const active =
             mode.to === "/"
-              ? pathname === "/" || pathname === ""
-              : pathname.startsWith(mode.to);
+              ? routePath === "/" || routePath === ""
+              : routePath.startsWith(mode.to);
 
           return (
             <Link

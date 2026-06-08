@@ -1,6 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
 
-import { DoorModeShell } from "@/components/layout/DoorModeShell";
 import { getDoorSessionConfig } from "@/lib/storage/session-config";
 
 export function AuthGuard() {
@@ -11,8 +10,8 @@ export function AuthGuard() {
   }
 
   return (
-    <DoorModeShell>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <Outlet />
-    </DoorModeShell>
+    </div>
   );
 }
