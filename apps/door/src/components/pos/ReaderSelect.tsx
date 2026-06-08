@@ -10,11 +10,6 @@ import { Label } from "@/components/ui/label";
 import { posApi } from "@/hooks/use-pos-api/api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
-  isSumUpAppSwitchReader,
-  SUMUP_APP_SWITCH_READER_ID,
-  SUMUP_APP_SWITCH_READER_NAME,
-} from "@/lib/sumup-app-switch";
-import {
   clearDoorReaderConfig,
   getDoorSessionConfig,
   setDoorReaderConfig,
@@ -92,30 +87,6 @@ export function ReaderSelect({
 
   const readers = readersQuery.data?.readers ?? [];
   const hasOnlineReader = readers.some((reader) => reader.online);
-  const tapToPaySelected = isSumUpAppSwitchReader(session?.readerId);
-  const tapToPayLabel =
-    readers.length > 0 ? "Use Tap to Pay instead" : "Use Tap to Pay";
-
-  const selectTapToPay = () => {
-    setConfirmDeleteId(null);
-    setDoorReaderConfig({
-      readerId: SUMUP_APP_SWITCH_READER_ID,
-      readerName: SUMUP_APP_SWITCH_READER_NAME,
-    });
-    onSelected();
-  };
-
-  const selectReader = (reader: (typeof readers)[number]) => {
-    if (!reader.online) {
-      toast.error("Reader is offline. Check power and connection.");
-    }
-    setConfirmDeleteId(null);
-    setDoorReaderConfig({
-      readerId: reader.id,
-      readerName: reader.name,
-    });
-    onSelected();
-  };
 
   return (
     <div className="space-y-4">
@@ -160,7 +131,19 @@ export function ReaderSelect({
                     disabled={deleteMutation.isPending}
                     type="button"
                     variant={selected ? "default" : "outline"}
-                    onClick={() => selectReader(reader)}
+                    onClick={() => {
+                      if (!reader.online) {
+                        toast.error(
+                          "Reader is offline. Check power and connection.",
+                        );
+                      }
+                      setConfirmDeleteId(null);
+                      setDoorReaderConfig({
+                        readerId: reader.id,
+                        readerName: reader.name,
+                      });
+                      onSelected();
+                    }}
                   >
                     <span className="flex w-full min-w-0 flex-col items-start gap-0.5 text-left">
                       <span className="w-full truncate">{reader.name}</span>
@@ -213,20 +196,6 @@ export function ReaderSelect({
           </CardContent>
         </Card>
       ) : null}
-
-      <div className="space-y-2">
-        <Button
-          className={cn("w-full", tapToPaySelected && "ring-2 ring-primary")}
-          type="button"
-          variant={tapToPaySelected ? "default" : "outline"}
-          onClick={selectTapToPay}
-        >
-          {tapToPayLabel}
-        </Button>
-        <p className="text-muted-foreground text-center text-xs">
-          Requires SumUp app logged in on this device.
-        </p>
-      </div>
 
       {pairExpanded ? (
         <Card>

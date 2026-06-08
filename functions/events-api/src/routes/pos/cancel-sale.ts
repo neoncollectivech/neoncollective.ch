@@ -1,4 +1,3 @@
-import { isSumUpAppSwitchReader } from "../../config/sumup-app-switch";
 import { ordersService } from "../../services/orders.service";
 import { runTransaction } from "../../services/transaction";
 import { terminateSumUpReaderCheckout } from "../../helpers/sumup";
@@ -15,7 +14,7 @@ export async function cancelPosSale(
     return "not_cancellable";
   }
 
-  if (order.sumupReaderId && !isSumUpAppSwitchReader(order.sumupReaderId)) {
+  if (order.sumupReaderId) {
     try {
       await terminateSumUpReaderCheckout(order.sumupReaderId);
     } catch {

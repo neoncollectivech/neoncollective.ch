@@ -1,10 +1,6 @@
-import { isSumUpAppSwitchReader } from "../../config/sumup-app-switch";
 import { ordersService } from "../../services/orders.service";
 import { peopleService } from "../../services/people.service";
-import {
-  getSumUpPaymentStatusByClientTransactionId,
-  getSumUpPaymentStatusByForeignTransactionId,
-} from "../../helpers/sumup";
+import { getSumUpPaymentStatusByClientTransactionId } from "../../helpers/sumup";
 import { formatOrderTierNames } from "../shared/format-order-tiers";
 import { fulfillPaidOrderFromSumup } from "../checkout/fulfill-paid-order";
 import { handleFulfillmentResult } from "../checkout/handle-fulfillment-result";
@@ -17,22 +13,6 @@ export type PosSaleStatus = {
   guestName: string | null;
   tiers: string | null;
 };
-
-async function resolvePendingSumUpPaymentStatus(order: {
-  id: string;
-  sumupReaderId: string | null;
-  sumupClientTransactionId: string | null;
-}): Promise<"pending" | "successful" | "failed" | "unknown"> {
-  if (isSumUpAppSwitchReader(order.sumupReaderId)) {
-    return getSumUpPaymentStatusByForeignTransactionId(order.id);
-  }
-
-  if (!order.sumupClientTransactionId) {
-    return "pending";
-  }
-
-  return getSumUpPaymentStatusByClientTransactionId(order.sumupClientTransactionId);
-}
 
 export async function getPosSaleStatus(
   orderId: string,
@@ -48,8 +28,10 @@ export async function getPosSaleStatus(
     paymentStatus = "successful";
   } else if (order.status === "failed") {
     paymentStatus = "failed";
-  } else if (order.status === "pending") {
-    paymentStatus = await resolvePendingSumUpPaymentStatus(order);
+  } else if (order.status === "pending" && order.sumupClientTransactionId) {
+    paymentStatus = await getSumUpPaymentStatusByClientTransactionId(
+      order.sumupClientTransactionId,
+    );
     if (paymentStatus === "successful") {
       const result = await fulfillPaidOrderFromSumup({
         orderId: order.id,

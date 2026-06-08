@@ -13,19 +13,13 @@ import { resolveCheckoutPricingInTx } from "../checkout/promotion-pricing";
 import { assertPosSaleEligibilityInTx } from "../checkout/shared-pos-eligibility";
 import { resolvePosGuest } from "./resolve-pos-guest";
 import {
-  buildSumUpAppSwitchUrl,
   getSumUpPaymentStatusByClientTransactionId,
-  getSumUpPaymentStatusByForeignTransactionId,
   createSumUpReaderCheckout,
   SumUpCheckoutError,
 } from "../../helpers/sumup";
 import { fulfillPaidOrderFromSumup, fulfillPaidOrderInTx } from "../checkout/fulfill-paid-order";
 import { handleFulfillmentResult } from "../checkout/handle-fulfillment-result";
 import { isSumUpConfigured } from "../../config/sumup";
-import {
-  isSumUpAppSwitchConfigured,
-  isSumUpAppSwitchReader,
-} from "../../config/sumup-app-switch";
 import { resolvePendingPosOrderInTx } from "./resolve-pending-pos-order";
 
 export type CreatePosSaleInput = {
@@ -35,7 +29,6 @@ export type CreatePosSaleInput = {
   locale: "de" | "en" | "it";
   exclusiveTierId: string;
   addonTierIds: string[];
-  platform?: "ios" | "android";
   personId?: string | null;
   credential?: string | null;
   email?: string | null;
@@ -63,7 +56,6 @@ export type CreatePosSaleFailureReason =
   | "mixed_currency"
   | "reader_checkout_failed"
   | "reader_offline"
-  | "app_switch_not_configured"
   | "checkout_failed";
 
 export type CreatePosSaleSuccess = {
@@ -73,8 +65,6 @@ export type CreatePosSaleSuccess = {
   readerId: string;
   paymentStatus: "pending" | "paid";
   requiresPayment: boolean;
-  paymentMethod?: "solo_reader" | "app_switch";
-  handoffUrl?: string;
 };
 
 export type CreatePosSaleResult = CreatePosSaleSuccess | {
@@ -117,11 +107,6 @@ async function completeAlreadyPaidPosOrder(orderId: string): Promise<CreatePosSa
 export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePosSaleResult> {
   if (!isSumUpConfigured()) {
     return { ok: false, reason: "sumup_not_configured" };
-  }
-
-  const appSwitch = isSumUpAppSwitchReader(input.readerId);
-  if (appSwitch && !isSumUpAppSwitchConfigured()) {
-    return { ok: false, reason: "app_switch_not_configured" };
   }
 
   const exclusiveTierId = input.exclusiveTierId?.trim() ?? "";
@@ -321,11 +306,9 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
 
     const orderBeforeCheckout = await ordersService.get(charge.orderId);
     if (orderBeforeCheckout?.sumupClientTransactionId) {
-      const paymentStatus = appSwitch
-        ? await getSumUpPaymentStatusByForeignTransactionId(charge.orderId)
-        : await getSumUpPaymentStatusByClientTransactionId(
-            orderBeforeCheckout.sumupClientTransactionId,
-          );
+      const paymentStatus = await getSumUpPaymentStatusByClientTransactionId(
+        orderBeforeCheckout.sumupClientTransactionId,
+      );
       if (paymentStatus === "successful") {
         const completed = await completeAlreadyPaidPosOrder(charge.orderId);
         if (completed) {
@@ -337,36 +320,6 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
     const orderForCheckout = await ordersService.get(charge.orderId);
     if (!orderForCheckout) {
       return { ok: false, reason: "checkout_failed" };
-    }
-
-    if (appSwitch) {
-      if (!orderForCheckout.sumupClientTransactionId?.trim()) {
-        // Reuse sumupClientTransactionId to mark foreign-tx-id until SumUp assigns a client tx id.
-        await runTransaction((tx) =>
-          ordersService.attachSumupCheckoutInTx(tx, charge.orderId, charge.orderId),
-        );
-      }
-
-      const handoffUrl = buildSumUpAppSwitchUrl({
-        orderId: charge.orderId,
-        amountCents: charge.amountCents,
-        currency: charge.currency,
-        title: `${charge.eventTitle} — door POS`,
-        platform: input.platform ?? "ios",
-        receiptEmail: input.email,
-        receiptPhone: input.phoneE164,
-      });
-
-      return {
-        ok: true,
-        orderId: charge.orderId,
-        amountCents: charge.amountCents,
-        readerId: charge.readerId,
-        paymentStatus: "pending",
-        requiresPayment: true,
-        paymentMethod: "app_switch",
-        handoffUrl,
-      };
     }
 
     if (orderForCheckout.sumupClientTransactionId?.trim()) {
@@ -408,7 +361,6 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
       readerId: charge.readerId,
       paymentStatus: "pending",
       requiresPayment: true,
-      paymentMethod: "solo_reader",
     };
   } catch {
     return { ok: false, reason: "checkout_failed" };

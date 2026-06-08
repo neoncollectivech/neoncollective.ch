@@ -1,10 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { LogOut } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { AppSwitchPaymentStep } from "@/components/pos/AppSwitchPaymentStep";
 import {
   GuestContactForm,
   type GuestContactValues,
@@ -18,7 +17,6 @@ import { TierPicker } from "@/components/pos/TierPicker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { posApi } from "@/hooks/use-pos-api/api";
-import { useSumUpAppSwitchReturn } from "@/hooks/use-sumup-app-switch-return";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
@@ -27,11 +25,6 @@ import {
   type PosResolvedGuest,
   type PosTier,
 } from "@/lib/pos-api";
-import {
-  detectSumUpPlatform,
-  isSumUpAppSwitchReader,
-  PENDING_APP_SWITCH_HANDOFF_KEY,
-} from "@/lib/sumup-app-switch";
 import {
   clearDoorSessionConfig,
   getDoorSessionConfig,
@@ -63,7 +56,6 @@ export function PosPage() {
   const navigate = useNavigate();
   const online = useOnlineStatus();
   const session = getDoorSessionConfig();
-  const appSwitchReturn = useSumUpAppSwitchReturn();
 
   const [step, setStep] = useState<PosStep>(
     session?.readerId ? "guest" : "reader",
@@ -79,10 +71,6 @@ export function PosPage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentAmountCents, setPaymentAmountCents] = useState(0);
   const [paymentCurrency, setPaymentCurrency] = useState("CHF");
-  const [handoffUrl, setHandoffUrl] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<
-    "solo_reader" | "app_switch" | null
-  >(null);
   const [successGuestName, setSuccessGuestName] = useState<string | null>(null);
   const [successTiers, setSuccessTiers] = useState<string | null>(null);
 
@@ -104,7 +92,6 @@ export function PosPage() {
   });
 
   const addonOnly = guest?.hasPaidExclusive ?? false;
-  const tapToPay = isSumUpAppSwitchReader(session?.readerId);
   const paymentLabel = session?.readerName
     ? `Payment: ${session.readerName}`
     : null;
@@ -131,36 +118,6 @@ export function PosPage() {
     return Boolean(exclusiveTierId);
   }, [guest, online, exclusiveTierId, addonTierIds]);
 
-  const goToSuccess = (guestName: string | null, tiers: string | null) => {
-    setSuccessGuestName(guestName);
-    setSuccessTiers(tiers);
-    setOrderId(null);
-    setHandoffUrl(null);
-    setPaymentMethod(null);
-    setStep("success");
-  };
-
-  useEffect(() => {
-    if (appSwitchReturn.kind === "no_session") {
-      return;
-    }
-    if (appSwitchReturn.kind === "paid") {
-      goToSuccess(appSwitchReturn.guestName, appSwitchReturn.tiers);
-
-      return;
-    }
-    if (appSwitchReturn.kind === "resume_payment") {
-      setOrderId(appSwitchReturn.orderId);
-      setPaymentAmountCents(appSwitchReturn.amountCents);
-      setPaymentCurrency(appSwitchReturn.currency);
-      setPaymentMethod("app_switch");
-      if (appSwitchReturn.handoffUrl) {
-        setHandoffUrl(appSwitchReturn.handoffUrl);
-      }
-      setStep("payment");
-    }
-  }, [appSwitchReturn]);
-
   const resetFlow = () => {
     setStep(session?.readerId ? "guest" : "reader");
     setGuest(null);
@@ -172,8 +129,6 @@ export function PosPage() {
     setOrderId(null);
     setPaymentAmountCents(0);
     setPaymentCurrency("CHF");
-    setHandoffUrl(null);
-    setPaymentMethod(null);
     setSuccessGuestName(null);
     setSuccessTiers(null);
   };
@@ -231,7 +186,6 @@ export function PosPage() {
     const body = {
       readerId: session.readerId,
       locale: "en" as const,
-      platform: detectSumUpPlatform(),
       exclusiveTierId: addonOnly ? "" : exclusiveTierId,
       addonTierIds,
       personId: guest?.personId ?? null,
@@ -253,7 +207,9 @@ export function PosPage() {
         const status = await fetchPosSaleStatus(result.orderId);
 
         if (status.status === "paid" || status.paymentStatus === "successful") {
-          goToSuccess(status.guestName, status.tiers);
+          setSuccessGuestName(status.guestName);
+          setSuccessTiers(status.tiers);
+          setStep("success");
 
           return;
         }
@@ -262,14 +218,6 @@ export function PosPage() {
       setOrderId(result.orderId);
       setPaymentAmountCents(result.amountCents);
       setPaymentCurrency(pricingQuery.data?.currency ?? "CHF");
-      setPaymentMethod(result.paymentMethod ?? "solo_reader");
-      if (result.handoffUrl) {
-        setHandoffUrl(result.handoffUrl);
-        sessionStorage.setItem(
-          PENDING_APP_SWITCH_HANDOFF_KEY,
-          result.handoffUrl,
-        );
-      }
       setStep("payment");
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Could not start sale."));
@@ -306,16 +254,6 @@ export function PosPage() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="mx-auto flex w-full max-w-md flex-col gap-4">
-          {appSwitchReturn.kind === "no_session" ? (
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm">
-                  Open NEON Door from your home screen to confirm the sale.
-                </p>
-              </CardContent>
-            </Card>
-          ) : null}
-
           {step === "reader" ? (
             <ReaderSelect
               mode={readerMode}
@@ -382,7 +320,7 @@ export function PosPage() {
                   variant="ghost"
                   onClick={() => setStep("reader")}
                 >
-                  Change payment method
+                  Change card reader
                 </Button>
               </CardContent>
             </Card>
@@ -446,11 +384,7 @@ export function PosPage() {
                   type="button"
                   onClick={() => void startSale()}
                 >
-                  {saleMutation.isPending
-                    ? "Starting…"
-                    : tapToPay
-                      ? "Continue to SumUp"
-                      : "Charge on reader"}
+                  {saleMutation.isPending ? "Starting…" : "Charge on reader"}
                 </Button>
                 <Button
                   type="button"
@@ -463,33 +397,7 @@ export function PosPage() {
             </Card>
           ) : null}
 
-          {step === "payment" &&
-          orderId &&
-          paymentMethod === "app_switch" &&
-          (handoffUrl ??
-            sessionStorage.getItem(PENDING_APP_SWITCH_HANDOFF_KEY)) ? (
-            <AppSwitchPaymentStep
-              amountCents={paymentAmountCents}
-              currency={paymentCurrency}
-              handoffUrl={
-                handoffUrl ??
-                sessionStorage.getItem(PENDING_APP_SWITCH_HANDOFF_KEY) ??
-                ""
-              }
-              orderId={orderId}
-              onCancelled={() => {
-                setOrderId(null);
-                setHandoffUrl(null);
-                setPaymentMethod(null);
-                setStep("tiers");
-              }}
-              onPaid={(guestName, tiers) => {
-                goToSuccess(guestName, tiers);
-              }}
-            />
-          ) : null}
-
-          {step === "payment" && orderId && paymentMethod !== "app_switch" ? (
+          {step === "payment" && orderId ? (
             <SoloPaymentStep
               amountCents={paymentAmountCents}
               currency={paymentCurrency}
@@ -497,11 +405,12 @@ export function PosPage() {
               readerName={session?.readerName ?? null}
               onCancelled={() => {
                 setOrderId(null);
-                setPaymentMethod(null);
                 setStep("tiers");
               }}
               onPaid={(guestName, tiers) => {
-                goToSuccess(guestName, tiers);
+                setSuccessGuestName(guestName);
+                setSuccessTiers(tiers);
+                setStep("success");
               }}
             />
           ) : null}

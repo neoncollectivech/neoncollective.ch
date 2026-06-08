@@ -1,4 +1,3 @@
-import { isSumUpAppSwitchReader } from "../../config/sumup-app-switch";
 import { terminateSumUpReaderCheckout } from "../../helpers/sumup";
 import { ordersService } from "../../services/orders.service";
 import type { EntityTx } from "../../services/transaction";
@@ -9,7 +8,7 @@ export async function supersedePendingPosOrderTx(
   tx: EntityTx,
   order: PendingPosOrder,
 ): Promise<void> {
-  if (order.sumupReaderId && !isSumUpAppSwitchReader(order.sumupReaderId)) {
+  if (order.sumupReaderId) {
     try {
       await terminateSumUpReaderCheckout(order.sumupReaderId);
     } catch {

@@ -5,10 +5,6 @@ import SumUp from "@sumup/sdk";
 import { createLogger } from "@neon/server-kit";
 
 import {
-  sumUpAppSwitchAndroidAppId,
-  sumUpAppSwitchCallbackBase,
-} from "../config/sumup-app-switch";
-import {
   isSumUpConfigured,
   isSumUpWebhookVerificationRequired,
   sumUpAffiliateKey,
@@ -217,19 +213,6 @@ export function getSumUpPosConfig(): SumUpPosConfig {
 
 export type SumUpReaderPaymentStatus = "pending" | "successful" | "failed" | "unknown";
 
-function mapSumUpSimpleStatus(
-  simpleStatus: string | undefined,
-): SumUpReaderPaymentStatus {
-  const status = simpleStatus?.toUpperCase();
-  if (status === "SUCCESSFUL" || status === "PAID_OUT" || status === "PAID") {
-    return "successful";
-  }
-  if (status === "FAILED" || status === "CANCELLED") {
-    return "failed";
-  }
-  return "pending";
-}
-
 export async function getSumUpPaymentStatusByClientTransactionId(
   clientTransactionId: string,
 ): Promise<SumUpReaderPaymentStatus> {
@@ -237,89 +220,17 @@ export async function getSumUpPaymentStatusByClientTransactionId(
     const tx = await getSumUpClient().transactions.get(sumUpMerchantCode(), {
       client_transaction_id: clientTransactionId,
     });
-    return mapSumUpSimpleStatus(tx.simple_status);
+    const status = tx.simple_status?.toUpperCase();
+    if (status === "SUCCESSFUL" || status === "PAID_OUT" || status === "PAID") {
+      return "successful";
+    }
+    if (status === "FAILED" || status === "CANCELLED") {
+      return "failed";
+    }
+    return "pending";
   } catch {
     return "unknown";
   }
-}
-
-export async function getSumUpPaymentStatusByForeignTransactionId(
-  foreignTransactionId: string,
-): Promise<SumUpReaderPaymentStatus> {
-  try {
-    const tx = await getSumUpClient().transactions.get(sumUpMerchantCode(), {
-      foreign_transaction_id: foreignTransactionId,
-    });
-    return mapSumUpSimpleStatus(tx.simple_status);
-  } catch {
-    return "unknown";
-  }
-}
-
-export async function getSumUpPaymentStatusByTransactionCode(
-  transactionCode: string,
-): Promise<SumUpReaderPaymentStatus> {
-  try {
-    const tx = await getSumUpClient().transactions.get(sumUpMerchantCode(), {
-      transaction_code: transactionCode.trim(),
-    });
-    return mapSumUpSimpleStatus(tx.simple_status);
-  } catch {
-    return "unknown";
-  }
-}
-
-function formatAppSwitchAmount(amountCents: number): string {
-  return (amountCents / 100).toFixed(2);
-}
-
-function buildAppSwitchCallbackUrl(orderId: string): string {
-  const url = new URL(sumUpAppSwitchCallbackBase());
-  url.searchParams.set("sumup", "return");
-  url.searchParams.set("orderId", orderId);
-  return url.toString();
-}
-
-export function buildSumUpAppSwitchUrl(params: {
-  orderId: string;
-  amountCents: number;
-  currency: string;
-  title: string;
-  platform: "ios" | "android";
-  receiptEmail?: string | null;
-  receiptPhone?: string | null;
-}): string {
-  const callback = buildAppSwitchCallbackUrl(params.orderId);
-  const amount = formatAppSwitchAmount(params.amountCents);
-  const query = new URLSearchParams();
-
-  query.set("affiliate-key", sumUpAffiliateKey());
-  query.set("currency", params.currency.toUpperCase());
-  query.set("title", params.title);
-  query.set("foreign-tx-id", params.orderId);
-  query.set("skip-screen-success", "true");
-
-  if (params.platform === "ios") {
-    query.set("amount", amount);
-    query.set("callbacksuccess", callback);
-    query.set("callbackfail", callback);
-  } else {
-    query.set("total", amount);
-    query.set("callback", callback);
-    const appId = sumUpAppSwitchAndroidAppId() ?? sumUpAppId();
-    query.set("app-id", appId);
-  }
-
-  const receiptEmail = params.receiptEmail?.trim();
-  if (receiptEmail) {
-    query.set("receipt-email", receiptEmail);
-  }
-  const receiptPhone = params.receiptPhone?.trim();
-  if (receiptPhone) {
-    query.set("receipt-mobilephone", receiptPhone);
-  }
-
-  return `sumupmerchant://pay/1.0?${query.toString()}`;
 }
 
 export function verifySumUpWebhookSignature(
