@@ -25,6 +25,7 @@ export type CreatePosSaleInput = {
   locale: "de" | "en" | "it";
   exclusiveTierId: string;
   addonTierIds: string[];
+  personId?: string | null;
   credential?: string | null;
   email?: string | null;
   phoneE164?: string | null;
@@ -115,6 +116,7 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
   const guestResult = await resolvePosGuest({
     eventId: input.eventId,
     eventQuota: evRow.eventQuota,
+    personId: input.personId,
     credential: input.credential,
     email: input.email,
     phoneE164: input.phoneE164,
@@ -128,6 +130,9 @@ export async function createPosSale(input: CreatePosSaleInput): Promise<CreatePo
     }
     if (guestResult.reason === "admission_not_found") {
       return { ok: false, reason: "admission_not_found" };
+    }
+    if (guestResult.reason === "person_not_found") {
+      return { ok: false, reason: "contact_required" };
     }
     return { ok: false, reason: "contact_required" };
   }

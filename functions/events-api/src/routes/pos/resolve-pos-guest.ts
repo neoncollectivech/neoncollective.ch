@@ -119,6 +119,7 @@ async function resolveGuestFromCredential(
 export async function resolvePosGuest(params: {
   eventId: string;
   eventQuota: number | null;
+  personId?: string | null;
   credential?: string | null;
   email?: string | null;
   phoneE164?: string | null;
@@ -126,13 +127,28 @@ export async function resolvePosGuest(params: {
   familyName?: string | null;
 }): Promise<
   | { ok: true; guest: ResolvedPosGuest }
-  | { ok: false; reason: "admission_not_found" | "contact_required" | "identity_conflict" }
+  | {
+      ok: false;
+      reason:
+        | "admission_not_found"
+        | "contact_required"
+        | "identity_conflict"
+        | "person_not_found";
+    }
 > {
   return runTransaction(async (tx) => {
     let personId: string | null = null;
     let guestName = "Guest";
 
-    if (params.credential?.trim()) {
+    const requestedPersonId = params.personId?.trim();
+    if (requestedPersonId) {
+      const person = await peopleService.getInTx(tx, requestedPersonId);
+      if (!person) {
+        return { ok: false, reason: "person_not_found" };
+      }
+      personId = person.id;
+      guestName = `${person.givenName} ${person.familyName}`.trim() || "Guest";
+    } else if (params.credential?.trim()) {
       const fromCredential = await resolveGuestFromCredential(params.eventId, params.credential);
       if (!fromCredential.ok) {
         return fromCredential;

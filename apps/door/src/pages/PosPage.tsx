@@ -10,6 +10,7 @@ import {
   GuestContactForm,
   type GuestContactValues,
 } from "@/components/pos/GuestContactForm";
+import { GuestPeopleSearch } from "@/components/pos/GuestPeopleSearch";
 import { GuestLookupScanner } from "@/components/pos/GuestLookupScanner";
 import { ReaderSelect } from "@/components/pos/ReaderSelect";
 import { SoloPaymentStep } from "@/components/pos/SoloPaymentStep";
@@ -21,6 +22,7 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   fetchPosSaleStatus,
+  type PosPersonSearchRow,
   type PosResolvedGuest,
   type PosTier,
 } from "@/lib/pos-api";
@@ -38,6 +40,19 @@ function formatPrice(cents: number, currency: string): string {
     style: "currency",
     currency: currency.toUpperCase(),
   }).format(cents / 100);
+}
+
+function personToGuestContact(person: PosPersonSearchRow): GuestContactValues {
+  return {
+    givenName: person.givenName,
+    familyName: person.familyName,
+    email: person.email ?? "",
+    phoneE164: person.phone
+      ? person.phone.startsWith("+")
+        ? person.phone
+        : `+${person.phone}`
+      : "",
+  };
 }
 
 export function PosPage() {
@@ -116,6 +131,32 @@ export function PosPage() {
     navigate("/setup", { replace: true });
   };
 
+  const selectPersonFromSearch = async (person: PosPersonSearchRow) => {
+    try {
+      const resolved = await guestMutation.mutateAsync({ personId: person.id });
+
+      if (saleMode === "addon" && !resolved.hasPaidExclusive) {
+        toast.error("Guest has no existing admission for this event.");
+
+        return;
+      }
+      if (saleMode === "new" && resolved.hasPaidExclusive) {
+        toast.error("Guest already has admission. Use add-ons instead.");
+
+        return;
+      }
+
+      setGuest(resolved);
+      setGuestContact(personToGuestContact(person));
+      setCredential(null);
+      setExclusiveTierId("");
+      setAddonTierIds([]);
+      setStep("tiers");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Could not load person."));
+    }
+  };
+
   const startSale = async () => {
     if (!session?.readerId) {
       setStep("reader");
@@ -128,6 +169,7 @@ export function PosPage() {
       locale: "en" as const,
       exclusiveTierId: saleMode === "addon" ? "" : exclusiveTierId,
       addonTierIds,
+      personId: guest?.personId ?? null,
       credential,
       email: guestContact?.email || null,
       phoneE164: guestContact?.phoneE164 || null,
@@ -254,6 +296,10 @@ export function PosPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <GuestPeopleSearch
+                    disabled={guestMutation.isPending}
+                    onSelect={(person) => void selectPersonFromSearch(person)}
+                  />
                   {saleMode === "addon" ? (
                     <>
                       {scanning ? (
@@ -319,19 +365,23 @@ export function PosPage() {
                           }
                         }}
                       />
+                      <div aria-hidden className="border-border/60 border-t" />
                     </>
                   ) : (
-                    <GuestContactForm
-                      disabled={guestMutation.isPending}
-                      onSubmit={(values) => {
-                        setGuestContact(values);
-                        setGuest(null);
-                        setCredential(null);
-                        setExclusiveTierId("");
-                        setAddonTierIds([]);
-                        setStep("tiers");
-                      }}
-                    />
+                    <>
+                      <div aria-hidden className="border-border/60 border-t" />
+                      <GuestContactForm
+                        disabled={guestMutation.isPending}
+                        onSubmit={(values) => {
+                          setGuestContact(values);
+                          setGuest(null);
+                          setCredential(null);
+                          setExclusiveTierId("");
+                          setAddonTierIds([]);
+                          setStep("tiers");
+                        }}
+                      />
+                    </>
                   )}
                   <Button
                     type="button"

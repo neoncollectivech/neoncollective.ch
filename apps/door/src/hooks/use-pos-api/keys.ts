@@ -9,5 +9,7 @@ export const posKeys = {
       params.exclusiveTierId,
       [...params.addonTierIds].sort().join(","),
     ] as const,
+  peopleSearch: (query: string) =>
+    [...posKeys.all, "people-search", query] as const,
   sale: (orderId: string) => [...posKeys.all, "sale", orderId] as const,
 };

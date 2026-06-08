@@ -47,6 +47,14 @@ export type PosResolvedGuest = {
   hasPaidExclusive: boolean;
 };
 
+export type PosPersonSearchRow = {
+  id: string;
+  givenName: string;
+  familyName: string;
+  email: string | null;
+  phone: string | null;
+};
+
 export type PosPricingPreview = {
   amountCents: number;
   subtotalCents: number;
@@ -109,7 +117,19 @@ export async function fetchPosCatalog(): Promise<PosCatalog> {
   return data;
 }
 
+export async function searchPosPeople(
+  query: string,
+): Promise<PosPersonSearchRow[]> {
+  const { data } = await api.get<{ people: PosPersonSearchRow[] }>(
+    "/pos/people/search",
+    { params: { q: query } },
+  );
+
+  return data.people;
+}
+
 export async function resolvePosGuest(body: {
+  personId?: string | null;
   credential?: string | null;
   email?: string | null;
   phoneE164?: string | null;
@@ -138,6 +158,7 @@ export async function createPosSale(body: {
   locale: "de" | "en" | "it";
   exclusiveTierId: string;
   addonTierIds: string[];
+  personId?: string | null;
   credential?: string | null;
   email?: string | null;
   phoneE164?: string | null;

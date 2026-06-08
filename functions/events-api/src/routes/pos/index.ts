@@ -27,6 +27,7 @@ import { createPosSale } from "./create-sale";
 import { previewPosPricing } from "./pricing-preview";
 import { resolvePosGuest } from "./resolve-pos-guest";
 import { getPosSaleStatus } from "./sale-status";
+import { searchPosPeople } from "./search-people";
 
 const POS_ERRORS = {
   event_not_found: { status: 404 as ContentfulStatusCode, error: "Event not found." },
@@ -42,6 +43,10 @@ const POS_ERRORS = {
   admission_not_found: {
     status: 404,
     error: "Admission not found or invalid.",
+  },
+  person_not_found: {
+    status: 404,
+    error: "Person not found.",
   },
   tier_required: { status: 400, error: "Select a contribution tier." },
   tiers_required: { status: 400, error: "Select at least one tier." },
@@ -203,6 +208,19 @@ export function createPosRouter(): Hono<AppEnv> {
     }),
   );
 
+  router.get(
+    "/pos/people/search",
+    ...authFactory.createHandlers(eventApiKeyBearerAuth, async (c) => {
+      const eventId = resolvePosEventId(c);
+      if (!eventId || !assertPosEventAccess(c, eventId)) {
+        return c.json({ error: POS_ERRORS.event_not_found.error }, 404);
+      }
+      const q = c.req.query("q")?.trim() ?? "";
+      const people = await searchPosPeople(q);
+      return c.json({ people });
+    }),
+  );
+
   router.post(
     "/pos/guest/resolve",
     ...authFactory.createHandlers(
@@ -221,6 +239,7 @@ export function createPosRouter(): Hono<AppEnv> {
         const result = await resolvePosGuest({
           eventId,
           eventQuota: ev.eventQuota,
+          personId: body.personId,
           credential: body.credential,
           email: body.email,
           phoneE164: body.phoneE164,
@@ -233,6 +252,9 @@ export function createPosRouter(): Hono<AppEnv> {
           }
           if (result.reason === "identity_conflict") {
             return c.json({ error: POS_ERRORS.identity_conflict.error }, 409);
+          }
+          if (result.reason === "person_not_found") {
+            return c.json({ error: POS_ERRORS.person_not_found.error }, 404);
           }
           return c.json({ error: POS_ERRORS.contact_required.error }, 400);
         }
@@ -288,6 +310,7 @@ export function createPosRouter(): Hono<AppEnv> {
           locale: body.locale,
           exclusiveTierId: body.exclusiveTierId,
           addonTierIds: body.addonTierIds,
+          personId: body.personId,
           credential: body.credential,
           email: body.email,
           phoneE164: body.phoneE164,

@@ -10,6 +10,7 @@ import {
   pairPosReader,
   previewPosPricing,
   resolvePosGuest,
+  searchPosPeople,
 } from "@/lib/pos-api";
 
 import { posKeys } from "./keys";
@@ -60,6 +61,15 @@ export const posApi = {
       mutationOptions({
         mutationKey: [...posKeys.all, "guest-resolve"],
         mutationFn: resolvePosGuest,
+      }),
+  },
+  people: {
+    search: (query: string) =>
+      queryOptions({
+        queryKey: posKeys.peopleSearch(query),
+        queryFn: () => searchPosPeople(query),
+        enabled: query.trim().length >= 2,
+        staleTime: 10_000,
       }),
   },
   pricing: {

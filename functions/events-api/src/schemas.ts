@@ -66,6 +66,7 @@ export const checkInSchema = type({
 });
 
 export const posGuestResolveSchema = type({
+  personId: "string | null",
   credential: "string | null",
   email: "string.email | null",
   phoneE164: "string | null",
@@ -83,6 +84,7 @@ export const posSaleCreateSchema = type({
   locale: "'de' | 'en' | 'it'",
   exclusiveTierId: "string",
   addonTierIds: "string[]",
+  personId: "string | null",
   credential: "string | null",
   email: "string.email | null",
   phoneE164: "string | null",
