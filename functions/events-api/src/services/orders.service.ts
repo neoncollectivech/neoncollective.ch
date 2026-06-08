@@ -8,7 +8,7 @@ import {
 import { and, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
-import { STALE_ORDERS_RETENTION_DAYS } from "../config/maintenance";
+import { STALE_ORDERS_RETENTION_HOURS } from "../config/maintenance";
 import { getDb } from "../db/index";
 import { events, orderTiers, orders } from "../db/schema";
 import { countRowsWhere, purgeIdTableInBatches } from "./base/purge-batches";
@@ -20,7 +20,7 @@ import { runTransaction } from "./transaction";
 export { orders as ordersTable };
 
 function isAdminDeletableOrder(order: typeof orders.$inferSelect): boolean {
-  if (order.status === "pending") {
+  if (order.status === "pending" || order.status === "failed") {
     return true;
   }
   return (
@@ -535,7 +535,7 @@ export class OrdersService extends TableService<
     }
     if (!isAdminDeletableOrder(order)) {
       throw new BadRequestError(
-        "Only pending orders, or paid orders with zero amount and no Stripe payment, can be deleted.",
+        "Only pending or failed orders, or paid orders with zero amount and no Stripe payment, can be deleted.",
       );
     }
   }
@@ -668,7 +668,7 @@ export class OrdersService extends TableService<
 
   private staleOrderMaintenanceWhere(): SQL {
     const cutoff = new Date(
-      Date.now() - STALE_ORDERS_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+      Date.now() - STALE_ORDERS_RETENTION_HOURS * 60 * 60 * 1000,
     );
     return and(
       inArray(orders.status, ["pending", "failed"]),

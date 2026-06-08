@@ -8,7 +8,7 @@ export const MAINTENANCE_USED_CODE_RETENTION_DAYS = 7;
 export const STRIPE_EVENTS_PROCESSED_RETENTION_DAYS = 90;
 
 /** Pending/failed checkout orders older than this are removed. */
-export const STALE_ORDERS_RETENTION_DAYS = 7;
+export const STALE_ORDERS_RETENTION_HOURS = 24;
 
 /** Max rows deleted per table per batch during POST cleanup. */
 export const MAINTENANCE_DELETE_BATCH_SIZE = 1000;
@@ -70,6 +70,6 @@ export const MAINTENANCE_CATEGORIES: MaintenanceCategoryMeta[] = [
   {
     key: "stale_orders",
     label: "Stale checkout orders",
-    description: `Pending or failed, created more than ${STALE_ORDERS_RETENTION_DAYS} days ago`,
+    description: `Pending or failed, created more than ${STALE_ORDERS_RETENTION_HOURS} hours ago`,
   },
 ];

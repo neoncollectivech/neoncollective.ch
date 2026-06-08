@@ -21,7 +21,7 @@ function isAdminDeletableOrder(order: {
   amountCents: number;
   stripePaymentIntentId: string | null;
 }): boolean {
-  if (order.status === "pending") {
+  if (order.status === "pending" || order.status === "failed") {
     return true;
   }
 
@@ -30,6 +30,17 @@ function isAdminDeletableOrder(order: {
     order.amountCents === 0 &&
     order.stripePaymentIntentId == null
   );
+}
+
+function deleteOrderConfirmTitle(status: string): string {
+  if (status === "pending") {
+    return "Delete this pending order?";
+  }
+  if (status === "failed") {
+    return "Delete this failed order?";
+  }
+
+  return "Delete this free order?";
 }
 
 export function OrderDetailPage() {
@@ -134,10 +145,7 @@ export function OrderDetailPage() {
                     variant="destructive"
                     onClick={() =>
                       confirm({
-                        title:
-                          order.status === "pending"
-                            ? "Delete this pending order?"
-                            : "Delete this free order?",
+                        title: deleteOrderConfirmTitle(order.status),
                         description:
                           "This cannot be undone. Related tier lines and admissions will be removed.",
                         confirmLabel: "Delete",
