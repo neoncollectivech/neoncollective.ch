@@ -9,6 +9,7 @@ import {
   isEmailVerified,
   isPhoneVerified,
   isProfileComplete,
+  isProfileReadyForCheckout,
   normalizeStoredEmail,
   pendingVerificationChannel,
   profileContactFieldsMatch,
@@ -446,4 +447,14 @@ export async function isSessionProfileComplete(
   }
   const person = await peopleService.getProfileRow(session.personId);
   return person ? isProfileComplete(person) : false;
+}
+
+export async function isSessionReadyForCheckout(
+  session: ParticipantSessionContext,
+): Promise<boolean> {
+  if (!session.personId) {
+    return false;
+  }
+  const person = await peopleService.getProfileRow(session.personId);
+  return person ? isProfileReadyForCheckout(person) : false;
 }

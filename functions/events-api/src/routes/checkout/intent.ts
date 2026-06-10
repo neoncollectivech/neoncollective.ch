@@ -14,7 +14,7 @@ import {
 } from "../../helpers/tier-capacity";
 import { inviteLinksService } from "../../services/invite-links.service";
 import { findInviteLinkByRawToken } from "../shared/invite-links-orchestration";
-import { isSessionProfileComplete } from "../registrations/profile";
+import { isSessionReadyForCheckout } from "../registrations/profile";
 import { eventInviteesService } from "../../services/event-invitees.service";
 import { IdentityConflictError, peopleService } from "../../services/people.service";
 import { fulfillPaidOrderInTx } from "./fulfill-paid-order";
@@ -331,8 +331,8 @@ export async function createCheckoutIntent(
   const addonTierIds = uniqueCheckoutAddonIds(input.addonTierIds ?? []);
 
   const session = input.session;
-  const profileComplete = await isSessionProfileComplete(session);
-  if (!profileComplete || !session.personId) {
+  const profileReady = await isSessionReadyForCheckout(session);
+  if (!profileReady || !session.personId) {
     return checkoutFailure("profile_incomplete");
   }
 

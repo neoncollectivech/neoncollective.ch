@@ -36,6 +36,7 @@ import {
 import { buildReturnPath } from "@/helpers/event-link-query";
 import { scrollContributionCardIntoView } from "@/helpers/scroll-contribution-card";
 import { eventDetailPath } from "@/helpers/eventRoutes";
+import { isParticipantProfileReadyForCheckout } from "@/helpers/participant-profile-ready";
 import {
   ParticipantProfileGateModal,
   useParticipantProfileGate,
@@ -350,7 +351,9 @@ function EventDetailsInner({ slug }: { slug: string }) {
   }, []);
 
   const handleConfirmContribution = useCallback(() => {
-    const useProfileContact = Boolean(profileGate.profile?.profileComplete);
+    const useProfileContact = isParticipantProfileReadyForCheckout(
+      profileGate.profile,
+    );
     const profileEmail = profileGate.profile?.email?.trim() ?? "";
     const profilePhone = profileGate.profile?.phoneE164?.trim() ?? "";
 
@@ -461,8 +464,12 @@ function EventDetailsInner({ slug }: { slug: string }) {
     );
   }
 
-  const hasCheckoutProfile = Boolean(profileGate.profile?.profileComplete);
-  const showContactForm = !profileGate.profileLoading && !hasCheckoutProfile;
+  const profileReadyForCheckout = isParticipantProfileReadyForCheckout(
+    profileGate.profile,
+  );
+  const hasCheckoutProfile = profileReadyForCheckout;
+  const showContactForm =
+    !profileGate.profileLoading && !profileGate.profile?.profileComplete;
   const checkoutContactReady = hasCheckoutProfile
     ? true
     : Boolean(email.trim() || phone.trim());

@@ -156,7 +156,7 @@ export function ParticipantProfileModal({
     onSuccess: async (updated) => {
       setProfile(updated);
       setCode("");
-      if (updated.profileComplete) {
+      if (profileContactsVerified(updated)) {
         onComplete(updated);
 
         return;

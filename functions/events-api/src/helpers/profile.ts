@@ -66,6 +66,20 @@ export function isProfileComplete(person: PersonRow | null): boolean {
   return Boolean(person.email?.trim() || person.phone?.trim());
 }
 
+/** Every contact field on the profile is present and verified. */
+export function areProfileContactsVerified(person: PersonRow): boolean {
+  const emailOk = !person.email?.trim() || isEmailVerified(person);
+  const phoneOk = !person.phone?.trim() || isPhoneVerified(person);
+  return emailOk && phoneOk;
+}
+
+export function isProfileReadyForCheckout(person: PersonRow | null): boolean {
+  if (!person || !isProfileComplete(person)) {
+    return false;
+  }
+  return areProfileContactsVerified(person);
+}
+
 export function isEmailVerified(person: PersonRow): boolean {
   return Boolean(person.email?.trim() && person.emailVerifiedAt);
 }

@@ -9,6 +9,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { checkoutConfirmErrorMessage } from "@/helpers/checkout-confirm";
+import { isParticipantProfileReadyForCheckout } from "@/helpers/participant-profile-ready";
 
 import { eventsApi } from "./api";
 import { eventsKeys } from "./keys";
@@ -59,7 +60,7 @@ export function useProfileBootstrap(
   const sessionEstablished = Boolean(sessionQuery.data?.session);
   const needsProfile =
     profileQuery.data != null &&
-    !profileQuery.data.profileComplete &&
+    !isParticipantProfileReadyForCheckout(profileQuery.data) &&
     (inviteFlow || sessionEstablished);
   /** Initial load only — background refetch must not unmount the profile modal mid-verification. */
   const profileLoading = profileQuery.isLoading;
