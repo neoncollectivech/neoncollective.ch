@@ -26,7 +26,8 @@ function isAdminDeletableOrder(order: typeof orders.$inferSelect): boolean {
   return (
     order.status === "paid" &&
     order.amountCents === 0 &&
-    order.stripePaymentIntentId == null
+    order.stripePaymentIntentId == null &&
+    order.sumupClientTransactionId == null
   );
 }
 
@@ -71,7 +72,9 @@ export const ordersResourceMeta = introspectTable(orders, {
       "locale",
       "orderKind",
       "registrationId",
+      "paymentProvider",
       "stripePaymentIntentId",
+      "sumupClientTransactionId",
       "inviteLinkId",
       "promotionCodeId",
       "createdAt",
@@ -535,7 +538,7 @@ export class OrdersService extends TableService<
     }
     if (!isAdminDeletableOrder(order)) {
       throw new BadRequestError(
-        "Only pending or failed orders, or paid orders with zero amount and no Stripe payment, can be deleted.",
+        "Only pending or failed orders, or paid orders with zero amount and no payment provider reference, can be deleted.",
       );
     }
   }

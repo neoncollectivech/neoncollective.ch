@@ -9,6 +9,7 @@ export function areParticipantContactsVerified(
   }
   const emailOk = !profile.email?.trim() || profile.emailVerified;
   const phoneOk = !profile.phoneE164?.trim() || profile.phoneVerified;
+
   return emailOk && phoneOk;
 }
 
@@ -18,5 +19,6 @@ export function isParticipantProfileReadyForCheckout(
   if (!profile?.profileComplete) {
     return false;
   }
+
   return areParticipantContactsVerified(profile);
 }

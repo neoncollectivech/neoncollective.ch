@@ -312,6 +312,40 @@ export function getSumUpPosConfig(): SumUpPosConfig {
 
 export type SumUpReaderPaymentStatus = "pending" | "successful" | "failed" | "unknown";
 
+export async function refundSumUpTransactionByClientTransactionId(
+  clientTransactionId: string,
+): Promise<void> {
+  const merchantCode = sumUpMerchantCode();
+  let transactionId: string;
+  try {
+    const tx = await getSumUpClient().transactions.get(merchantCode, {
+      client_transaction_id: clientTransactionId,
+    });
+    transactionId = tx.id?.trim() ?? "";
+    if (!transactionId) {
+      throw new SumUpApiError(
+        "SumUp transaction lookup did not return a transaction id.",
+        "unknown",
+        502,
+      );
+    }
+  } catch (error) {
+    if (error instanceof SumUpApiError) {
+      throw error;
+    }
+    throw mapSumUpApiError(error, "SumUp transaction lookup failed.");
+  }
+
+  try {
+    await getSumUpClient().transactions.refund(merchantCode, transactionId);
+  } catch (error) {
+    if (error instanceof SumUpApiError) {
+      throw error;
+    }
+    throw mapSumUpApiError(error, "SumUp refund failed.");
+  }
+}
+
 export async function getSumUpPaymentStatusByClientTransactionId(
   clientTransactionId: string,
 ): Promise<SumUpReaderPaymentStatus> {

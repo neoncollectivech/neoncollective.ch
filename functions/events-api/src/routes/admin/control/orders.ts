@@ -8,6 +8,7 @@ const REFUND_ERRORS: Record<RefundOrderFailureReason, { status: ContentfulStatus
   order_not_found: { status: 404, error: "Order not found." },
   order_not_refundable: { status: 400, error: "Order cannot be refunded in its current state." },
   stripe_failed: { status: 502, error: "Stripe refund failed" },
+  sumup_failed: { status: 502, error: "SumUp refund failed" },
 };
 
 export function createOrdersControlRouter(): Hono {

@@ -114,7 +114,9 @@ export type EventSalesAnalytics = {
 };
 
 export type OrderReadRow = OrderRow & {
+  paymentProvider: "stripe" | "sumup";
   stripePaymentIntentId: string | null;
+  sumupClientTransactionId: string | null;
   inviteLinkId: string | null;
   promotionCodeId: string | null;
   updatedAt: string;

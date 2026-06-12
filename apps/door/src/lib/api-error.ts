@@ -48,7 +48,11 @@ export function getApiErrorMessage(
       return "Could not reach the API. Check your connection and try again.";
     }
   }
-  if (error instanceof Error && error.message && error.message !== "Network Error") {
+  if (
+    error instanceof Error &&
+    error.message &&
+    error.message !== "Network Error"
+  ) {
     return error.message;
   }
 

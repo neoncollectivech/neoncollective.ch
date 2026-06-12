@@ -20,6 +20,7 @@ function isAdminDeletableOrder(order: {
   status: string;
   amountCents: number;
   stripePaymentIntentId: string | null;
+  sumupClientTransactionId: string | null;
 }): boolean {
   if (order.status === "pending" || order.status === "failed") {
     return true;
@@ -28,7 +29,8 @@ function isAdminDeletableOrder(order: {
   return (
     order.status === "paid" &&
     order.amountCents === 0 &&
-    order.stripePaymentIntentId == null
+    order.stripePaymentIntentId == null &&
+    order.sumupClientTransactionId == null
   );
 }
 
@@ -198,10 +200,22 @@ export function OrderDetailPage() {
                 <span className="text-muted-foreground">Created:</span>{" "}
                 {new Date(order.createdAt).toLocaleString()}
               </p>
+              <p>
+                <span className="text-muted-foreground">Payment:</span>{" "}
+                {order.paymentProvider === "sumup" ? "SumUp" : "Stripe"}
+              </p>
               {order.stripePaymentIntentId && (
                 <p>
                   <span className="text-muted-foreground">Stripe PI:</span>{" "}
                   <code className="text-xs">{order.stripePaymentIntentId}</code>
+                </p>
+              )}
+              {order.sumupClientTransactionId && (
+                <p>
+                  <span className="text-muted-foreground">SumUp txn:</span>{" "}
+                  <code className="text-xs">
+                    {order.sumupClientTransactionId}
+                  </code>
                 </p>
               )}
               {order.promotionCodeId && (
