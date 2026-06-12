@@ -28,9 +28,15 @@ import { previewPosPricing } from "./pricing-preview";
 import { resolvePosGuest } from "./resolve-pos-guest";
 import { getPosSaleStatus } from "./sale-status";
 import { searchPosPeople } from "./search-people";
+import { jsonFromSumUpError } from "./sumup-error-response";
 
 const POS_ERRORS = {
   event_not_found: { status: 404 as ContentfulStatusCode, error: "Event not found." },
+  reader_admin_required: {
+    status: 404 as ContentfulStatusCode,
+    error:
+      "Reader setup requires a global admin API key with pos_admin scope. Create one in Admin → API keys.",
+  },
   sumup_not_configured: {
     status: 503 as ContentfulStatusCode,
     error: "SumUp is not configured on the server.",
@@ -119,7 +125,7 @@ export function createPosRouter(): Hono<AppEnv> {
     "/pos/readers",
     ...authFactory.createHandlers(eventApiKeyBearerAuth, async (c) => {
       if (!assertGlobalPosAdminKey(c)) {
-        return c.json({ error: POS_ERRORS.event_not_found.error }, 404);
+        return c.json({ error: POS_ERRORS.reader_admin_required.error }, 404);
       }
       if (!isSumUpConfigured()) {
         return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
@@ -128,8 +134,7 @@ export function createPosRouter(): Hono<AppEnv> {
         const readers = await listSumUpReaders();
         return c.json({ readers, sumup: getSumUpPosConfig() });
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Failed to list readers.";
-        return c.json({ error: msg }, 502);
+        return jsonFromSumUpError(c, e, "Failed to list readers.");
       }
     }),
   );
@@ -141,7 +146,7 @@ export function createPosRouter(): Hono<AppEnv> {
       arktypeValidator("json", posReaderPairSchema),
       async (c) => {
         if (!assertGlobalPosAdminKey(c)) {
-          return c.json({ error: POS_ERRORS.event_not_found.error }, 404);
+          return c.json({ error: POS_ERRORS.reader_admin_required.error }, 404);
         }
         if (!isSumUpConfigured()) {
           return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
@@ -163,8 +168,7 @@ export function createPosRouter(): Hono<AppEnv> {
           };
           return c.json({ reader });
         } catch (e) {
-          const msg = e instanceof Error ? e.message : "Failed to pair reader.";
-          return c.json({ error: msg }, 502);
+          return jsonFromSumUpError(c, e, "Failed to pair reader.");
         }
       },
     ),
@@ -174,7 +178,7 @@ export function createPosRouter(): Hono<AppEnv> {
     "/pos/readers/:readerId",
     ...authFactory.createHandlers(eventApiKeyBearerAuth, async (c) => {
       if (!assertGlobalPosAdminKey(c)) {
-        return c.json({ error: POS_ERRORS.event_not_found.error }, 404);
+        return c.json({ error: POS_ERRORS.reader_admin_required.error }, 404);
       }
       if (!isSumUpConfigured()) {
         return c.json({ error: POS_ERRORS.sumup_not_configured.error }, 503);
@@ -187,8 +191,7 @@ export function createPosRouter(): Hono<AppEnv> {
         await deleteSumUpReader(readerId);
         return c.json({ ok: true });
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Failed to delete reader.";
-        return c.json({ error: msg }, 502);
+        return jsonFromSumUpError(c, e, "Failed to delete reader.");
       }
     }),
   );
